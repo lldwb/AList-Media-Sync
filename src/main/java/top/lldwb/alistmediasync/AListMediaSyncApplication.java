@@ -1,0 +1,13 @@
+package top.lldwb.alistmediasync;
+
+import org.springframework.boot.SpringApplication;
+import org.springframework.boot.autoconfigure.SpringBootApplication;
+
+@SpringBootApplication
+public class AListMediaSyncApplication {
+
+    public static void main(String[] args) {
+        SpringApplication.run(AListMediaSyncApplication.class, args);
+    }
+
+}
