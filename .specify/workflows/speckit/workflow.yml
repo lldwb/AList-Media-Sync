@@ -1,0 +1,76 @@
+schema_version: "1.0"
+workflow:
+  id: "speckit"
+  name: "完整 SDD 循环"
+  version: "1.0.0"
+  author: "GitHub"
+  description: "运行 规格化 → 计划 → 任务 → 实现，并包含审查门禁"
+
+requires:
+  # 0.8.5 是首个在引擎端解析
+  # ``integration: "auto"`` 默认值的版本。较旧版本会将 "auto"
+  # 视为字面集成键并在分发时失败。
+  speckit_version: ">=0.8.5"
+  integrations:
+    # 以下四个命令（specify、plan、tasks、implement）是每个集成
+    # 提供的核心 spec-kit 命令。此列表是根据文档化的
+    # ``any: [...]`` 模式提供的咨询性、非详尽的兼容性提示 —
+    # 它不是一个封闭集合。工作流针对项目初始化时使用的
+    # 任何集成运行，包括以下未列出的集成，
+    # 只要该集成提供 ``steps`` 中引用的四个核心命令即可。
+    any:
+      - "claude"
+      - "copilot"
+      - "gemini"
+      - "opencode"
+
+inputs:
+  spec:
+    type: string
+    required: true
+    prompt: "描述你想要构建什么"
+  integration:
+    type: string
+    default: "auto"
+    prompt: "要使用的集成（例如 claude、copilot、gemini；'auto' 使用项目初始化的集成）"
+  scope:
+    type: string
+    default: "full"
+    enum: ["full", "backend-only", "frontend-only"]
+
+steps:
+  - id: specify
+    command: speckit.specify
+    integration: "{{ inputs.integration }}"
+    input:
+      args: "{{ inputs.spec }}"
+
+  - id: review-spec
+    type: gate
+    message: "在规划前审查生成的规格。"
+    options: [approve, reject]
+    on_reject: abort
+
+  - id: plan
+    command: speckit.plan
+    integration: "{{ inputs.integration }}"
+    input:
+      args: "{{ inputs.spec }}"
+
+  - id: review-plan
+    type: gate
+    message: "在生成任务前审查计划。"
+    options: [approve, reject]
+    on_reject: abort
+
+  - id: tasks
+    command: speckit.tasks
+    integration: "{{ inputs.integration }}"
+    input:
+      args: "{{ inputs.spec }}"
+
+  - id: implement
+    command: speckit.implement
+    integration: "{{ inputs.integration }}"
+    input:
+      args: "{{ inputs.spec }}"

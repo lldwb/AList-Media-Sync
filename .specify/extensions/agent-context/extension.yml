@@ -1,0 +1,34 @@
+schema_version: "1.0"
+
+extension:
+  id: agent-context
+  name: "编码代理上下文"
+  version: "1.0.0"
+  description: "管理编码代理上下文/指令文件（例如，CLAUDE.md、copilot-instructions.md），包含项目特定的计划引用和可配置的标记"
+  author: spec-kit-core
+  repository: https://github.com/github/spec-kit
+  license: MIT
+
+requires:
+  speckit_version: ">=0.2.0"
+
+provides:
+  commands:
+    - name: speckit.agent-context.update
+      file: commands/speckit.agent-context.update.md
+      description: "刷新编码代理上下文文件中受管理的 Spec Kit 区块"
+
+hooks:
+  after_specify:
+    command: speckit.agent-context.update
+    optional: true
+    description: "规格化后刷新代理上下文"
+  after_plan:
+    command: speckit.agent-context.update
+    optional: true
+    description: "规划后刷新代理上下文"
+
+tags:
+  - "agent"
+  - "context"
+  - "core"

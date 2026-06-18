@@ -1,0 +1,13 @@
+{
+  "schema_version": "1.0",
+  "workflows": {
+    "speckit": {
+      "name": "完整 SDD 循环",
+      "version": "1.0.0",
+      "description": "运行 规格化 → 计划 → 任务 → 实现，并包含审查门禁",
+      "source": "bundled",
+      "installed_at": "2026-06-18T16:53:10.175688+00:00",
+      "updated_at": "2026-06-18T16:53:10.175696+00:00"
+    }
+  }
+}

@@ -1,0 +1,23 @@
+installed:
+- agent-context
+settings:
+  auto_execute_hooks: true
+hooks:
+  after_specify:
+  - extension: agent-context
+    command: speckit.agent-context.update
+    enabled: true
+    optional: true
+    priority: 10
+    prompt: 执行 speckit.agent-context.update？
+    description: 规格化后刷新代理上下文
+    condition: null
+  after_plan:
+  - extension: agent-context
+    command: speckit.agent-context.update
+    enabled: true
+    optional: true
+    priority: 10
+    prompt: 执行 speckit.agent-context.update？
+    description: 规划后刷新代理上下文
+    condition: null
