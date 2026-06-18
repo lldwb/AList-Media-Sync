@@ -1,8 +1,8 @@
 ---
 name: "speckit-constitution"
-description: "Create or update the project constitution from interactive or provided principle inputs, ensuring all dependent templates stay in sync."
-argument-hint: "Principles or values for the project constitution"
-compatibility: "Requires spec-kit project structure with .specify/ directory"
+description: "根据交互式或提供的原则输入创建或更新项目章程，确保所有依赖模板保持同步。"
+argument-hint: "项目章程的原则或价值观"
+compatibility: "需要包含 .specify/ 目录的 spec-kit 项目结构"
 metadata:
   author: "github-spec-kit"
   source: "templates/commands/constitution.md"
@@ -11,147 +11,147 @@ disable-model-invocation: false
 ---
 
 
-## User Input
+## 用户输入
 
 ```text
 $ARGUMENTS
 ```
 
-You **MUST** consider the user input before proceeding (if not empty).
+**必须**在继续之前考虑用户输入（如果不为空）。
 
-## Pre-Execution Checks
+## 预执行检查
 
-**Check for extension hooks (before constitution update)**:
-- Check if `.specify/extensions.yml` exists in the project root.
-- If it exists, read it and look for entries under the `hooks.before_constitution` key
-- If the YAML cannot be parsed or is invalid, skip hook checking silently and continue normally
-- Filter out hooks where `enabled` is explicitly `false`. Treat hooks without an `enabled` field as enabled by default.
-- For each remaining hook, do **not** attempt to interpret or evaluate hook `condition` expressions:
-  - If the hook has no `condition` field, or it is null/empty, treat the hook as executable
-  - If the hook defines a non-empty `condition`, skip the hook and leave condition evaluation to the HookExecutor implementation
-- When constructing slash commands from hook command names, replace dots (`.`) with hyphens (`-`). For example, `speckit.git.commit` → `/speckit-git-commit`.
-- For each executable hook, output the following based on its `optional` flag:
-  - **Optional hook** (`optional: true`):
+**检查扩展钩子（章程更新之前）**：
+- 检查项目根目录中是否存在 `.specify/extensions.yml`。
+- 如果存在，读取该文件并查找 `hooks.before_constitution` 键下的条目。
+- 如果 YAML 无法解析或无效，静默跳过钩子检查并正常继续。
+- 过滤掉 `enabled` 显式为 `false` 的钩子。将没有 `enabled` 字段的钩子视为默认启用。
+- 对于每个剩余的钩子，**不要**尝试解释或评估钩子的 `condition` 表达式：
+  - 如果钩子没有 `condition` 字段，或其值为 null/空，将钩子视为可执行。
+  - 如果钩子定义了非空的 `condition`，跳过该钩子，将条件评估交由 HookExecutor 实现处理。
+- 从钩子命令名称构造斜杠命令时，将点号（`.`）替换为连字符（`-`）。例如，`speckit.git.commit` → `/speckit-git-commit`。
+- 对于每个可执行的钩子，根据其 `optional` 标志输出以下内容：
+  - **可选钩子**（`optional: true`）：
     ```
-    ## Extension Hooks
+    ## 扩展钩子
 
-    **Optional Pre-Hook**: {extension}
-    Command: `/{command}`
-    Description: {description}
+    **可选预检钩子**：{extension}
+    命令：`/{command}`
+    描述：{description}
 
-    Prompt: {prompt}
-    To execute: `/{command}`
+    提示：{prompt}
+    执行方式：`/{command}`
     ```
-  - **Mandatory hook** (`optional: false`):
+  - **强制钩子**（`optional: false`）：
     ```
-    ## Extension Hooks
+    ## 扩展钩子
 
-    **Automatic Pre-Hook**: {extension}
-    Executing: `/{command}`
-    EXECUTE_COMMAND: {command}
+    **自动预检钩子**：{extension}
+    正在执行：`/{command}`
+    EXECUTE_COMMAND：{command}
 
-    Wait for the result of the hook command before proceeding to the Outline.
+    请等待钩子命令的结果，然后再继续后续大纲。
     ```
-- If no hooks are registered or `.specify/extensions.yml` does not exist, skip silently
+- 如果没有注册钩子或 `.specify/extensions.yml` 不存在，静默跳过。
 
-## Outline
+## 大纲
 
-You are updating the project constitution at `.specify/memory/constitution.md`. This file is a TEMPLATE containing placeholder tokens in square brackets (e.g. `[PROJECT_NAME]`, `[PRINCIPLE_1_NAME]`). Your job is to (a) collect/derive concrete values, (b) fill the template precisely, and (c) propagate any amendments across dependent artifacts.
+你正在更新位于 `.specify/memory/constitution.md` 的项目章程。此文件是一个模板，包含方括号中的占位符标记（例如 `[PROJECT_NAME]`、`[PRINCIPLE_1_NAME]`）。你的工作是 (a) 收集/推导具体值，(b) 精确填充模板，以及 (c) 将任何修正传播到依赖制品。
 
-**Note**: If `.specify/memory/constitution.md` does not exist yet, it should have been initialized from `.specify/templates/constitution-template.md` during project setup. If it's missing, copy the template first.
+**注意**：如果 `.specify/memory/constitution.md` 尚不存在，它本应在项目设置期间从 `.specify/templates/constitution-template.md` 初始化。如果缺失，请先复制模板。
 
-Follow this execution flow:
+按以下执行流程操作：
 
-1. Load the existing constitution at `.specify/memory/constitution.md`.
-   - Identify every placeholder token of the form `[ALL_CAPS_IDENTIFIER]`.
-   **IMPORTANT**: The user might require less or more principles than the ones used in the template. If a number is specified, respect that - follow the general template. You will update the doc accordingly.
+1. 加载位于 `.specify/memory/constitution.md` 的现有章程。
+   - 识别每个格式为 `[ALL_CAPS_IDENTIFIER]` 的占位符标记。
+   **重要**：用户可能需要比模板中使用的更少或更多的原则。如果指定了数量，请遵守 — 遵循通用模板。你将相应更新文档。
 
-2. Collect/derive values for placeholders:
-   - If user input (conversation) supplies a value, use it.
-   - Otherwise infer from existing repo context (README, docs, prior constitution versions if embedded).
-   - For governance dates: `RATIFICATION_DATE` is the original adoption date (if unknown ask or mark TODO), `LAST_AMENDED_DATE` is today if changes are made, otherwise keep previous.
-   - `CONSTITUTION_VERSION` must increment according to semantic versioning rules:
-     - MAJOR: Backward incompatible governance/principle removals or redefinitions.
-     - MINOR: New principle/section added or materially expanded guidance.
-     - PATCH: Clarifications, wording, typo fixes, non-semantic refinements.
-   - If version bump type ambiguous, propose reasoning before finalizing.
+2. 收集/推导占位符的值：
+   - 如果用户输入（对话）提供了值，使用它。
+   - 否则从现有仓库上下文推断（README、文档、先前的章程版本，如果嵌入的话）。
+   - 对于治理日期：`RATIFICATION_DATE` 是原始采纳日期（如果未知则询问或标记 TODO），`LAST_AMENDED_DATE` 是今天（如果进行了更改），否则保留之前的日期。
+   - `CONSTITUTION_VERSION` 必须根据语义化版本规则递增：
+     - MAJOR：向后不兼容的治理/原则移除或重新定义。
+     - MINOR：新增原则/部分或实质性扩展的指导。
+     - PATCH：澄清、措辞、拼写修正、非语义细化。
+   - 如果版本递增类型模糊，在最终确定前提出推理。
 
-3. Draft the updated constitution content:
-   - Replace every placeholder with concrete text (no bracketed tokens left except intentionally retained template slots that the project has chosen not to define yet—explicitly justify any left).
-   - Preserve heading hierarchy and comments can be removed once replaced unless they still add clarifying guidance.
-   - Ensure each Principle section: succinct name line, paragraph (or bullet list) capturing non‑negotiable rules, explicit rationale if not obvious.
-   - Ensure Governance section lists amendment procedure, versioning policy, and compliance review expectations.
+3. 起草更新的章程内容：
+   - 将每个占位符替换为具体文本（没有方括号标记残留，除非项目选择尚未定义的有意保留的模板槽 — 明确说明任何保留的理由）。
+   - 保留标题层次，注释在替换后可以移除，除非它们仍然添加了澄清性指导。
+   - 确保每个原则部分：简洁的名称行，捕获不可协商规则的段落（或要点列表），如非显而易见则附上明确的理由。
+   - 确保治理部分列出修订程序、版本控制政策和合规审查预期。
 
-4. Consistency propagation checklist (convert prior checklist into active validations):
-   - Read `.specify/templates/plan-template.md` and ensure any "Constitution Check" or rules align with updated principles.
-   - Read `.specify/templates/spec-template.md` for scope/requirements alignment—update if constitution adds/removes mandatory sections or constraints.
-   - Read `.specify/templates/tasks-template.md` and ensure task categorization reflects new or removed principle-driven task types (e.g., observability, versioning, testing discipline).
-   - Read each command file in `.specify/templates/commands/*.md` (including this one) to verify no outdated references (agent-specific names like CLAUDE only) remain when generic guidance is required.
-   - Read any runtime guidance docs (e.g., `README.md`, `docs/quickstart.md`, or agent-specific guidance files if present). Update references to principles changed.
+4. 一致性传播检查清单（将先前的检查清单转换为主动验证）：
+   - 读取 `.specify/templates/plan-template.md`，确保任何"章程检查"或规则与更新的原则对齐。
+   - 读取 `.specify/templates/spec-template.md` 以对齐范围/需求 — 如果章程添加/移除强制部分或约束，则更新。
+   - 读取 `.specify/templates/tasks-template.md`，确保任务分类反映新的或移除的原则驱动任务类型（例如，可观测性、版本控制、测试规范）。
+   - 读取 `.specify/templates/commands/*.md` 中的每个命令文件（包括此文件），验证在需要通用指导时没有过时的引用（仅限代理特定名称如 CLAUDE）残留。
+   - 读取任何运行时指导文档（例如，`README.md`、`docs/quickstart.md` 或代理特定指导文件（如果存在））。更新对已更改原则的引用。
 
-5. Produce a Sync Impact Report (prepend as an HTML comment at top of the constitution file after update):
-   - Version change: old → new
-   - List of modified principles (old title → new title if renamed)
-   - Added sections
-   - Removed sections
-   - Templates requiring updates (✅ updated / ⚠ pending) with file paths
-   - Follow-up TODOs if any placeholders intentionally deferred.
+5. 生成同步影响报告（更新后作为 HTML 注释添加到章程文件顶部）：
+   - 版本变更：旧 → 新
+   - 已修改原则列表（旧标题 → 新标题，如果重命名）
+   - 新增部分
+   - 移除部分
+   - 需要更新的模板（✅ 已更新 / ⚠ 待处理），附文件路径
+   - 如果有任何有意推迟的占位符，列出后续 TODO。
 
-6. Validation before final output:
-   - No remaining unexplained bracket tokens.
-   - Version line matches report.
-   - Dates ISO format YYYY-MM-DD.
-   - Principles are declarative, testable, and free of vague language ("should" → replace with MUST/SHOULD rationale where appropriate).
+6. 最终输出前的验证：
+   - 没有剩余的未解释方括号标记。
+   - 版本行与报告匹配。
+   - 日期采用 ISO 格式 YYYY-MM-DD。
+   - 原则是声明性的、可测试的，不含模糊语言（"应该" → 在适当的地方替换为 MUST/SHOULD 加上理由）。
 
-7. Write the completed constitution back to `.specify/memory/constitution.md` (overwrite).
+7. 将完成的章程写回 `.specify/memory/constitution.md`（覆写）。
 
-8. Output a final summary to the user with:
-   - New version and bump rationale.
-   - Any files flagged for manual follow-up.
-   - Suggested commit message (e.g., `docs: amend constitution to vX.Y.Z (principle additions + governance update)`).
+8. 向用户输出最终摘要，包含：
+   - 新版本和递增理由。
+   - 任何标记为需要手动跟进的文件。
+   - 建议的提交消息（例如，`docs: amend constitution to vX.Y.Z (principle additions + governance update)`）。
 
-Formatting & Style Requirements:
+格式与风格要求：
 
-- Use Markdown headings exactly as in the template (do not demote/promote levels).
-- Wrap long rationale lines to keep readability (<100 chars ideally) but do not hard enforce with awkward breaks.
-- Keep a single blank line between sections.
-- Avoid trailing whitespace.
+- 使用与模板完全一致的 Markdown 标题（不要降级/升级层级）。
+- 包装长理由行以保持可读性（理想情况下 <100 字符），但不要用不自然的分行强制实施。
+- 各部分之间保留一个空行。
+- 避免尾随空白。
 
-If the user supplies partial updates (e.g., only one principle revision), still perform validation and version decision steps.
+如果用户提供部分更新（例如，仅一个原则修订），仍然执行验证和版本决策步骤。
 
-If critical info missing (e.g., ratification date truly unknown), insert `TODO(<FIELD_NAME>): explanation` and include in the Sync Impact Report under deferred items.
+如果关键信息缺失（例如，批准日期确实未知），插入 `TODO(<字段名>): 说明` 并在同步影响报告的延期项下包含。
 
-Do not create a new template; always operate on the existing `.specify/memory/constitution.md` file.
+不要创建新模板；始终在现有的 `.specify/memory/constitution.md` 文件上操作。
 
-## Post-Execution Checks
+## 执行后检查
 
-**Check for extension hooks (after constitution update)**:
-Check if `.specify/extensions.yml` exists in the project root.
-- If it exists, read it and look for entries under the `hooks.after_constitution` key
-- If the YAML cannot be parsed or is invalid, skip hook checking silently and continue normally
-- Filter out hooks where `enabled` is explicitly `false`. Treat hooks without an `enabled` field as enabled by default.
-- For each remaining hook, do **not** attempt to interpret or evaluate hook `condition` expressions:
-  - If the hook has no `condition` field, or it is null/empty, treat the hook as executable
-  - If the hook defines a non-empty `condition`, skip the hook and leave condition evaluation to the HookExecutor implementation
-- When constructing slash commands from hook command names, replace dots (`.`) with hyphens (`-`). For example, `speckit.git.commit` → `/speckit-git-commit`.
-- For each executable hook, output the following based on its `optional` flag:
-  - **Optional hook** (`optional: true`):
+**检查扩展钩子（章程更新之后）**：
+检查项目根目录中是否存在 `.specify/extensions.yml`。
+- 如果存在，读取该文件并查找 `hooks.after_constitution` 键下的条目。
+- 如果 YAML 无法解析或无效，静默跳过钩子检查并正常继续。
+- 过滤掉 `enabled` 显式为 `false` 的钩子。将没有 `enabled` 字段的钩子视为默认启用。
+- 对于每个剩余的钩子，**不要**尝试解释或评估钩子的 `condition` 表达式：
+  - 如果钩子没有 `condition` 字段，或其值为 null/空，将钩子视为可执行。
+  - 如果钩子定义了非空的 `condition`，跳过该钩子，将条件评估交由 HookExecutor 实现处理。
+- 从钩子命令名称构造斜杠命令时，将点号（`.`）替换为连字符（`-`）。例如，`speckit.git.commit` → `/speckit-git-commit`。
+- 对于每个可执行的钩子，根据其 `optional` 标志输出以下内容：
+  - **可选钩子**（`optional: true`）：
     ```
-    ## Extension Hooks
+    ## 扩展钩子
 
-    **Optional Hook**: {extension}
-    Command: `/{command}`
-    Description: {description}
+    **可选钩子**：{extension}
+    命令：`/{command}`
+    描述：{description}
 
-    Prompt: {prompt}
-    To execute: `/{command}`
+    提示：{prompt}
+    执行方式：`/{command}`
     ```
-  - **Mandatory hook** (`optional: false`):
+  - **强制钩子**（`optional: false`）：
     ```
-    ## Extension Hooks
+    ## 扩展钩子
 
-    **Automatic Hook**: {extension}
-    Executing: `/{command}`
-    EXECUTE_COMMAND: {command}
+    **自动钩子**：{extension}
+    正在执行：`/{command}`
+    EXECUTE_COMMAND：{command}
     ```
-- If no hooks are registered or `.specify/extensions.yml` does not exist, skip silently
+- 如果没有注册钩子或 `.specify/extensions.yml` 不存在，静默跳过。

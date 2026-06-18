@@ -1,31 +1,30 @@
 ---
 name: speckit-agent-context-update
-description: Refresh the managed Spec Kit section in the coding agent context file
-compatibility: Requires spec-kit project structure with .specify/ directory
+description: 刷新编码代理上下文文件中受管理的 Spec Kit 区块
+compatibility: 需要包含 .specify/ 目录的 spec-kit 项目结构
 metadata:
   author: github-spec-kit
   source: agent-context:commands/speckit.agent-context.update.md
 ---
 
-# Update Coding Agent Context
+# 更新编码代理上下文
 
-Refresh the managed Spec Kit section inside the active coding agent's context/instruction file (e.g. `CLAUDE.md`, `.github/copilot-instructions.md`, `AGENTS.md`).
+刷新当前编码代理的上下文/指令文件（例如 `CLAUDE.md`、`.github/copilot-instructions.md`、`AGENTS.md`）中受管理的 Spec Kit 区块。
 
-## Behavior
+## 行为
 
-The script reads the agent-context extension config at
-`.specify/extensions/agent-context/agent-context-config.yml` to discover:
+脚本读取位于 `.specify/extensions/agent-context/agent-context-config.yml` 的代理上下文扩展配置，以获取以下信息：
 
-- `context_file` — the path of the coding agent context file to manage.
-- `context_markers.start` / `.end` — the delimiters surrounding the managed section. Defaults to `<!-- SPECKIT START -->` and `<!-- SPECKIT END -->` when the field is missing.
+- `context_file` — 要管理的编码代理上下文文件路径。
+- `context_markers.start` / `.end` — 包围受管理区块的分隔符。当字段缺失时，默认值为 `<!-- SPECKIT START -->` 和 `<!-- SPECKIT END -->`。
 
-It then creates, replaces, or appends the managed block so that the section points at the most recent plan path when one can be discovered (`specs/<feature>/plan.md`).
+然后创建、替换或追加受管理区块，使该区块指向能够被发现的最新计划路径（`specs/<feature>/plan.md`）。
 
-If `context_file` is empty or the file cannot be located, the command reports nothing to do and exits successfully.
+如果 `context_file` 为空或文件无法定位，命令报告无需操作并成功退出。
 
-## Execution
+## 执行
 
-- **Bash**: `.specify/extensions/agent-context/scripts/bash/update-agent-context.sh [plan_path]`
-- **PowerShell**: `.specify/extensions/agent-context/scripts/powershell/update-agent-context.ps1 [plan_path]`
+- **Bash**：`.specify/extensions/agent-context/scripts/bash/update-agent-context.sh [plan_path]`
+- **PowerShell**：`.specify/extensions/agent-context/scripts/powershell/update-agent-context.ps1 [plan_path]`
 
-When `plan_path` is omitted, the script auto-detects the most recently modified `specs/*/plan.md`.
+当省略 `plan_path` 时，脚本会自动检测最近修改的 `specs/*/plan.md` 文件。

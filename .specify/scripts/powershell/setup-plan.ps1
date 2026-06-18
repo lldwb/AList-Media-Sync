@@ -1,5 +1,5 @@
 #!/usr/bin/env pwsh
-# Setup implementation plan for a feature
+# 为功能设置实现计划
 
 [CmdletBinding()]
 param(
@@ -9,47 +9,47 @@ param(
 
 $ErrorActionPreference = 'Stop'
 
-# Show help if requested
+# 如果请求帮助则显示
 if ($Help) {
-    Write-Output "Usage: ./setup-plan.ps1 [-Json] [-Help]"
-    Write-Output "  -Json     Output results in JSON format"
-    Write-Output "  -Help     Show this help message"
+    Write-Output "用法：./setup-plan.ps1 [-Json] [-Help]"
+    Write-Output "  -Json     以 JSON 格式输出结果"
+    Write-Output "  -Help     显示此帮助信息"
     exit 0
 }
 
-# Load common functions
+# 加载通用函数
 . "$PSScriptRoot/common.ps1"
 
-# Get all paths and variables from common functions
+# 从通用函数获取所有路径和变量
 $paths = Get-FeaturePathsEnv
 
-# Ensure the feature directory exists
+# 确保功能目录存在
 New-Item -ItemType Directory -Path $paths.FEATURE_DIR -Force | Out-Null
 
-# Copy plan template if plan doesn't already exist
+# 如果计划尚不存在，复制计划模板
 if (Test-Path $paths.IMPL_PLAN -PathType Leaf) {
     if ($Json) {
-        [Console]::Error.WriteLine("Plan already exists at $($paths.IMPL_PLAN), skipping template copy")
+        [Console]::Error.WriteLine("计划已存在于 $($paths.IMPL_PLAN)，跳过模板复制")
     } else {
-        Write-Output "Plan already exists at $($paths.IMPL_PLAN), skipping template copy"
+        Write-Output "计划已存在于 $($paths.IMPL_PLAN)，跳过模板复制"
     }
 } else {
     $template = Resolve-Template -TemplateName 'plan-template' -RepoRoot $paths.REPO_ROOT
     if ($template -and (Test-Path $template)) {
-        # Read the template content and write it to the implementation plan file with UTF-8 encoding without BOM
+        # 读取模板内容并以无 BOM 的 UTF-8 编码写入实现计划文件
         $content = [System.IO.File]::ReadAllText($template)
         $utf8NoBom = New-Object System.Text.UTF8Encoding($false)
         [System.IO.File]::WriteAllText($paths.IMPL_PLAN, $content, $utf8NoBom)
     } else {
-        Write-Warning "Plan template not found"
-        # Create a basic plan file if template doesn't exist
+        Write-Warning "未找到计划模板"
+        # 如果模板不存在则创建基本计划文件
         New-Item -ItemType File -Path $paths.IMPL_PLAN -Force | Out-Null
     }
 }
 
-# Output results
+# 输出结果
 if ($Json) {
-    $result = [PSCustomObject]@{ 
+    $result = [PSCustomObject]@{
         FEATURE_SPEC = $paths.FEATURE_SPEC
         IMPL_PLAN = $paths.IMPL_PLAN
         SPECS_DIR = $paths.FEATURE_DIR

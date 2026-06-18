@@ -9,8 +9,8 @@ hooks:
     enabled: true
     optional: true
     priority: 10
-    prompt: Execute speckit.agent-context.update?
-    description: Refresh agent context after specification
+    prompt: 执行 speckit.agent-context.update？
+    description: 规格化后刷新代理上下文
     condition: null
   after_plan:
   - extension: agent-context
@@ -18,6 +18,6 @@ hooks:
     enabled: true
     optional: true
     priority: 10
-    prompt: Execute speckit.agent-context.update?
-    description: Refresh agent context after planning
+    prompt: 执行 speckit.agent-context.update？
+    description: 规划后刷新代理上下文
     condition: null

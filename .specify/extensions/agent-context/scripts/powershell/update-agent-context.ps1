@@ -1,14 +1,13 @@
 #!/usr/bin/env pwsh
 # update-agent-context.ps1
 #
-# Refresh the managed Spec Kit section in the coding agent's context file
-# (e.g. CLAUDE.md, .github/copilot-instructions.md, AGENTS.md).
+# 刷新编码代理上下文文件（例如 CLAUDE.md、.github/copilot-instructions.md、AGENTS.md）
+# 中受管理的 Spec Kit 区块。
 #
-# Reads `context_file` and `context_markers.{start,end}` from the
-# agent-context extension config:
+# 从代理上下文扩展配置中读取 `context_file` 和 `context_markers.{start,end}`：
 #   .specify/extensions/agent-context/agent-context-config.yml
 #
-# Usage: update-agent-context.ps1 [plan_path]
+# 用法：update-agent-context.ps1 [plan_path]
 
 [CmdletBinding()]
 param(
@@ -59,7 +58,7 @@ $ProjectRoot  = (Get-Location).Path
 $ExtConfig    = Join-Path $ProjectRoot '.specify/extensions/agent-context/agent-context-config.yml'
 
 if (-not (Test-Path -LiteralPath $ExtConfig)) {
-    Write-Warning "agent-context: $ExtConfig not found; nothing to do."
+    Write-Warning "agent-context: $ExtConfig 未找到；无需操作。"
     exit 0
 }
 
@@ -68,16 +67,16 @@ if (Get-Command ConvertFrom-Yaml -ErrorAction SilentlyContinue) {
     try {
         $Options = Get-Content -LiteralPath $ExtConfig -Raw | ConvertFrom-Yaml -ErrorAction Stop
     } catch {
-        # fall through to Python fallback
+        # 回退到 Python 备用方案
     }
 }
 
 if ($null -eq $Options) {
-    # ConvertFrom-Yaml unavailable or failed; fall back to Python+PyYAML.
+    # ConvertFrom-Yaml 不可用或失败；回退到 Python+PyYAML。
     $pythonCmd = $null
     foreach ($candidate in @('python3', 'python')) {
         if (Get-Command $candidate -ErrorAction SilentlyContinue) {
-            # Verify it is Python 3
+            # 验证它是 Python 3
             $verOut = & $candidate --version 2>&1
             if ($verOut -match 'Python 3') {
                 $pythonCmd = $candidate
@@ -95,7 +94,7 @@ try:
     import yaml
 except ImportError:
     print(
-        "agent-context: PyYAML is required to parse extension config; cannot update context.",
+        "agent-context: 解析扩展配置需要 PyYAML；无法更新上下文。",
         file=sys.stderr,
     )
     sys.exit(2)
@@ -105,7 +104,7 @@ try:
         data = yaml.safe_load(fh)
 except Exception as exc:
     print(
-        f"agent-context: unable to parse {sys.argv[1]} ({exc}); cannot update context.",
+        f"agent-context: 无法解析 {sys.argv[1]} ({exc})；无法更新上下文。",
         file=sys.stderr,
     )
     sys.exit(2)
@@ -124,30 +123,30 @@ print(json.dumps(data))
     }
 
     if (-not $Options) {
-        Write-Warning "agent-context: unable to parse $ExtConfig; skipping update."
+        Write-Warning "agent-context: 无法解析 $ExtConfig；跳过更新。"
         exit 0
     }
 }
 
 if (-not (Test-ConfigObject -Object $Options)) {
-    Write-Warning "agent-context: $ExtConfig must contain a YAML mapping; skipping update."
+    Write-Warning "agent-context: $ExtConfig 必须包含一个 YAML 映射；跳过更新。"
     exit 0
 }
 
 $ContextFile = Get-ConfigValue -Object $Options -Key 'context_file'
 if (-not $ContextFile) {
-    Write-Warning 'agent-context: context_file not set in extension config; nothing to do.'
+    Write-Warning 'agent-context: 扩展配置中未设置 context_file；无需操作。'
     exit 0
 }
 
-# Reject absolute paths and '..' path segments in context_file
+# 拒绝 context_file 中的绝对路径和 '..' 路径段
 if ([System.IO.Path]::IsPathRooted($ContextFile)) {
-    Write-Warning "agent-context: context_file must be a project-relative path; got '$ContextFile'."
+    Write-Warning "agent-context: context_file 必须是项目相对路径；得到 '$ContextFile'。"
     exit 1
 }
 $cfSegments = $ContextFile -split '[/\\]'
 if ($cfSegments -contains '..') {
-    Write-Warning "agent-context: context_file must not contain '..' path segments; got '$ContextFile'."
+    Write-Warning "agent-context: context_file 不得包含 '..' 路径段；得到 '$ContextFile'。"
     exit 1
 }
 
@@ -166,9 +165,9 @@ if ($cm) {
 }
 
 if (-not $PlanPath) {
-    # Discover plan.md exactly one level deep (specs/<feature>/plan.md),
-    # matching the bash glob specs/*/plan.md. Wrap in try/catch so access errors under
-    # $ErrorActionPreference = 'Stop' don't abort the script.
+    # 发现恰好一级深度下的 plan.md（specs/<feature>/plan.md），
+    # 匹配 bash 通配符 specs/*/plan.md。包装在 try/catch 中，使在
+    # $ErrorActionPreference = 'Stop' 下的访问错误不会中止脚本。
     try {
         $specsDir = Join-Path $ProjectRoot 'specs'
         $candidate = Get-ChildItem -Path $specsDir -Directory -ErrorAction SilentlyContinue |
@@ -180,7 +179,7 @@ if (-not $PlanPath) {
             $PlanPath = [System.IO.Path]::GetRelativePath($ProjectRoot, $candidate.FullName).Replace('\','/')
         }
     } catch {
-        # Non-fatal: continue without a plan path.
+        # 非致命：继续执行，不含计划路径。
     }
 }
 
@@ -191,17 +190,16 @@ if ($CtxDir -and -not (Test-Path -LiteralPath $CtxDir)) {
 }
 
 $lines = @($MarkerStart,
-           'For additional context about technologies to be used, project structure,',
-           'shell commands, and other important information, read the current plan')
+           '如需了解要使用的技术、项目结构、Shell 命令及其他重要信息，请参阅当前计划')
 if ($PlanPath) {
-    $lines += "at $PlanPath"
+    $lines += "位于 $PlanPath"
 }
 $lines += $MarkerEnd
 $Section = ($lines -join "`n") + "`n"
 
 if (Test-Path -LiteralPath $CtxPath) {
     $rawBytes = [System.IO.File]::ReadAllBytes($CtxPath)
-    # Strip UTF-8 BOM if present
+    # 去除可能存在的 UTF-8 BOM
     if ($rawBytes.Length -ge 3 -and $rawBytes[0] -eq 0xEF -and $rawBytes[1] -eq 0xBB -and $rawBytes[2] -eq 0xBF) {
         $content = [System.Text.Encoding]::UTF8.GetString($rawBytes, 3, $rawBytes.Length - 3)
     } else {
@@ -234,4 +232,4 @@ if (Test-Path -LiteralPath $CtxPath) {
 $newContent = $newContent.Replace("`r`n", "`n").Replace("`r", "`n")
 [System.IO.File]::WriteAllText($CtxPath, $newContent, (New-Object System.Text.UTF8Encoding($false)))
 
-Write-Host "agent-context: updated $ContextFile"
+Write-Host "agent-context: 已更新 $ContextFile"

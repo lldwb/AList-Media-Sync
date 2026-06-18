@@ -1,7 +1,7 @@
 ---
 name: "speckit-converge"
-description: "Assess the current codebase against the feature's spec, plan, and tasks, then append any remaining unbuilt work as new tasks to tasks.md so implement can complete it."
-compatibility: "Requires spec-kit project structure with .specify/ directory"
+description: "根据功能的规格、计划和任务评估当前代码库，然后将任何剩余的未构建工作作为新任务追加到 tasks.md，以便实现阶段可以完成它们。"
+compatibility: "需要包含 .specify/ 目录的 spec-kit 项目结构"
 metadata:
   author: "github-spec-kit"
   source: "templates/commands/converge.md"
@@ -10,268 +10,228 @@ disable-model-invocation: false
 ---
 
 
-## User Input
+## 用户输入
 
 ```text
 $ARGUMENTS
 ```
 
-You **MUST** consider the user input before proceeding (if not empty).
+**必须**在继续之前考虑用户输入（如果不为空）。
 
-## Pre-Execution Checks
+## 预执行检查
 
-**Check for extension hooks (before convergence)**:
+**检查扩展钩子（收敛之前）**：
 
-- Check if `.specify/extensions.yml` exists in the project root.
-- If it exists, read it and look for entries under the `hooks.before_converge` key
-- If the YAML cannot be parsed or is invalid, skip hook checking silently and continue normally
-- Filter out hooks where `enabled` is explicitly `false`. Treat hooks without an `enabled` field as enabled by default.
-- For each remaining hook, do **not** attempt to interpret or evaluate hook `condition` expressions:
-  - If the hook has no `condition` field, or it is null/empty, treat the hook as executable
-  - If the hook defines a non-empty `condition`, skip the hook and leave condition evaluation to the HookExecutor implementation
-- When constructing slash commands from hook command names, replace dots (`.`) with hyphens (`-`). For example, `speckit.git.commit` → `/speckit-git-commit`.
-- For each executable hook, output the following based on its `optional` flag:
-  - **Optional hook** (`optional: true`):
-
-    ```text
-    ## Extension Hooks
-
-    **Optional Pre-Hook**: {extension}
-    Command: `/{command}`
-    Description: {description}
-
-    Prompt: {prompt}
-    To execute: `/{command}`
-    ```
-
-  - **Mandatory hook** (`optional: false`):
+- 检查项目根目录中是否存在 `.specify/extensions.yml`。
+- 如果存在，读取该文件并查找 `hooks.before_converge` 键下的条目。
+- 如果 YAML 无法解析或无效，静默跳过钩子检查并正常继续。
+- 过滤掉 `enabled` 显式为 `false` 的钩子。将没有 `enabled` 字段的钩子视为默认启用。
+- 对于每个剩余的钩子，**不要**尝试解释或评估钩子的 `condition` 表达式：
+  - 如果钩子没有 `condition` 字段，或其值为 null/空，将钩子视为可执行。
+  - 如果钩子定义了非空的 `condition`，跳过该钩子，将条件评估交由 HookExecutor 实现处理。
+- 从钩子命令名称构造斜杠命令时，将点号（`.`）替换为连字符（`-`）。例如，`speckit.git.commit` → `/speckit-git-commit`。
+- 对于每个可执行的钩子，根据其 `optional` 标志输出以下内容：
+  - **可选钩子**（`optional: true`）：
 
     ```text
-    ## Extension Hooks
+    ## 扩展钩子
 
-    **Automatic Pre-Hook**: {extension}
-    Executing: `/{command}`
-    EXECUTE_COMMAND: {command}
+    **可选预检钩子**：{extension}
+    命令：`/{command}`
+    描述：{description}
 
-    Wait for the result of the hook command before proceeding to the Goal.
+    提示：{prompt}
+    执行方式：`/{command}`
     ```
 
-- If no hooks are registered or `.specify/extensions.yml` does not exist, skip silently
+  - **强制钩子**（`optional: false`）：
 
-## Goal
+    ```text
+    ## 扩展钩子
 
-Close the gap between what a feature's specification, plan, and tasks call for and what the
-codebase currently implements. Read `spec.md`, `plan.md`, and `tasks.md` as the **sole
-source of intent** (with the constitution as governing constraints), assess the current
-state of the code, determine which requirements, acceptance criteria, plan decisions, and
-existing tasks are unmet, incomplete, or only partially satisfied, and **append each piece
-of remaining work as a new, traceable task** at the bottom of `tasks.md` so that
-`/speckit-implement` can complete it. This command MUST run only after
-`/speckit-implement` has run on the current `tasks.md`, and after `/speckit-tasks` has produced a complete `tasks.md`.
+    **自动预检钩子**：{extension}
+    正在执行：`/{command}`
+    EXECUTE_COMMAND：{command}
 
-This is **not** a diff tool and does **not** track changes. It assesses the present state
-of the code relative to the feature's artifacts — no git, no branch comparison, no history.
+    请等待钩子命令的结果，然后再继续后续目标。
+    ```
 
-## Operating Constraints
+- 如果没有注册钩子或 `.specify/extensions.yml` 不存在，静默跳过。
 
-**APPEND-ONLY, NEVER REWRITE**: The command's **only** write is appending a new
-`## Phase N: Convergence` section to `tasks.md`. It MUST NOT:
+## 目标
 
-- modify `spec.md` or `plan.md` in any way;
-- rewrite, renumber, reorder, or delete any existing task (including tasks from a prior
-  Convergence phase);
-- modify, create, or delete any application code — completing the appended tasks is the
-  job of `/speckit-implement`.
+弥合功能的规格说明、计划和任务所要求的内容与代码库当前实现之间的差距。将 `spec.md`、`plan.md` 和 `tasks.md` 作为**唯一的意图来源**（以章程作为治理约束），评估代码的当前状态，确定哪些需求、验收标准、计划决策和现有任务未满足、不完整或仅部分满足，并将**每项剩余工作作为新的、可追溯的任务追加**到 `tasks.md` 底部，以便 `/speckit-implement` 可以完成它。此命令**必须**仅在 `/speckit-implement` 已在当前 `tasks.md` 上运行过，并且 `/speckit-tasks` 已生成完整的 `tasks.md` 之后运行。
 
-When the codebase already satisfies everything, the command MUST leave `tasks.md`
-**byte-for-byte unchanged** (no empty Convergence header) and report a clean result.
+这**不是**差异工具，也**不**跟踪变更。它评估代码相对于功能制品的当前状态 — 不使用 git、不进行分支比较、不涉及历史记录。
 
-**Constitution Authority**: The project constitution (`.specify/memory/constitution.md`) is
-**non-negotiable**. Code that violates a MUST principle is the highest-severity finding and
-produces a corresponding remediation task. If the constitution is an unfilled template,
-skip constitution checks gracefully rather than failing.
+## 操作约束
 
-## Execution Steps
+**仅追加，绝不覆写**：此命令的**唯一**写入操作是向 `tasks.md` 追加一个新的 `## 阶段 N: 收敛` 部分。它**不得**：
 
-### 1. Initialize Convergence Context
+- 以任何方式修改 `spec.md` 或 `plan.md`；
+- 覆盖、重新编号、重新排序或删除任何现有任务（包括来自先前收敛阶段的任务）；
+- 修改、创建或删除任何应用代码 — 完成追加的任务是 `/speckit-implement` 的职责。
 
-Run `.specify/scripts/powershell/check-prerequisites.ps1 -Json -RequireTasks -IncludeTasks` once from repo root and parse JSON for FEATURE_DIR and AVAILABLE_DOCS. Derive absolute paths:
+当代码库已满足所有要求时，该命令**必须**保持 `tasks.md` **逐字节不变**（没有空的收敛标题）并报告一个干净的结果。
+
+**章程权威性**：项目章程（`.specify/memory/constitution.md`）**不可协商**。违反 MUST 原则的代码是最高严重程度的发现项，并产生相应的修复任务。如果章程是未填充的模板，则优雅地跳过章程检查，而不是失败。
+
+## 执行步骤
+
+### 1. 初始化收敛上下文
+
+从仓库根目录运行 `.specify/scripts/powershell/check-prerequisites.ps1 -Json -RequireTasks -IncludeTasks` **一次**，解析 JSON 获取 FEATURE_DIR 和 AVAILABLE_DOCS。推导绝对路径：
 
 - SPEC = FEATURE_DIR/spec.md
 - PLAN = FEATURE_DIR/plan.md
 - TASKS = FEATURE_DIR/tasks.md
-- CONSTITUTION = `.specify/memory/constitution.md` (if present)
-If `spec.md`, `plan.md`, or `tasks.md` is missing, STOP with a clear, actionable message naming the
-prerequisite command to run (`/speckit-specify` for a missing spec, `/speckit-plan` for a missing plan,
-`/speckit-tasks` for missing tasks). Do not produce partial output.
-For single quotes in args like "I'm Groot", use escape syntax: e.g 'I'\''m Groot' (or double-quote if possible: "I'm Groot").
+- CONSTITUTION = `.specify/memory/constitution.md`（如果存在）
 
-### 2. Load Artifacts (Progressive Disclosure)
+如果 `spec.md`、`plan.md` 或 `tasks.md` 缺失，则**停止**并给出清晰、可操作的消息，说明要运行的前提命令（对于缺失的 spec 运行 `/speckit-specify`，对于缺失的 plan 运行 `/speckit-plan`，对于缺失的 tasks 运行 `/speckit-tasks`）。不要生成部分输出。
 
-Load only the minimal necessary context from each artifact:
+对于参数中的单引号，如 "I'm Groot"，使用转义语法：例如 'I'\''m Groot'（或尽可能使用双引号："I'm Groot"）。
 
-**From spec.md:**
+### 2. 加载制品（渐进式披露）
 
-- Functional Requirements (FR-###)
-- Success Criteria (SC-###) — include only items requiring buildable work; exclude
-  post-launch outcome metrics and business KPIs
-- User Stories and their Acceptance Scenarios
-- Edge Cases (if present)
+仅从每个制品中加载所需的最小上下文：
 
-**From plan.md:**
+**从 spec.md：**
 
-- Architecture/stack choices and technical decisions
-- Data Model references
-- Phases and named touch-points (files/components the plan says will be created or edited)
-- Technical constraints
+- 功能需求（FR-###）
+- 成功标准（SC-###）— 仅包含需要构建性工作的项；排除发布后的结果指标和业务 KPI。
+- 用户故事及其验收场景。
+- 边界情况（如果存在）。
 
-**From tasks.md:**
+**从 plan.md：**
 
-- Task IDs (to compute the next ID and next phase number)
-- Descriptions, phase grouping, and referenced file paths
+- 架构/技术栈选择和技术决策。
+- 数据模型引用。
+- 阶段和命名接触点（计划指出将要创建或编辑的文件/组件）。
+- 技术约束。
 
-**From constitution (if not an unfilled template):**
+**从 tasks.md：**
 
-- Principle names and MUST/SHOULD normative statements
+- 任务 ID（用于计算下一个 ID 和下一个阶段编号）。
+- 描述、阶段分组和引用的文件路径。
 
-### 3. Build the Intent Inventory
+**从章程（如果不是未填充的模板）：**
 
-Create an internal model (do not echo raw artifacts):
+- 原则名称和 MUST/SHOULD 规范性声明。
 
-- **Requirements inventory**: one stable key per FR-### / SC-### / user-story acceptance
-  scenario (e.g. `US1/AC2`), plus the plan decisions and constitution principles that
-  impose buildable obligations.
-- **Code-scope map**: from the file paths named in `plan.md` and `tasks.md`, plus a keyword
-  search for the concepts each requirement describes, derive the set of source files and
-  components in scope for assessment. Bound the assessment to these — do **not** infer
-  scope beyond what the artifacts define.
+### 3. 构建意图清单
 
-### 4. Assess the Codebase and Classify Findings
+创建内部模型（不要回显原始制品）：
 
-For each item in the intent inventory, inspect the current code in scope and produce a
-`Finding` only where there is a gap. Classify every finding by **gap type**:
+- **需求清单**：每个 FR-### / SC-### / 用户故事验收场景（例如 `US1/AC2`）的一个稳定键，加上强制构建性义务的计划决策和章程原则。
+- **代码范围映射**：根据 `plan.md` 和 `tasks.md` 中命名的文件路径，加上每个需求所描述概念的关键词搜索，推导出在评估范围内的源文件和组件集。将评估限定在这些范围内 — **不要**推断超出制品定义的范围。
 
-- **`missing`**: the required work is absent from the code entirely.
-- **`partial`**: the work exists but does not yet fully satisfy the requirement /
-  acceptance criterion / plan decision.
-- **`contradicts`**: the code does something that conflicts with stated intent or a
-  constitution MUST principle.
-- **`unrequested`**: the code contains work not called for by the spec, plan, or tasks
-  (surfaced for awareness — converge does **not** delete code, it only appends a task to
-  review/justify or remove it).
+### 4. 评估代码库并分类发现项
 
-Each `Finding` records: a stable id, the `source-ref` it traces to, the `gap-type`, a
-severity, and a short human-readable description with the evidence (the file/area observed).
+对于意图清单中的每个项目，检查范围内的当前代码，并仅在存在缺口时生成一个 `发现项`。按**缺口类型**对每个发现项进行分类：
 
-**Edge cases:**
+- **`缺失`**：所需工作完全不存在于代码中。
+- **`部分`**：工作存在但尚未完全满足需求 / 验收标准 / 计划决策。
+- **`冲突`**：代码执行了与声明的意图或章程 MUST 原则相冲突的操作。
+- **`未请求`**：代码包含规格、计划或任务未要求的工作（供参考 — 收敛**不**删除代码，仅追加一个审查/论证或移除它的任务）。
 
-- **Little or no code yet**: treat the entire specified scope as `missing` remaining work
-  rather than failing.
-- **Nothing remains**: produce zero findings and follow the converged branch in Step 7.
+每个 `发现项` 记录：一个稳定的 ID、它追溯的 `来源引用`、`缺口类型`、严重程度和带有证据（观察到的文件/区域）的简短人类可读描述。
 
-### 5. Assign Severity
+**边界情况：**
 
-- **CRITICAL**: violates a constitution MUST principle, or a `missing`/`contradicts` gap
-  that blocks baseline functionality of a P1 user story.
-- **HIGH**: a `missing` or `partial` gap on a core functional requirement or acceptance
-  criterion.
-- **MEDIUM**: a `partial` gap on a secondary requirement, or an `unrequested` addition with
-  unclear justification.
-- **LOW**: minor partial gaps, polish, or low-risk `unrequested` additions.
+- **代码很少或没有代码**：将整个指定的范围视为 `缺失` 的剩余工作，而不是失败。
+- **没有剩余**：产生零个发现项并遵循步骤 7 中的已收敛分支。
 
-### 6. Present the In-Session Findings Summary
+### 5. 分配严重程度
 
-Before appending anything, output a compact, severity-graded summary (no file writes yet):
+- **严重（CRITICAL）**：违反章程 MUST 原则，或阻塞 P1 用户故事基线功能的 `缺失`/`冲突` 缺口。
+- **高（HIGH）**：核心功能需求或验收标准的 `缺失` 或 `部分` 缺口。
+- **中（MEDIUM）**：次要需求的 `部分` 缺口，或理由不明确的 `未请求` 添加。
+- **低（LOW）**：轻微的部分缺口、润色或低风险的 `未请求` 添加。
 
-## Convergence Findings
+### 6. 呈现会话内发现摘要
 
-| ID | Gap Type | Severity | Source | Evidence | Remaining Work |
-|----|----------|----------|--------|----------|----------------|
-| F1 | missing  | HIGH     | FR-008 | Example: no append-only guard detected in path/to/module.py when writing tasks.md | Add append-only enforcement |
+在追加任何内容之前，输出一个按严重程度分级的紧凑摘要（暂不写入文件）：
 
-**Summary metrics:**
+## 收敛发现
 
-- Requirements / acceptance criteria checked
-- Plan decisions checked
-- Constitution principles checked (or "skipped — template")
-- Findings by gap type (missing / partial / contradicts / unrequested)
-- Findings by severity
+| ID | 缺口类型 | 严重程度 | 来源 | 证据 | 剩余工作 |
+|----|----------|----------|------|------|----------|
+| F1 | 缺失  | HIGH     | FR-008 | 示例：在将 tasks.md 写入 path/to/module.py 时未检测到仅追加保护 | 添加仅追加执行 |
 
-### 7. Append Convergence Tasks (or report converged)
+**摘要指标：**
 
-**If there are one or more actionable findings** (`tasks_appended` outcome):
+- 已检查的需求 / 验收标准数量
+- 已检查的计划决策数量
+- 已检查的章程原则数量（或"跳过 — 模板"）
+- 按缺口类型（缺失 / 部分 / 冲突 / 未请求）的发现项数量
+- 按严重程度的发现项数量
 
-Append to the **end** of `tasks.md`, per the append contract:
+### 7. 追加收敛任务（或报告已收敛）
 
-1. Scan all existing task IDs; let `M` be the maximum. Determine the next phase number `N`
-   (highest existing phase + 1).
-2. Write a single new section header `## Phase N: Convergence`.
-3. Emit one checklist item per actionable finding, ordered CRITICAL/HIGH first, assigning
-   zero-padded IDs `T{M+1:03d}, T{M+2:03d}, …`:
+**如果存在一个或多个可操作的发现项**（`tasks_appended` 结果）：
+
+按照追加契约追加到 `tasks.md` 的**末尾**：
+
+1. 扫描所有现有任务 ID；设 `M` 为最大值。确定下一个阶段编号 `N`（最高现有阶段 + 1）。
+2. 写入一个新的部分标题 `## 阶段 N: 收敛`。
+3. 每个可操作的发现项发出一条检查清单项，按严重/高优先排序，分配零填充 ID `T{M+1:03d}、T{M+2:03d}、…`：
 
    ```markdown
-   - [ ] T042 <imperative description> per <source-ref> (<gap-type>)
+   - [ ] T042 <祈使描述> 依据 <来源引用>（<缺口类型>）
    ```
 
-   `<source-ref>` traces the task to its origin: e.g. `FR-003`, `SC-002`,
-   `US1/AC2`, `plan: storage decision`, `Constitution II`.
+   `<来源引用>` 将任务追溯到其源头：例如 `FR-003`、`SC-002`、`US1/AC2`、`plan: storage decision`、`Constitution II`。
 
-   `<gap-type>` is one of `missing`, `partial`, `contradicts`, `unrequested`.
+   `<缺口类型>` 为 `缺失`、`部分`、`冲突`、`未请求` 之一。
 
-   Constitution-violation tasks MUST be emitted first and described as
-   `CRITICAL`.
-4. Never reuse or renumber existing IDs. If a prior Convergence phase exists, add a new,
-   separately-numbered one below it — do not touch the old one.
+   章程违规任务**必须**最先发出，并描述为 `严重`。
+4. 绝不复用或重新编号现有 ID。如果先前的收敛阶段存在，在其下添加一个新的、单独编号的阶段 — 不要触碰旧的。
 
-**If there are no actionable findings** (`converged` outcome):
+**如果没有可操作的发现项**（`已收敛` 结果）：
 
-- Do **not** modify `tasks.md` at all — no empty phase header.
-- Report: **"✅ Converged — the implementation satisfies the spec, plan, and tasks."**
-- Include the summary counts of what was checked.
+- **不要**修改 `tasks.md` — 没有空的阶段标题。
+- 报告：**"✅ 已收敛 — 实现满足规格、计划和任务的要求。"**
+- 包含已检查内容的摘要计数。
 
-### 8. Provide Next Actions (Handoff)
+### 8. 提供后续行动建议（交接）
 
-- On `tasks_appended`: state how many tasks were appended under which phase, and recommend
-  running `/speckit-implement` to complete them; note that a follow-up converge
-  run will find fewer or no remaining items.
-- On `converged`: recommend proceeding to review / opening a PR. No further implement pass
-  is needed for this feature's specified scope.
+- 在 `tasks_appended` 上：说明在哪个阶段下追加了多少任务，并建议运行 `/speckit-implement` 来完成它们；注意后续的收敛运行将发现更少或没有剩余项。
+- 在 `已收敛` 上：建议继续审查 / 打开 PR。对此功能的指定范围不再需要进一步的实现阶段。
 
-### 9. Check for extension hooks
+### 9. 检查扩展钩子
 
-After producing the result, check if `.specify/extensions.yml` exists in the project root.
+在生成结果后，检查项目根目录中是否存在 `.specify/extensions.yml`。
 
-- If it exists, read it and look for entries under the `hooks.after_converge` key
-- If the YAML cannot be parsed or is invalid, skip hook checking silently and continue normally
-- Filter out hooks where `enabled` is explicitly `false`. Treat hooks without an `enabled` field as enabled by default.
-- For each remaining hook, do **not** attempt to interpret or evaluate hook `condition` expressions:
-  - If the hook has no `condition` field, or it is null/empty, treat the hook as executable
-  - If the hook defines a non-empty `condition`, skip the hook and leave condition evaluation to the HookExecutor implementation
-- Report the convergence outcome (`converged` or `tasks_appended`) in-session before listing
-  any hooks, so users can decide whether to run optional follow-up commands.
-- When constructing slash commands from hook command names, replace dots (`.`) with hyphens (`-`). For example, `speckit.git.commit` → `/speckit-git-commit`.
-- For each executable hook, output the following based on its `optional` flag:
-  - **Optional hook** (`optional: true`):
+- 如果存在，读取该文件并查找 `hooks.after_converge` 键下的条目。
+- 如果 YAML 无法解析或无效，静默跳过钩子检查并正常继续。
+- 过滤掉 `enabled` 显式为 `false` 的钩子。将没有 `enabled` 字段的钩子视为默认启用。
+- 对于每个剩余的钩子，**不要**尝试解释或评估钩子的 `condition` 表达式：
+  - 如果钩子没有 `condition` 字段，或其值为 null/空，将钩子视为可执行。
+  - 如果钩子定义了非空的 `condition`，跳过该钩子，将条件评估交由 HookExecutor 实现处理。
+- 在列出任何钩子之前，在会话中报告收敛结果（`已收敛` 或 `tasks_appended`），以便用户可以决定是否运行可选的后继命令。
+- 从钩子命令名称构造斜杠命令时，将点号（`.`）替换为连字符（`-`）。例如，`speckit.git.commit` → `/speckit-git-commit`。
+- 对于每个可执行的钩子，根据其 `optional` 标志输出以下内容：
+  - **可选钩子**（`optional: true`）：
 
     ```text
-    ## Extension Hooks
+    ## 扩展钩子
 
-    **Optional Hook**: {extension}
-    Command: `/{command}`
-    Description: {description}
+    **可选钩子**：{extension}
+    命令：`/{command}`
+    描述：{description}
 
-    Prompt: {prompt}
-    To execute: `/{command}`
+    提示：{prompt}
+    执行方式：`/{command}`
     ```
 
-  - **Mandatory hook** (`optional: false`):
+  - **强制钩子**（`optional: false`）：
 
     ```text
-    ## Extension Hooks
+    ## 扩展钩子
 
-    **Automatic Hook**: {extension}
-    Executing: `/{command}`
-    EXECUTE_COMMAND: {command}
+    **自动钩子**：{extension}
+    正在执行：`/{command}`
+    EXECUTE_COMMAND：{command}
     ```
 
-- If no hooks are registered or `.specify/extensions.yml` does not exist, skip silently
+- 如果没有注册钩子或 `.specify/extensions.yml` 不存在，静默跳过。

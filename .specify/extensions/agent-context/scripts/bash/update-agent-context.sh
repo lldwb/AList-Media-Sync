@@ -1,18 +1,16 @@
 #!/usr/bin/env bash
 # update-agent-context.sh
 #
-# Refresh the managed Spec Kit section in the coding agent's context file
-# (e.g. CLAUDE.md, .github/copilot-instructions.md, AGENTS.md).
+# 刷新编码代理上下文文件（例如 CLAUDE.md、.github/copilot-instructions.md、AGENTS.md）
+# 中受管理的 Spec Kit 区块。
 #
-# Reads `context_file` and `context_markers.{start,end}` from the
-# agent-context extension config:
+# 从代理上下文扩展配置中读取 `context_file` 和 `context_markers.{start,end}`：
 #   .specify/extensions/agent-context/agent-context-config.yml
 #
-# Usage: update-agent-context.sh [plan_path]
+# 用法：update-agent-context.sh [plan_path]
 #
-# When `plan_path` is omitted, the script picks the most recently modified
-# `specs/*/plan.md` if any exist, otherwise emits the section without a
-# concrete plan path.
+# 当省略 `plan_path` 时，脚本选取最近修改的 `specs/*/plan.md`（如果存在），
+# 否则生成不含具体计划路径的区块。
 
 set -euo pipefail
 
@@ -22,11 +20,11 @@ DEFAULT_START="<!-- SPECKIT START -->"
 DEFAULT_END="<!-- SPECKIT END -->"
 
 if [[ ! -f "$EXT_CONFIG" ]]; then
-  echo "agent-context: $EXT_CONFIG not found; nothing to do." >&2
+  echo "agent-context: $EXT_CONFIG 未找到；无需操作。" >&2
   exit 0
 fi
 
-# Locate a suitable Python interpreter (python3, then python).
+# 定位合适的 Python 解释器（python3，其次 python）。
 _python=""
 if command -v python3 >/dev/null 2>&1; then
   _python="python3"
@@ -35,22 +33,21 @@ elif command -v python >/dev/null 2>&1 && python --version 2>&1 | grep -q "^Pyth
 fi
 
 if [[ -z "$_python" ]]; then
-  echo "agent-context: Python 3 not found on PATH; skipping update." >&2
+  echo "agent-context: 在 PATH 中未找到 Python 3；跳过更新。" >&2
   exit 0
 fi
 
-# Parse extension config once; emit three newline-separated fields:
-# context_file, context_markers.start, context_markers.end
+# 解析扩展配置一次；输出三个换行分隔的字段：
+# context_file、context_markers.start、context_markers.end
 if ! _raw_opts="$("$_python" - "$EXT_CONFIG" <<'PY'
 import sys
 try:
     import yaml
 except ImportError:
     print(
-        "agent-context: PyYAML is required to parse extension config but is not available "
-        "in the current Python environment.\n"
-        "  To resolve: pip install pyyaml (or install it into the environment used by python3).\n"
-        "  Context file will not be updated until PyYAML is importable.",
+        "agent-context: 解析扩展配置需要 PyYAML，但在当前 Python 环境中不可用。\n"
+        "  解决方案：pip install pyyaml（或将其安装到 python3 使用的环境中）。\n"
+        "  在 PyYAML 可导入之前，上下文文件将不会更新。",
         file=sys.stderr,
     )
     sys.exit(2)
@@ -59,7 +56,7 @@ try:
         data = yaml.safe_load(fh)
 except Exception as exc:
     print(
-        f"agent-context: unable to parse {sys.argv[1]} ({exc}); cannot update context.",
+        f"agent-context: 无法解析 {sys.argv[1]} ({exc})；无法更新上下文。",
         file=sys.stderr,
     )
     sys.exit(2)
@@ -78,7 +75,7 @@ print(get_str(data, "context_markers", "start"))
 print(get_str(data, "context_markers", "end"))
 PY
 )"; then
-  echo "agent-context: skipping update (see above for details)." >&2
+  echo "agent-context: 跳过更新（详情见上）。" >&2
   exit 0
 fi
 
@@ -87,7 +84,7 @@ while IFS= read -r _line || [[ -n "$_line" ]]; do
   _opts_lines+=("$_line")
 done < <(printf '%s\n' "$_raw_opts")
 if (( ${#_opts_lines[@]} < 3 )); then
-  echo "agent-context: malformed config parser output; expected 3 lines (context_file, marker_start, marker_end), got ${#_opts_lines[@]}; skipping update." >&2
+  echo "agent-context: 配置解析器输出格式错误；预期 3 行（context_file、marker_start、marker_end），实际得到 ${#_opts_lines[@]} 行；跳过更新。" >&2
   exit 0
 fi
 CONTEXT_FILE="${_opts_lines[0]}"
@@ -95,23 +92,23 @@ MARKER_START="${_opts_lines[1]}"
 MARKER_END="${_opts_lines[2]}"
 
 if [[ -z "$CONTEXT_FILE" ]]; then
-  echo "agent-context: context_file not set in extension config; nothing to do." >&2
+  echo "agent-context: 扩展配置中未设置 context_file；无需操作。" >&2
   exit 0
 fi
 
-# Reject absolute paths, backslash separators, and '..' path segments in context_file
+# 拒绝 context_file 中的绝对路径、反斜杠分隔符和 '..' 路径段
 if [[ "$CONTEXT_FILE" == /* ]] || [[ "$CONTEXT_FILE" =~ ^[A-Za-z]: ]]; then
-  echo "agent-context: context_file must be a project-relative path; got '$CONTEXT_FILE'." >&2
+  echo "agent-context: context_file 必须是项目相对路径；得到 '$CONTEXT_FILE'。" >&2
   exit 1
 fi
 if [[ "$CONTEXT_FILE" == *\\* ]]; then
-  echo "agent-context: context_file must not contain backslash separators; got '$CONTEXT_FILE'." >&2
+  echo "agent-context: context_file 不得包含反斜杠分隔符；得到 '$CONTEXT_FILE'。" >&2
   exit 1
 fi
 IFS='/' read -ra _cf_parts <<< "$CONTEXT_FILE"
 for _seg in "${_cf_parts[@]}"; do
   if [[ "$_seg" == ".." ]]; then
-    echo "agent-context: context_file must not contain '..' path segments; got '$CONTEXT_FILE'." >&2
+    echo "agent-context: context_file 不得包含 '..' 路径段；得到 '$CONTEXT_FILE'。" >&2
     exit 1
   fi
 done
@@ -122,9 +119,8 @@ unset _cf_parts _seg
 
 PLAN_PATH="${1:-}"
 if [[ -z "$PLAN_PATH" ]]; then
-  # Pick the most recently modified plan.md one level deep (specs/<feature>/plan.md).
-  # Use find + sort by modification time to avoid ls/head fragility with
-  # spaces in paths or SIGPIPE from pipefail.
+  # 选取最近修改的位于一级深度下的 plan.md（specs/<feature>/plan.md）。
+  # 使用 find + 按修改时间排序以避免路径中空格或 pipefail 导致的 ls/head 脆弱性。
   _plan_abs="$("$_python" - "$PROJECT_ROOT" <<'PY'
 import sys, os
 from pathlib import Path
@@ -145,15 +141,14 @@ fi
 CTX_PATH="$PROJECT_ROOT/$CONTEXT_FILE"
 mkdir -p "$(dirname "$CTX_PATH")"
 
-# Build the managed section
+# 构建受管理区块
 TMP_SECTION="$(mktemp)"
 trap 'rm -f "$TMP_SECTION"' EXIT
 {
   echo "$MARKER_START"
-  echo "For additional context about technologies to be used, project structure,"
-  echo "shell commands, and other important information, read the current plan"
+  echo "如需了解要使用的技术、项目结构、Shell 命令及其他重要信息，请参阅当前计划"
   if [[ -n "$PLAN_PATH" ]]; then
-    echo "at $PLAN_PATH"
+    echo "位于 $PLAN_PATH"
   fi
   echo "$MARKER_END"
 } > "$TMP_SECTION"
@@ -197,4 +192,4 @@ with open(ctx_path, "wb") as fh:
     fh.write(new_content.encode("utf-8"))
 PY
 
-echo "agent-context: updated $CONTEXT_FILE"
+echo "agent-context: 已更新 $CONTEXT_FILE"

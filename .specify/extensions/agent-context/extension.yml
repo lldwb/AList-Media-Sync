@@ -2,9 +2,9 @@ schema_version: "1.0"
 
 extension:
   id: agent-context
-  name: "Coding Agent Context"
+  name: "编码代理上下文"
   version: "1.0.0"
-  description: "Manages coding agent context/instruction files (e.g., CLAUDE.md, copilot-instructions.md) with project-specific plan references and configurable markers"
+  description: "管理编码代理上下文/指令文件（例如，CLAUDE.md、copilot-instructions.md），包含项目特定的计划引用和可配置的标记"
   author: spec-kit-core
   repository: https://github.com/github/spec-kit
   license: MIT
@@ -16,17 +16,17 @@ provides:
   commands:
     - name: speckit.agent-context.update
       file: commands/speckit.agent-context.update.md
-      description: "Refresh the managed Spec Kit section in the coding agent context file"
+      description: "刷新编码代理上下文文件中受管理的 Spec Kit 区块"
 
 hooks:
   after_specify:
     command: speckit.agent-context.update
     optional: true
-    description: "Refresh agent context after specification"
+    description: "规格化后刷新代理上下文"
   after_plan:
     command: speckit.agent-context.update
     optional: true
-    description: "Refresh agent context after planning"
+    description: "规划后刷新代理上下文"
 
 tags:
   - "agent"
