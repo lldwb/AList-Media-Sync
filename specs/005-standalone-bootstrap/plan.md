@@ -6,7 +6,7 @@
 
 ## 摘要
 
-为 AList-Media-Sync 项目设计并实现一体化自包含启动包方案（Docker 之外的独立部署方式）。核心交付物包括：自包含启动包目录结构设计、统一入口启动脚本（`start.bat` / `start.sh`）、启动前预检查模块（Shell/PowerShell 实现）、启动后地址输出横幅（Java 端 `ApplicationReadyEvent` 增强）、配置文件明文密码自动加密（`EnvironmentPostProcessor` 实现）、一键打包构建脚本（Maven Profile + Assembly 插件）。启动包内置 JRE、可执行 JAR、前端静态资源，目标用户解压后零配置即可运行。
+为 AList-Media-Sync 项目设计并实现一体化自包含启动包方案（Docker 之外的独立部署方式）。核心交付物包括：自包含启动包目录结构设计、统一入口启动脚本（`start.bat` / `start.sh`）、启动前预检查模块（Shell/PowerShell 实现）、启动后地址输出横幅（Java 端 `ApplicationReadyEvent` 增强）、配置文件明文密码自动加密到内存（`EnvironmentPostProcessor` 实现，加密值仅保存在内存中的 Spring Environment，绝不回写 YAML 文件）、一键打包构建脚本（Maven Profile + Assembly 插件）。启动包内置 JRE、可执行 JAR、前端静态资源，目标用户解压后零配置即可运行。
 
 ## 技术上下文
 
@@ -53,7 +53,7 @@
 | 章程原则 | 适用性 | 状态 |
 |---------|--------|------|
 | I. 分层架构（不可协商） | 适用 — 密码加密逻辑放在 `EnvironmentPostProcessor`（配置层），地址输出增强 `ServerAddressLogger`（Util 组件），符合分层惯例 | ✅ 通过 |
-| II. 数据完整性优先 | 间接相关 — 密码加密回写操作需处理写入失败（文件锁定、权限等边界情况） | ✅ 通过 |
+| II. 数据完整性优先 | 间接相关 — 密码加密仅作用于内存 Environment，不写回文件，无数据损坏风险 | ✅ 通过 |
 | III. RESTful API 契约优先 | 不适用 — 本功能不引入新 API 端点 | ✅ 通过 |
 | IV. 中文优先 | 适用 — 启动脚本注释、预检查提示信息、密码加密日志、地址横幅输出均使用简体中文 | ✅ 通过 |
 | V. 测试不可省略 | 适用 — 密码加密逻辑需要单元测试（`EnvironmentPostProcessor`），地址输出增强需要单元测试（`ServerAddressLogger`） | ✅ 通过 |

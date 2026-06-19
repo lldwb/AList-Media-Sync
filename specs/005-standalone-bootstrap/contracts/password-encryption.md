@@ -1,11 +1,11 @@
 # 密码加密 EnvironmentPostProcessor 契约
 
 **功能分支**：`005-standalone-bootstrap`
-**版本**：1.0.0
+**版本**：1.1.0
 
 ## 概述
 
-`PasswordEncryptionPostProcessor` 实现 `EnvironmentPostProcessor`，在 Spring Boot 环境准备阶段自动检测配置文件中的明文密码并使用 BCrypt 加密。
+`PasswordEncryptionPostProcessor` 实现 `EnvironmentPostProcessor`，在 Spring Boot 环境准备阶段自动检测配置中的明文密码并使用 BCrypt 加密到内存。加密后的密码仅保存在内存中的 Spring Environment 内，**绝不回写到 YAML 文件**。每次启动均重新执行检测与加密流程。
 
 ---
 
@@ -39,15 +39,15 @@ postProcessEnvironment(environment, application)
     │     ├─ 生成 BCrypt 哈希
     │     └─ 拼接 "{bcrypt}" + 哈希
     │
-    ├─ 4. 写回配置文件
-    │     ├─ 读取 application.yaml 原始内容
-    │     ├─ 替换 app.auth.password 行
-    │     └─ 写回文件
-    │     └─ 写入失败 → 记录 ERROR → 继续（使用内存中加密值）
-    │
-    └─ 5. 更新 Environment
+    └─ 4. 更新 Environment（仅内存，不回写文件）
           └─ 将加密后的值设置到 app.auth.password 属性
+          └─ 配置文件中的原始值保持不变
 ```
+
+**关键设计决策**：加密值仅保存在内存中的 Spring Environment，绝不回写到 YAML 文件。原因：
+1. 环境变量值并不存在于 YAML 文件中，统一行为避免二义性
+2. 每次启动均重新检测并加密，保证流程一致性和可预测性
+3. 配置文件始终保持人类可读的明文形式，运维人员可随时修改
 
 ---
 
@@ -67,14 +67,6 @@ WARN  top.lldwb.alistmediasync.config.PasswordEncryptionPostProcessor
       认证密码未设置，管理后台将无法登录。请在 config/application.yaml 中配置 app.auth.password。
 ```
 
-### 写回失败
-
-```
-ERROR top.lldwb.alistmediasync.config.PasswordEncryptionPostProcessor
-      密码加密失败：无法写入配置文件 [具体异常原因]。请手动生成 BCrypt 哈希值替换明文密码。
-      临时加密值已加载到内存，但重启后将失效。
-```
-
 ### 已加密（无日志输出）
 
 无日志输出 — 静默跳过。
@@ -89,10 +81,7 @@ ERROR top.lldwb.alistmediasync.config.PasswordEncryptionPostProcessor
 | 开发环境 | `classpath:application.yaml` |
 | Docker | 容器内 `classpath:application.yaml`（JAR 内嵌） |
 
-**注意**：Docker 环境下配置文件在 JAR 内部，`EnvironmentPostProcessor` 无法写回（只读文件系统）。此时：
-1. 内存中的值仍被加密并更新到 `Environment`
-2. 日志输出："检测到明文密码，已自动加密。注意：容器环境中无法回写配置文件，请通过环境变量 APP_AUTH_PASSWORD 注入加密后的值。"
-3. 应用正常启动
+**注意**：所有环境下加密值均仅保存在内存中的 Spring Environment，绝不回写配置文件。Docker 环境下同样适用——若通过环境变量 `APP_AUTH_PASSWORD` 传入明文密码，每次启动均自动加密到内存。
 
 ---
 
@@ -101,5 +90,5 @@ ERROR top.lldwb.alistmediasync.config.PasswordEncryptionPostProcessor
 - BCrypt 使用 10 轮哈希（与 Spring Security 默认一致）
 - 加密后的密码以 `{bcrypt}` 前缀标识，与 `AuthInterceptor` 中解析逻辑一致
 - `EnvironmentPostProcessor` 在 `ConfigDataEnvironment` 之后执行，此时配置文件已解析完毕
-- 写回操作使用 `java.nio.file.Files.write`，原子性由文件系统保证
-- 若写回过程中 JVM 崩溃，`application.yaml` 可能部分写入。启动脚本检查 YAML 格式可发现损坏
+- 加密值仅存在于内存中，不会持久化到任何文件
+- 每次启动均重新执行检测与加密流程，确保运行时态密码始终为 BCrypt 格式
