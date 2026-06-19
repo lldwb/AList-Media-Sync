@@ -20,6 +20,6 @@ description: "刷新编码代理上下文文件中受管理的 Spec Kit 区块"
 ## 执行
 
 - **Bash**：`.specify/extensions/agent-context/scripts/bash/update-agent-context.sh [plan_path]`
-- **PowerShell**：`.specify/extensions/agent-context/scripts/powershell/update-agent-context.ps1 [plan_path]`
+- **PowerShell**：`pwsh -File ".specify/extensions/agent-context/scripts/powershell/update-agent-context.ps1" [plan_path]`
 
 当省略 `plan_path` 时，脚本会自动检测最近修改的 `specs/*/plan.md` 文件。

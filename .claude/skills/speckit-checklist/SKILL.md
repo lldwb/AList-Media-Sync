@@ -77,7 +77,7 @@ $ARGUMENTS
 
 ## 执行步骤
 
-1. **设置**：从仓库根目录运行 `.specify/scripts/powershell/check-prerequisites.ps1 -Json`，解析 JSON 获取 FEATURE_DIR 和 AVAILABLE_DOCS 列表。
+1. **设置**：从仓库根目录运行 `pwsh -File ".specify/scripts/powershell/check-prerequisites.ps1" -Json`，解析 JSON 获取 FEATURE_DIR 和 AVAILABLE_DOCS 列表。
    - 所有文件路径必须是绝对路径。
    - 对于参数中的单引号，如 "I'm Groot"，使用转义语法：例如 'I'\''m Groot'（或尽可能使用双引号："I'm Groot"）。
 

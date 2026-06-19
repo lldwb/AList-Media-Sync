@@ -68,7 +68,7 @@ $ARGUMENTS
 
 ### 1. 初始化分析上下文
 
-从仓库根目录运行 `.specify/scripts/powershell/check-prerequisites.ps1 -Json -RequireTasks -IncludeTasks` **一次**，解析 JSON 获取 FEATURE_DIR 和 AVAILABLE_DOCS。推导绝对路径：
+从仓库根目录运行 `pwsh -File ".specify/scripts/powershell/check-prerequisites.ps1" -Json -RequireTasks -IncludeTasks` **一次**，解析 JSON 获取 FEATURE_DIR 和 AVAILABLE_DOCS。推导绝对路径：
 
 - SPEC = FEATURE_DIR/spec.md
 - PLAN = FEATURE_DIR/plan.md

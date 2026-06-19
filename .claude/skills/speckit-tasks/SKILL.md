@@ -56,7 +56,7 @@ $ARGUMENTS
 
 ## 大纲
 
-1. **设置**：从仓库根目录运行 `.specify/scripts/powershell/setup-tasks.ps1 -Json`，解析 FEATURE_DIR、TASKS_TEMPLATE 和 AVAILABLE_DOCS 列表。`FEATURE_DIR` 和 `TASKS_TEMPLATE` 在提供时必须是绝对路径。`AVAILABLE_DOCS` 是 `FEATURE_DIR` 下可用文档名称/相对路径的列表（例如 `research.md` 或 `contracts/`）。对于参数中的单引号，如 "I'm Groot"，使用转义语法：例如 'I'\''m Groot'（或尽可能使用双引号："I'm Groot"）。
+1. **设置**：从仓库根目录运行 `pwsh -File ".specify/scripts/powershell/setup-tasks.ps1" -Json`，解析 FEATURE_DIR、TASKS_TEMPLATE 和 AVAILABLE_DOCS 列表。`FEATURE_DIR` 和 `TASKS_TEMPLATE` 在提供时必须是绝对路径。`AVAILABLE_DOCS` 是 `FEATURE_DIR` 下可用文档名称/相对路径的列表（例如 `research.md` 或 `contracts/`）。对于参数中的单引号，如 "I'm Groot"，使用转义语法：例如 'I'\''m Groot'（或尽可能使用双引号："I'm Groot"）。
 
 2. **加载设计文档**：从 FEATURE_DIR 读取：
    - **必需**：plan.md（技术栈、库、结构）、spec.md（带有优先级的用户故事）。
