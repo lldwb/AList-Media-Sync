@@ -25,5 +25,7 @@ export default defineConfig({
   build: {
     outDir: '../resources/static/app',
     emptyOutDir: true,
+    // 静态资源基础路径，与后端 /app/** 映射保持一致
+    base: '/app/',
   },
 });
