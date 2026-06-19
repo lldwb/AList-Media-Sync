@@ -31,6 +31,7 @@
 
 ## 备注
 
+- 2026-06-19 分析修复：FR-005 收窄为"左侧固定侧边栏导航"与 plan 对齐；FR-015 冲突策略从"可选"改为"必填，默认值'跳过'"；A5/A7 滞后引用已更新；tasks.md T008 Dockerfile 路径已统一为根目录
 - 2026-06-19 澄清会话：Q1 — 会话空闲超时判定标准 → 双重保障（前端交互监听 + 后端 API 超时），已更新 FR-003
 - 2026-06-19 技术栈迁移：Vue.js 3 CDN → React 19 + TypeScript + Vite + Tailwind CSS，A2 假设已更新，所有设计文档已同步迁移
 - FR-034 已修正：移除了 Spring Boot 和 `src/main/resources/static/` 等实现细节，改为技术无关表述"Web 界面必须与后端 API 由同一服务端口提供"
