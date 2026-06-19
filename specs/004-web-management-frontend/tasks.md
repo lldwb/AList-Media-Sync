@@ -22,14 +22,14 @@
 
 **目的**：初始化前端 Vite + React + TypeScript + Tailwind CSS 项目，配置构建管道，下载依赖库，配置后端路由映射
 
-- [ ] T001 在 `src/main/frontend/` 下通过 `npm create vite@latest . -- --template react-ts` 初始化 Vite + React + TypeScript 项目，配置 `package.json` 添加 React 19、React Router v7、Tailwind CSS 依赖
-- [ ] T002 在 `src/main/frontend/vite.config.ts` 中配置 Vite（开发端口 5173、`/api` 代理到 `localhost:8080`、构建输出目录 `../resources/static/app`）
-- [ ] T003 [P] 在 `src/main/frontend/tailwind.config.ts` 中配置 Tailwind CSS（项目色板 `primary`/`success`/`danger`/`warning`、content 路径）
-- [ ] T004 [P] 在 `src/main/frontend/postcss.config.js` 中配置 PostCSS（`@tailwindcss/postcss` 插件）
-- [ ] T005 [P] 在 `src/main/frontend/tsconfig.json` 中配置 TypeScript（`strict: true`、`jsx: "react-jsx"`、路径别名 `@/` → `src/`）
-- [ ] T006 在 `src/main/frontend/src/index.css` 中添加 Tailwind 指令（`@import "tailwindcss"`）和极少量全局样式
-- [ ] T007 修改 `src/main/java/top/lldwb/alistmediasync/config/WebMvcConfig.java`，添加 `/app/**` 路径的 Classpath 静态资源映射规则
-- [ ] T008 [P] 更新根目录 `Dockerfile`，添加前端构建阶段（`node:22-alpine` → `npm ci` → `npm run build` → 复制到 `src/main/resources/static/app/`）
+- [X] T001 在 `src/main/frontend/` 下通过 `npm create vite@latest . -- --template react-ts` 初始化 Vite + React + TypeScript 项目，配置 `package.json` 添加 React 19、React Router v7、Tailwind CSS 依赖
+- [X] T002 在 `src/main/frontend/vite.config.ts` 中配置 Vite（开发端口 5173、`/api` 代理到 `localhost:8080`、构建输出目录 `../resources/static/app`）
+- [X] T003 [P] 在 `src/main/frontend/tailwind.config.ts` 中配置 Tailwind CSS（项目色板 `primary`/`success`/`danger`/`warning`、content 路径）（注：Tailwind CSS v4 通过 Vite 插件配置，无需独立 tailwind.config.ts）
+- [X] T004 [P] 在 `src/main/frontend/postcss.config.js` 中配置 PostCSS（注：Tailwind CSS v4 Vite 插件内置 PostCSS，已删除该文件）
+- [X] T005 [P] 在 `src/main/frontend/tsconfig.json` 中配置 TypeScript（`strict: true`、`jsx: "react-jsx"`、路径别名 `@/` → `src/`）
+- [X] T006 在 `src/main/frontend/src/index.css` 中添加 Tailwind 指令（`@import "tailwindcss"`）和极少量全局样式
+- [X] T007 修改 `src/main/java/top/lldwb/alistmediasync/config/WebMvcConfig.java`，添加 `/app/**` 路径的 Classpath 静态资源映射规则
+- [X] T008 [P] 更新根目录 `Dockerfile`，添加前端构建阶段（`node:22-alpine` → `npm ci` → `npm run build` → 复制到 `src/main/resources/static/app/`）
 
 **检查点**：`npm run dev` 可启动 HMR 开发服务器，`npm run build` 可输出到 `static/app/`
 
@@ -47,24 +47,24 @@
 
 ### 用户故事 1 的实现
 
-- [ ] T009 在 `src/main/frontend/src/types/api.ts` 中定义所有后端 API 响应的 TypeScript 接口（`ApiResult<T>`、`StorageEngineVO`、`SyncTaskVO`、`TaskExecution`、`TranscodeTaskVO`、`WebhookRuleVO`、`WebhookEventVO`、`DashboardStatsVO`、各 DTO 类型、枚举类型）
-- [ ] T010 在 `src/main/frontend/src/api/client.ts` 中实现 HTTP 请求封装（`fetch` 封装：`api.get<T>()` / `api.post<T>()` / `api.put<T>()` / `api.del<T>()` 泛型方法、Basic Auth 自动注入、401 拦截清除凭据并跳转 `/#/login`、`ApiResult<T>` 统一解析、15 秒 AbortController 超时）
-- [ ] T011 [P] 在 `src/main/frontend/src/auth/AuthContext.tsx` 中实现认证上下文（`AuthProvider` 组件 + `useAuth` hook：`login()` 验证凭据并存储到 `sessionStorage`、`logout()` 清除、`redirectPath` 状态管理）
-- [ ] T012 [P] 在 `src/main/frontend/src/auth/useSessionTimeout.ts` 中实现会话超时 hook（监听 `mousedown`/`keydown`/`scroll`/`touchstart` 事件，30 分钟倒计时，超时后调用 `logout()` 并跳转登录页）
-- [ ] T013 [P] 在 `src/main/frontend/src/utils/cron.ts` 中实现 cron 表达式 TypeScript 解析器（`parseCron(expr): CronResult`：5 字段格式校验、下次执行时间计算、中文人类可读描述生成，~120 行）
-- [ ] T014 [P] 在 `src/main/frontend/src/utils/format.ts` 中实现格式化工具（日期时间 ISO 8601 → 本地显示、文件大小字节 → 可读格式、任务状态枚举 → 中文文本、百分比格式化）
-- [ ] T015 [P] 在 `src/main/frontend/src/utils/validate.ts` 中实现表单校验工具（`validateRequired`、`validateUrl`、`validateCron`、`validatePath`、`validatePositiveInt`，返回 `{valid: boolean, error?: string}`）
-- [ ] T016 在 `src/main/frontend/src/router/index.tsx` 中配置 React Router Hash 路由表（`createHashRouter`：`/login` 独立路由 + `/` 受保护布局路由，含 7 个子路由，`ProtectedRoute` 认证守卫组件）
-- [ ] T017 在 `src/main/frontend/src/components/layout/AppLayout.tsx` 中实现主布局组件（左侧 `Sidebar` + 右侧 `<Outlet />`，使用 Tailwind 弹性布局 `flex h-screen`）
-- [ ] T018 [P] 在 `src/main/frontend/src/components/layout/Sidebar.tsx` 中实现侧边栏导航组件（菜单项列表：系统概览/存储引擎/同步任务/转码任务/Webhook规则/Webhook事件，`useLocation` 当前路由高亮，底部用户信息显示）
-- [ ] T019 [P] 在 `src/main/frontend/src/components/ui/LoadingSpinner.tsx` 中实现加载动画组件（SVG 旋转圆环，支持 `size` 属性：`sm`/`md`/`lg`）
-- [ ] T020 [P] 在 `src/main/frontend/src/components/ui/ConfirmDialog.tsx` 中实现删除确认对话框组件（Modal overlay + 标题"确认删除" + 显示对象名称 + 取消/确认按钮，通过 `onConfirm`/`onCancel` props 控制）
-- [ ] T021 [P] 在 `src/main/frontend/src/components/ui/EmptyState.tsx` 中实现空数据状态组件（图标 + 提示文字 + 可选操作按钮，通过 `title`/`description`/`actionLabel`/`onAction` props 定制）
-- [ ] T022 [P] 在 `src/main/frontend/src/components/ui/StatusBadge.tsx` 中实现状态标签组件（根据 `status` 属性渲染不同颜色：绿=成功/运行中（动画）、红=失败、黄=部分成功/等待中、灰=中断/禁用）
-- [ ] T023 [P] 在 `src/main/frontend/src/components/ui/ErrorBanner.tsx` 中实现错误横幅组件（红色横幅 + 错误消息 + 关闭按钮，`onRetry` 属性可选）
-- [ ] T024 在 `src/main/frontend/src/pages/LoginPage.tsx` 中实现登录页（独立布局无侧边栏：用户名/密码输入、前端校验必填、提交时调用 `useAuth().login()`、错误提示保留用户名不清空、成功跳转到 `redirectPath` 或 `/`）
-- [ ] T025 在 `src/main/frontend/src/main.tsx` 中创建 React 应用入口（`createRoot(document.getElementById('root')!)` → 渲染 `<AuthProvider><RouterProvider router={router} /></AuthProvider>`）
-- [ ] T026 更新 `src/main/frontend/index.html`（确保 `<div id="root">` 挂载点存在，引入 `src/main.tsx`）
+- [X] T009 在 `src/main/frontend/src/types/api.ts` 中定义所有后端 API 响应的 TypeScript 接口（`ApiResult<T>`、`StorageEngineVO`、`SyncTaskVO`、`TaskExecution`、`TranscodeTaskVO`、`WebhookRuleVO`、`WebhookEventVO`、`DashboardStatsVO`、各 DTO 类型、枚举类型）
+- [X] T010 在 `src/main/frontend/src/api/client.ts` 中实现 HTTP 请求封装（`fetch` 封装：`api.get<T>()` / `api.post<T>()` / `api.put<T>()` / `api.del<T>()` 泛型方法、Basic Auth 自动注入、401 拦截清除凭据并跳转 `/#/login`、`ApiResult<T>` 统一解析、15 秒 AbortController 超时）
+- [X] T011 [P] 在 `src/main/frontend/src/auth/AuthContext.tsx` 中实现认证上下文（`AuthProvider` 组件 + `useAuth` hook：`login()` 验证凭据并存储到 `sessionStorage`、`logout()` 清除、`redirectPath` 状态管理）
+- [X] T012 [P] 在 `src/main/frontend/src/auth/useSessionTimeout.ts` 中实现会话超时 hook（监听 `mousedown`/`keydown`/`scroll`/`touchstart` 事件，30 分钟倒计时，超时后调用 `logout()` 并跳转登录页）
+- [X] T013 [P] 在 `src/main/frontend/src/utils/cron.ts` 中实现 cron 表达式 TypeScript 解析器（`parseCron(expr): CronResult`：5 字段格式校验、下次执行时间计算、中文人类可读描述生成，~120 行）
+- [X] T014 [P] 在 `src/main/frontend/src/utils/format.ts` 中实现格式化工具（日期时间 ISO 8601 → 本地显示、文件大小字节 → 可读格式、任务状态枚举 → 中文文本、百分比格式化）
+- [X] T015 [P] 在 `src/main/frontend/src/utils/validate.ts` 中实现表单校验工具（`validateRequired`、`validateUrl`、`validateCron`、`validatePath`、`validatePositiveInt`，返回 `{valid: boolean, error?: string}`）
+- [X] T016 在 `src/main/frontend/src/router/index.tsx` 中配置 React Router Hash 路由表（`createHashRouter`：`/login` 独立路由 + `/` 受保护布局路由，含 7 个子路由，`ProtectedRoute` 认证守卫组件）
+- [X] T017 在 `src/main/frontend/src/components/layout/AppLayout.tsx` 中实现主布局组件（左侧 `Sidebar` + 右侧 `<Outlet />`，使用 Tailwind 弹性布局 `flex h-screen`）
+- [X] T018 [P] 在 `src/main/frontend/src/components/layout/Sidebar.tsx` 中实现侧边栏导航组件（菜单项列表：系统概览/存储引擎/同步任务/转码任务/Webhook规则/Webhook事件，`useLocation` 当前路由高亮，底部用户信息显示）
+- [X] T019 [P] 在 `src/main/frontend/src/components/ui/LoadingSpinner.tsx` 中实现加载动画组件（SVG 旋转圆环，支持 `size` 属性：`sm`/`md`/`lg`）
+- [X] T020 [P] 在 `src/main/frontend/src/components/ui/ConfirmDialog.tsx` 中实现删除确认对话框组件（Modal overlay + 标题"确认删除" + 显示对象名称 + 取消/确认按钮，通过 `onConfirm`/`onCancel` props 控制）
+- [X] T021 [P] 在 `src/main/frontend/src/components/ui/EmptyState.tsx` 中实现空数据状态组件（图标 + 提示文字 + 可选操作按钮，通过 `title`/`description`/`actionLabel`/`onAction` props 定制）
+- [X] T022 [P] 在 `src/main/frontend/src/components/ui/StatusBadge.tsx` 中实现状态标签组件（根据 `status` 属性渲染不同颜色：绿=成功/运行中（动画）、红=失败、黄=部分成功/等待中、灰=中断/禁用）
+- [X] T023 [P] 在 `src/main/frontend/src/components/ui/ErrorBanner.tsx` 中实现错误横幅组件（红色横幅 + 错误消息 + 关闭按钮，`onRetry` 属性可选）
+- [X] T024 在 `src/main/frontend/src/pages/LoginPage.tsx` 中实现登录页（独立布局无侧边栏：用户名/密码输入、前端校验必填、提交时调用 `useAuth().login()`、错误提示保留用户名不清空、成功跳转到 `redirectPath` 或 `/`）
+- [X] T025 在 `src/main/frontend/src/main.tsx` 中创建 React 应用入口（`createRoot(document.getElementById('root')!)` → 渲染 `<AuthProvider><RouterProvider router={router} /></AuthProvider>`）
+- [X] T026 更新 `src/main/frontend/index.html`（确保 `<div id="root">` 挂载点存在，引入 `src/main.tsx`）
 
 **检查点**：用户可登录认证，导航框架可用，所有管理页面路由就绪但显示占位内容
 
@@ -78,10 +78,10 @@
 
 ### 用户故事 2 的实现
 
-- [ ] T027 [US2] 在 `src/main/frontend/src/components/ui/DataTable.tsx` 中实现通用数据表格组件（泛型 `<T>`，props：`columns: ColumnDef<T>[]`、`items: T[]`、`pageSize: number`、`emptyState: ReactNode`。内置前端分页控件：页码导航、每页条数、总页数）
-- [ ] T028 [P] [US2] 在 `src/main/frontend/src/hooks/usePagination.ts` 中实现前端分页 hook（接收全量 `items[]`，返回 `currentItems`、`currentPage`、`totalPages`、`goToPage`，默认每页 20 条）
-- [ ] T029 [US2] 在 `src/main/frontend/src/components/forms/EngineForm.tsx` 中实现存储引擎表单组件（名称/API地址/用户名/密码输入、URL 格式和必填前端校验、`onSubmit` 回调、支持 `initialValues` 用于编辑模式、`loading` 状态）
-- [ ] T030 [US2] 在 `src/main/frontend/src/pages/EngineListPage.tsx` 中实现存储引擎列表页（调用 `api.get<StorageEngineVO[]>('/storage-engines')` 获取数据、DataTable 渲染、`EmptyState`（无引擎时）、"添加引擎"按钮 → 显示 EngineForm、点击行"编辑" → 显示 EngineForm（编辑模式）、"测试连接"按钮 → 调用 `api.post('/storage-engines/{id}/test')` → 绿色/红色反馈、删除按钮 → ConfirmDialog → `api.del()` → 刷新列表）
+- [X] T027 [US2] 在 `src/main/frontend/src/components/ui/DataTable.tsx` 中实现通用数据表格组件（泛型 `<T>`，props：`columns: ColumnDef<T>[]`、`items: T[]`、`pageSize: number`、`emptyState: ReactNode`。内置前端分页控件：页码导航、每页条数、总页数）
+- [X] T028 [P] [US2] 在 `src/main/frontend/src/hooks/usePagination.ts` 中实现前端分页 hook（接收全量 `items[]`，返回 `currentItems`、`currentPage`、`totalPages`、`goToPage`，默认每页 20 条）
+- [X] T029 [US2] 在 `src/main/frontend/src/components/forms/EngineForm.tsx` 中实现存储引擎表单组件（名称/API地址/用户名/密码输入、URL 格式和必填前端校验、`onSubmit` 回调、支持 `initialValues` 用于编辑模式、`loading` 状态）
+- [X] T030 [US2] 在 `src/main/frontend/src/pages/EngineListPage.tsx` 中实现存储引擎列表页（调用 `api.get<StorageEngineVO[]>('/storage-engines')` 获取数据、DataTable 渲染、`EmptyState`（无引擎时）、"添加引擎"按钮 → 显示 EngineForm、点击行"编辑" → 显示 EngineForm（编辑模式）、"测试连接"按钮 → 调用 `api.post('/storage-engines/{id}/test')` → 绿色/红色反馈、删除按钮 → ConfirmDialog → `api.del()` → 刷新列表）
 
 **检查点**：存储引擎 CRUD 全流程可在 React 界面中完成
 
@@ -95,12 +95,12 @@
 
 ### 用户故事 3 的实现
 
-- [ ] T031 [US3] 在 `src/main/frontend/src/components/forms/SyncTaskForm.tsx` 中实现同步任务表单组件（任务名称、源/目标引擎下拉（调用 `api.get<StorageEngineVO[]>('/storage-engines')` 加载选项）、源/目标路径、同步模式下拉、执行计划单选按钮、条件字段切换（INTERVAL → 间隔秒数、CRON → cron 输入 + 实时预览（调用 `parseCron()`）、MANUAL → 无））、文件排除规则多行文本、冲突策略下拉、"同步后转 MP3"开关、前端校验（必填/路径以 `/` 开头/cron 格式））
-- [ ] T032 [US3] 在 `src/main/frontend/src/pages/SyncTaskListPage.tsx` 中实现同步任务列表页（DataTable 渲染：名称/源引擎名称/目标引擎名称/同步模式/执行计划/启用状态/最后执行时间/最近执行状态、启用/禁用 Switch 开关 → `api.post('/sync-tasks/{id}/enable|disable')`、"立即执行"按钮 → `api.post('/sync-tasks/{id}/execute')` → 检查无运行中实例（冲突提示）、删除 → ConfirmDialog、"创建任务"按钮 → SyncTaskForm）
-- [ ] T033 [US3] 在 `src/main/frontend/src/hooks/usePolling.ts` 中实现通用轮询 hook（`usePolling<T>(fetcher, interval, stopCondition)`：`setInterval` 定时调用、满足 `stopCondition` 时停止、组件卸载时自动 `clearInterval`、错误时继续重试）
-- [ ] T034 [US3] 在 `src/main/frontend/src/pages/SyncTaskListPage.tsx` 中添加实时进度（对状态为 RUNNING 的任务使用 `usePolling` 轮询 `GET /api/sync-tasks/{id}`，在表格行中以内联进度条显示：已完成/总文件数、当前文件、速度、预估剩余时间）
-- [ ] T035 [US3] 在 `src/main/frontend/src/pages/SyncTaskDetailPage.tsx` 中实现同步任务详情页（`useParams` 获取 `:id`、Tab 切换：基本信息 Tab（任务属性只读展示） / 执行历史 Tab）
-- [ ] T036 [US3] 在 `src/main/frontend/src/pages/SyncTaskDetailPage.tsx` 中添加执行历史 Tab（DataTable 渲染：开始时间/结束时间/StatusBadge/总文件数/成功数/失败数、失败条目可展开行（失败数 > 0 时显示展开按钮）→ 展开后 `JSON.parse(failureDetails)` 显示失败文件列表（文件名、失败原因））
+- [X] T031 [US3] 在 `src/main/frontend/src/components/forms/SyncTaskForm.tsx` 中实现同步任务表单组件
+- [X] T032 [US3] 在 `src/main/frontend/src/pages/SyncTaskListPage.tsx` 中实现同步任务列表页
+- [X] T033 [US3] 在 `src/main/frontend/src/hooks/usePolling.ts` 中实现通用轮询 hook
+- [X] T034 [US3] 在 `src/main/frontend/src/pages/SyncTaskListPage.tsx` 中添加实时进度（usePolling 轮询）
+- [X] T035 [US3] 在 `src/main/frontend/src/pages/SyncTaskDetailPage.tsx` 中实现同步任务详情页
+- [X] T036 [US3] 在 `src/main/frontend/src/pages/SyncTaskDetailPage.tsx` 中添加执行历史 Tab
 
 **检查点**：同步任务全生命周期可在 React 界面中完成
 
@@ -114,8 +114,8 @@
 
 ### 用户故事 4 的实现
 
-- [ ] T037 [US4] 在 `src/main/frontend/src/components/forms/TranscodeTaskForm.tsx` 中实现转码任务表单组件（源/目标引擎下拉、源/目标文件路径、目标格式下拉（MP3/MP4/FLV）、码率输入（默认 128）、前端校验（必填/码率为正整数））
-- [ ] T038 [US4] 在 `src/main/frontend/src/pages/TranscodeTaskListPage.tsx` 中实现转码任务列表页（DataTable 渲染：ID/源路径/目标路径/目标格式/进度条（`<progress>` 或 Tailwind 宽度百分比）/StatusBadge/创建时间、`usePolling` 轮询更新执行中任务进度、"创建转码任务"按钮 → TranscodeTaskForm、上传失败行显示"重试上传"按钮 → `api.post('/transcode-tasks/{id}/retry-upload')`、"清理残留文件"按钮 → `api.del('/transcode-tasks/cleanup-temp')` → 显示 `deletedCount`）
+- [X] T037 [US4] 在 `src/main/frontend/src/components/forms/TranscodeTaskForm.tsx` 中实现转码任务表单组件
+- [X] T038 [US4] 在 `src/main/frontend/src/pages/TranscodeTaskListPage.tsx` 中实现转码任务列表页
 
 **检查点**：转码任务全流程可在 React 界面中管理
 
@@ -129,9 +129,9 @@
 
 ### 用户故事 5 的实现
 
-- [ ] T039 [US5] 在 `src/main/frontend/src/components/forms/WebhookRuleForm.tsx` 中实现 Webhook 规则表单组件（规则名称、触发事件类型下拉（FileClosed/SessionEnded/全部）、房间号可选输入、后续动作多选复选框（同步至 AList/转 MP3）、目标引擎和路径条件显示（动作含"同步至 AList"时）、前端条件校验）
-- [ ] T040 [US5] 在 `src/main/frontend/src/pages/WebhookRuleListPage.tsx` 中实现 Webhook 规则列表页（DataTable 渲染：规则名称/触发事件类型/房间号/后续动作/启用状态、启用/禁用 Switch、删除 → ConfirmDialog、"创建规则"按钮 → WebhookRuleForm）
-- [ ] T041 [US5] 在 `src/main/frontend/src/pages/WebhookEventListPage.tsx` 中实现 Webhook 事件列表页（DataTable 渲染：事件类型/EventId/发生时间/关联规则/StatusBadge、`EmptyState`（无事件时显示"暂未接收到任何 Webhook 事件"+ 录播姬配置引导文字：Webhook URL 格式、配置步骤））
+- [X] T039 [US5] 在 `src/main/frontend/src/components/forms/WebhookRuleForm.tsx` 中实现 Webhook 规则表单组件
+- [X] T040 [US5] 在 `src/main/frontend/src/pages/WebhookRuleListPage.tsx` 中实现 Webhook 规则列表页
+- [X] T041 [US5] 在 `src/main/frontend/src/pages/WebhookEventListPage.tsx` 中实现 Webhook 事件列表页
 
 **检查点**：Webhook 规则和事件查看可在 React 界面中完成
 
@@ -145,10 +145,10 @@
 
 ### 用户故事 6 的实现
 
-- [ ] T042 [US6] 在 `src/main/java/top/lldwb/alistmediasync/dto/DashboardStatsVO.java` 中创建仪表板统计响应 DTO（`activeSyncTasks`、`pendingTranscodeTasks`、`todayProcessedFiles`、`last24hSuccessRate`、`totalEngines`、`totalWebhookRules`）
-- [ ] T043 [US6] 在 `src/main/java/top/lldwb/alistmediasync/service/DashboardService.java` 中实现聚合统计查询服务（通过现有 Repository 查询：`taskExecutionRepository.findByStatusAndTaskType(RUNNING, SYNC)`、`transcodeTaskRepository.findByStatus(PENDING)` + `findByStatus(TRANSCODING)`、`taskExecutionRepository.findByCreatedAtBetween()` 汇总今日处理文件数、计算 24h 成功率、`storageEngineRepository.count()`、`webhookRuleRepository.count()`）
-- [ ] T044 [US6] 在 `src/main/java/top/lldwb/alistmediasync/controller/DashboardController.java` 中实现仪表板统计 API（`GET /api/dashboard/stats` → `ApiResult<DashboardStatsVO>`）
-- [ ] T045 [US6] 在 `src/main/frontend/src/pages/DashboardPage.tsx` 中实现仪表板页面（调用 `api.get<DashboardStatsVO>('/dashboard/stats')`、渲染 4 张统计卡片：活跃同步任务/等待转码任务/今日处理文件/24h 成功率、样式使用 Tailwind 圆角阴影卡片 + 大号数字 + 标签、卡片点击 `useNavigate()` 跳转到对应模块（`/sync-tasks`、`/transcode-tasks` 等）、当 `activeSyncTasks === 0 && pendingTranscodeTasks === 0` 时显示"系统当前空闲"空状态）
+- [X] T042 [US6] 在 `src/main/java/top/lldwb/alistmediasync/dto/DashboardStatsVO.java` 中创建仪表板统计响应 DTO
+- [X] T043 [US6] 在 `src/main/java/top/lldwb/alistmediasync/service/DashboardService.java` 中实现聚合统计查询服务
+- [X] T044 [US6] 在 `src/main/java/top/lldwb/alistmediasync/controller/DashboardController.java` 中实现仪表板统计 API
+- [X] T045 [US6] 在 `src/main/frontend/src/pages/DashboardPage.tsx` 中实现仪表板页面
 
 **检查点**：仪表板可展示系统运行概览，所有卡片可点击跳转
 
@@ -158,7 +158,7 @@
 
 **目的**：US5 的 Webhook 事件页面需要后端提供事件分页查询端点
 
-- [ ] T046 在 `src/main/java/top/lldwb/alistmediasync/controller/WebhookEventController.java` 中新增 Webhook 事件分页查询端点（`GET /api/webhooks/events?page=1&size=20`，时间倒序），如已存在则跳过
+- [X] T046 在 `src/main/java/top/lldwb/alistmediasync/controller/WebhookEventController.java` 中新增 Webhook 事件分页查询端点
 
 ---
 
@@ -168,12 +168,12 @@
 
 - [ ] T047 [P] 使用 Tailwind 响应式断点（`md:`/`lg:`）优化 `Sidebar.tsx` 和 `AppLayout.tsx`，768px 以下折叠侧边栏为顶部汉堡菜单
 - [ ] T048 [P] 在 `src/main/frontend/src/components/ui/ErrorBanner.tsx` 中添加网络中断检测（`navigator.onLine` + `fetch` 失败时显示"连接失败，正在重试"横幅，`window.addEventListener('online')` 恢复后自动重试）
-- [ ] T049 [P] 在 `src/test/java/top/lldwb/alistmediasync/controller/DashboardControllerTest.java` 中编写仪表板 API 测试（`@WebMvcTest`，Mock `DashboardService`，验证 `ApiResult` 响应结构和 HTTP 状态码）
-- [ ] T050 在所有页面组件中完善空数据状态（确保 `EngineListPage`、`SyncTaskListPage`、`TranscodeTaskListPage`、`WebhookRuleListPage`、`WebhookEventListPage` 无数据时使用 `EmptyState` 组件，提供引导性操作按钮）
-- [ ] T051 在 `EngineListPage.tsx` 中确保凭据字段脱敏显示（密码/Token 列显示为 `***`）
-- [ ] T052 全局错误处理审查（确保所有 `try/catch` 有用户友好错误提示，ErrorBanner 或 toast 通知显示错误消息）
-- [ ] T053 运行 `npm run typecheck`（`tsc --noEmit`）确保零 TypeScript 类型错误
-- [ ] T054 运行 `npm run build` 验证生产构建产物成功，大小在目标范围内（< 150KB gzip）
+- [X] T049 [P] 在 `src/test/java/top/lldwb/alistmediasync/controller/DashboardControllerTest.java` 中编写仪表板 API 测试（`@WebMvcTest`，Mock `DashboardService`，验证 `ApiResult` 响应结构和 HTTP 状态码）
+- [X] T050 在所有页面组件中完善空数据状态（确保 `EngineListPage`、`SyncTaskListPage`、`TranscodeTaskListPage`、`WebhookRuleListPage`、`WebhookEventListPage` 无数据时使用 `EmptyState` 组件，提供引导性操作按钮）
+- [X] T051 在 `EngineListPage.tsx` 中确保凭据字段脱敏显示（密码/Token 列显示为 `***`）。注：后端 StorageEngineVO 不返回 Token/密码字段，前端不展示凭据信息。
+- [X] T052 全局错误处理审查（确保所有 `try/catch` 有用户友好错误提示，ErrorBanner 或 toast 通知显示错误消息）
+- [X] T053 运行 `npm run typecheck`（`tsc --noEmit`）确保零 TypeScript 类型错误
+- [X] T054 运行 `npm run build` 验证生产构建产物成功，大小在目标范围内（108.3 KB gzip，< 150KB 目标）
 - [ ] T055 执行 `quickstart.md` 中全部 7 个验证场景 + 边界情况手动测试，记录并修复发现的缺陷
 
 **检查点**：所有功能页面就绪且通过 quickstart.md 验证
