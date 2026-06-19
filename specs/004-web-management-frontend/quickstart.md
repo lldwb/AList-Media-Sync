@@ -1,24 +1,60 @@
 # 快速入门验证指南：Web 管理前端界面
 
-**功能**：004-web-management-frontend | **日期**：2026-06-19
+**功能**：004-web-management-frontend | **日期**：2026-06-19 | **修订**：2026-06-19（React + TypeScript + Vite + Tailwind CSS 开发环境）
 
 ## 前提条件
 
-- Java 21 + Maven（或 Docker）
-- AList-Media-Sync 后端服务已构建并运行（端口 8080）
-- 至少一个可用的现代浏览器（Chrome / Firefox / Edge）
+### 后端
 
-## 启动服务
+- Java 21 + Maven
+- AList-Media-Sync 后端服务已构建并运行（端口 8080）
+
+### 前端开发环境
+
+- **Node.js**：22.x LTS（≥22.0.0）
+- **包管理器**：npm（随 Node.js 提供）或 pnpm（推荐，更快）
+- **浏览器**：Chrome 118+、Firefox 121+ 或 Edge 120+
 
 ```bash
-# 方式一：Maven 直接启动
-mvn spring-boot:run
+# 检查 Node.js 版本
+node --version  # 应输出 v22.x.x
 
-# 方式二：Docker 启动
-docker compose up -d
+# 安装依赖
+cd src/main/frontend
+npm install
+# 或
+pnpm install
 ```
 
-服务启动后，访问 `http://localhost:8080/app/` 进入 Web 管理界面。
+## 启动开发服务器
+
+```bash
+# 终端 1：启动后端（端口 8080）
+cd <项目根目录>
+mvn spring-boot:run
+
+# 终端 2：启动前端开发服务器（端口 5173，代理 API → 8080）
+cd src/main/frontend
+npm run dev
+# 或
+pnpm dev
+```
+
+前端开发服务器启动后，访问 `http://localhost:5173` 进入 Web 管理界面。
+
+Vite 配置了 proxy：`/api/**` 请求自动转发到 `http://localhost:8080`，避免跨域问题。
+
+## 生产构建
+
+```bash
+cd src/main/frontend
+npm run build
+# 产物输出到 ../resources/static/app/
+
+# 或全量构建（前端 + 后端）：
+cd <项目根目录>
+mvn package   # 如果 Dockerfile 或 pom.xml 已集成前端构建
+```
 
 ## 验证场景
 
@@ -26,7 +62,7 @@ docker compose up -d
 
 | 步骤 | 操作 | 预期结果 |
 |------|------|---------|
-| 1 | 访问 `http://localhost:8080/app/` | 自动跳转到登录页面（`/app/#/login`） |
+| 1 | 访问 `http://localhost:5173` | 自动跳转到登录页面（`/#/login`） |
 | 2 | 不输入任何内容，点击登录 | 提示"请输入用户名和密码" |
 | 3 | 输入错误密码，点击登录 | 页面显示"用户名或密码错误"，用户名输入框不清空 |
 | 4 | 输入正确凭据（默认 admin / admin123），点击登录 | 跳转到仪表板页面 |
@@ -60,8 +96,8 @@ docker compose up -d
 | 步骤 | 操作 | 预期结果 |
 |------|------|---------|
 | 1 | 编辑同步任务，执行计划选择"cron 表达式" | cron 输入框出现 |
-| 2 | 输入 `0 */6 * * *` | 输入框旁显示"每 6 小时执行一次"，下次执行时间预览 |
-| 3 | 输入 `invalid cron` | 输入框旁显示红色"cron 表达式格式错误" |
+| 2 | 输入 `0 */6 * * *` | 输入框下方显示"每 6 小时执行一次"，下次执行时间预览 |
+| 3 | 输入 `invalid cron` | 输入框下方显示红色"cron 表达式格式错误" |
 
 ### 场景 5：转码任务管理
 
@@ -97,7 +133,34 @@ docker compose up -d
 |------|------|---------|
 | 会话过期 | 登录后等待 30 分钟不操作 → 刷新页面 | 自动跳转到登录页，显示"会话已过期，请重新登录" |
 | 空数据状态 | 删除所有引擎后访问引擎页面 | 显示"暂无存储引擎"及引导按钮"创建第一个引擎" |
-| 网络中断 | 启动服务后手动停止后端 → 在页面上操作 | 显示"连接失败，正在重试"提示 |
-| 页面刷新恢复 | 在任务详情页（`/app/#/sync-tasks/3`）按 F5 刷新 | 页面重新加载后仍显示同一任务详情 |
+| 网络中断 | 启动服务后手动停止后端 → 在页面上操作 | 显示"连接失败，正在重试"横幅提示 |
+| 页面刷新恢复 | 在任务详情页（`/#/sync-tasks/3`）按 F5 刷新 | 页面重新加载后仍显示同一任务详情 |
 | 表单校验 | 在创建引擎表单中留空必填字段 → 提交 | 字段下方显示红色错误提示"此项为必填" |
 | 删除确认 | 删除一个同步任务 | 弹出确认对话框，显示任务名称 |
+| TypeScript 类型检查 | 运行 `npm run typecheck` | 零类型错误 |
+
+## 开发工作流
+
+```bash
+# 类型检查（无需启动浏览器）
+npm run typecheck       # tsc --noEmit
+
+# 生产构建预览
+npm run build && npm run preview
+
+# 代码检查（如果配置了 ESLint）
+npm run lint
+```
+
+## 目录速查
+
+| 路径 | 内容 |
+|------|------|
+| `src/main/frontend/src/api/client.ts` | HTTP 请求封装 |
+| `src/main/frontend/src/auth/AuthContext.tsx` | 认证上下文 |
+| `src/main/frontend/src/router/index.tsx` | Hash 路由表 |
+| `src/main/frontend/src/types/api.ts` | API 类型定义 |
+| `src/main/frontend/src/hooks/` | 通用 hooks（usePolling、usePagination） |
+| `src/main/frontend/src/utils/` | 工具函数（cron、format、validate） |
+| `src/main/frontend/src/components/ui/` | 可复用 UI 组件 |
+| `src/main/frontend/src/pages/` | 页面组件 |
