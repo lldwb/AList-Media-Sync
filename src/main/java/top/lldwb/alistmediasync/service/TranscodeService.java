@@ -27,6 +27,8 @@ import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.Semaphore;
 import java.util.concurrent.TimeUnit;
 
+import tools.jackson.databind.json.JsonMapper;
+
 /**
  * 转码引擎（核心服务）
  * <p>
@@ -59,6 +61,7 @@ public class TranscodeService {
     private final StorageEngineRepository storageEngineRepository;
     private final AListClient alistClient;
     private final AppProperties appProperties;
+    private final JsonMapper objectMapper;
 
     @Lazy
     private final TranscodeService self;
@@ -606,7 +609,7 @@ public class TranscodeService {
 
     private String toJson(Object obj) {
         try {
-            return new com.fasterxml.jackson.databind.ObjectMapper().writeValueAsString(obj);
+            return objectMapper.writeValueAsString(obj);
         } catch (Exception e) {
             return obj.toString();
         }

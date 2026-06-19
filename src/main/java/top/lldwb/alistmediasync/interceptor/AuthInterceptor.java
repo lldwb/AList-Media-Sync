@@ -1,6 +1,6 @@
 package top.lldwb.alistmediasync.interceptor;
 
-import com.fasterxml.jackson.databind.ObjectMapper;
+import tools.jackson.databind.json.JsonMapper;
 import jakarta.servlet.http.HttpServletRequest;
 import jakarta.servlet.http.HttpServletResponse;
 import lombok.extern.slf4j.Slf4j;
@@ -35,9 +35,9 @@ public class AuthInterceptor implements HandlerInterceptor {
     };
 
     private final AppProperties appProperties;
-    private final ObjectMapper objectMapper;
+    private final JsonMapper objectMapper;
 
-    public AuthInterceptor(AppProperties appProperties, ObjectMapper objectMapper) {
+    public AuthInterceptor(AppProperties appProperties, JsonMapper objectMapper) {
         this.appProperties = appProperties;
         this.objectMapper = objectMapper;
     }
