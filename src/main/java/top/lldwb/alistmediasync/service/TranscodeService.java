@@ -2,7 +2,6 @@ package top.lldwb.alistmediasync.service;
 
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
-import org.springframework.context.annotation.Lazy;
 import org.springframework.scheduling.annotation.Async;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
@@ -11,42 +10,28 @@ import top.lldwb.alistmediasync.config.AppProperties;
 import top.lldwb.alistmediasync.entity.*;
 import top.lldwb.alistmediasync.repository.*;
 import top.lldwb.alistmediasync.util.*;
-import ws.schild.jave.Encoder;
-import ws.schild.jave.MultimediaObject;
-import ws.schild.jave.encode.AudioAttributes;
-import ws.schild.jave.encode.EncodingAttributes;
-import ws.schild.jave.encode.VideoAttributes;
+import tools.jackson.databind.json.JsonMapper;
 
-import java.io.File;
 import java.io.IOException;
 import java.io.InputStream;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.util.*;
 import java.util.concurrent.CompletableFuture;
-import java.util.concurrent.Semaphore;
 import java.util.concurrent.TimeUnit;
 
-import tools.jackson.databind.json.JsonMapper;
-
 /**
- * 转码引擎（核心服务）
+ * 转码引擎（编排层）
  * <p>
  * 实现两阶段处理的视频转码系统：
  * <ol>
  *   <li><b>阶段 1 — 扫描</b>：单线程递归遍历源目录，MagicBytes 检测视频格式，收集候选文件</li>
- *   <li><b>阶段 2 — 并行转码</b>：多线程并行执行转码，Semaphore 控制并发上限</li>
+ *   <li><b>阶段 2 — 并行转码</b>：委托 {@link TranscodeFileProcessor} 异步执行转码</li>
  * </ol>
  * </p>
  * <p>
- * 集成 Feature 002 的全部临时文件管理能力：
- * <ul>
- *   <li>可配置临时文件后缀（{@code app.transcode.temp-suffix}）</li>
- *   <li>本地临时目录暂存 → 转码 → 重命名 → 上传 → 删除</li>
- *   <li>磁盘空间预估检查（1.5 倍安全阈值）</li>
- *   <li>并发上限控制（Semaphore）</li>
- *   <li>上传失败保留文件供手动重试</li>
- * </ul>
+ * 文件转码逻辑已提取至 {@link TranscodeFileProcessor}（方案 B），
+ * 彻底消除 SyncService ↔ TranscodeService 的循环依赖。
  * </p>
  *
  * @author AList-Media-Sync
@@ -61,22 +46,7 @@ public class TranscodeService {
     private final StorageEngineRepository storageEngineRepository;
     private final AListClient alistClient;
     private final AppProperties appProperties;
-
-    @Lazy
-    private final TranscodeService self;
-
-    /** 并发转码信号量（由配置 maxConcurrentTranscode 控制上限） */
-    private Semaphore semaphore;
-
-    /**
-     * 初始化信号量
-     */
-    @jakarta.annotation.PostConstruct
-    void init() {
-        int maxConcurrent = appProperties.getTranscode().getMaxConcurrentTranscode();
-        this.semaphore = new Semaphore(maxConcurrent);
-        log.info("转码引擎已初始化，最大并发数：{}", maxConcurrent);
-    }
+    private final TranscodeFileProcessor fileProcessor;
 
     /**
      * 创建独立转码任务
@@ -129,7 +99,7 @@ public class TranscodeService {
     }
 
     // ================================================================
-    // 核心转码流程
+    // 核心转码流程（编排）
     // ================================================================
 
     /**
@@ -176,7 +146,7 @@ public class TranscodeService {
     }
 
     /**
-     * 内部转码执行流程
+     * 内部转码执行流程（编排：扫描 → 并行转发到 TranscodeFileProcessor）
      */
     private void executeTaskInternal(StorageEngine sourceEngine, StorageEngine targetEngine,
                                       String sourcePath, String targetPath, String targetFormatStr,
@@ -202,10 +172,10 @@ public class TranscodeService {
         log.info("扫描完成，发现 {} 个待转码文件", candidates.size());
         execution.setTotalFiles(candidates.size());
 
-        // 阶段 2：并行转码
+        // 阶段 2：并行转码 — 委托到 TranscodeFileProcessor（无循环依赖）
         List<CompletableFuture<TranscodeResult>> futures = new ArrayList<>();
         for (TranscodeCandidate candidate : candidates) {
-            CompletableFuture<TranscodeResult> future = self.transcodeFile(
+            CompletableFuture<TranscodeResult> future = fileProcessor.process(
                 candidate, targetFormat, tempSuffix, tempDir, targetEngine, syncTask, execution);
             futures.add(future);
         }
@@ -216,13 +186,13 @@ public class TranscodeService {
         for (int i = 0; i < futures.size(); i++) {
             try {
                 TranscodeResult result = futures.get(i).get(10, TimeUnit.MINUTES);
-                if (result.success) {
+                if (result.success()) {
                     successCount++;
                 } else {
-                    failures.add(result.sourceFileName + ": " + result.error);
+                    failures.add(result.sourceFileName() + ": " + result.error());
                 }
             } catch (Exception e) {
-                failures.add(candidates.get(i).name + ": " + e.getMessage());
+                failures.add(candidates.get(i).name() + ": " + e.getMessage());
             }
         }
 
@@ -298,190 +268,6 @@ public class TranscodeService {
     }
 
     // ================================================================
-    // 阶段 2：单文件转码（@Async + Semaphore）
-    // ================================================================
-
-    @Async("transcodeExecutor")
-    public CompletableFuture<TranscodeResult> transcodeFile(
-        TranscodeCandidate candidate, TranscodeTask.TargetFormat targetFormat,
-        String tempSuffix, Path tempDir, StorageEngine targetEngine,
-        SyncTask syncTask, TaskExecution execution) {
-
-        try {
-            semaphore.acquire();
-        } catch (InterruptedException e) {
-            Thread.currentThread().interrupt();
-            return CompletableFuture.completedFuture(
-                new TranscodeResult(candidate.name, false, "线程被中断"));
-        }
-
-        try {
-            TranscodeResult result = doTranscode(candidate, targetFormat, tempSuffix, tempDir,
-                targetEngine, syncTask, execution);
-            return CompletableFuture.completedFuture(result);
-        } finally {
-            semaphore.release();
-        }
-    }
-
-    private TranscodeResult doTranscode(TranscodeCandidate candidate,
-                                         TranscodeTask.TargetFormat targetFormat,
-                                         String tempSuffix, Path tempDir,
-                                         StorageEngine targetEngine,
-                                         SyncTask syncTask, TaskExecution execution) {
-
-        Path tempFile = null;
-        Path finalFile = null;
-        TranscodeTask transcodeTask = null;
-
-        try {
-            // 1. 创建 TranscodeTask 记录
-            transcodeTask = new TranscodeTask();
-            transcodeTask.setSyncTask(syncTask);
-            transcodeTask.setSourceFilePath(candidate.fullPath);
-            transcodeTask.setTargetFilePath(candidate.targetPath);
-            transcodeTask.setTargetFormat(targetFormat);
-            transcodeTask.setStatus(TranscodeTask.TranscodeStatus.TRANSCODING);
-            if (targetEngine != null) {
-                transcodeTask.setTargetEngineId(targetEngine.getId());
-            }
-            transcodeTask = repository.save(transcodeTask);
-
-            // 2. 获取源文件信息（时长等）
-            // 从 AList 下载源文件到临时位置用于转码
-            Path sourceTempFile = Files.createTempFile("alist-src-", "." + candidate.format.toLowerCase());
-            StorageEngine sourceEngine = candidate.sourceEngine != null ? candidate.sourceEngine : targetEngine;
-            try (InputStream in = alistClient.downloadFile(
-                sourceEngine.getBaseUrl(), sourceEngine.getEncryptedToken(), candidate.fullPath)) {
-                if (in == null) throw new IOException("下载源文件失败：" + candidate.fullPath);
-                Files.copy(in, sourceTempFile, java.nio.file.StandardCopyOption.REPLACE_EXISTING);
-            }
-
-            // 3. 获取源文件时长用于磁盘空间预估
-            long durationMs = 0;
-            try {
-                MultimediaObject mmObj = new MultimediaObject(sourceTempFile.toFile());
-                durationMs = mmObj.getInfo().getDuration();
-            } catch (Exception e) {
-                log.warn("无法获取源文件时长：{}，跳过空间预估", candidate.name);
-            }
-
-            // 4. 磁盘空间检查
-            long estimatedSize = DiskSpaceChecker.estimateOutputSize(durationMs, 128000);
-            DiskSpaceChecker.checkSufficient(tempDir, estimatedSize);
-
-            // 5. 创建临时输出文件
-            String outputExt = targetFormat.name().toLowerCase();
-            tempFile = TempFileManager.createTempFile(tempDir, candidate.name, tempSuffix);
-            transcodeTask.setTempFilePath(tempFile.toString());
-            repository.save(transcodeTask);
-
-            // 6. 构建 JAVE2 转码参数
-            EncodingAttributes attrs = buildEncodingAttributes(targetFormat);
-
-            // 7. 执行转码（带进度监听）
-            log.info("开始转码：{} ({} -> {})", candidate.name, candidate.format, outputExt);
-            Encoder encoder = new Encoder();
-            encoder.encode(new MultimediaObject(sourceTempFile.toFile()),
-                tempFile.toFile(), attrs,
-                new TranscodeProgressListener(transcodeTask));
-
-            // 8. 转码成功 — 重命名去掉临时后缀
-            finalFile = TempFileManager.renameToFinal(tempFile, outputExt);
-            transcodeTask.setTempFilePath(finalFile.toString());
-            transcodeTask.setStatus(TranscodeTask.TranscodeStatus.UPLOADING);
-            repository.save(transcodeTask);
-
-            // 9. 上传到目标 AList
-            String targetFileName = getOutputName(candidate.name);
-            String remotePath = targetFileName.contains("/")
-                ? candidate.targetPath.replace(candidate.name, targetFileName)
-                : concatDirAndName(getDirPath(candidate.targetPath), targetFileName);
-
-            try (InputStream fileIn = Files.newInputStream(finalFile)) {
-                alistClient.uploadFile(targetEngine.getBaseUrl(), targetEngine.getEncryptedToken(),
-                    remotePath, fileIn, Files.size(finalFile));
-            }
-
-            // 10. 上传成功 → 删除本地文件
-            TempFileManager.deleteQuietly(finalFile);
-            transcodeTask.setStatus(TranscodeTask.TranscodeStatus.COMPLETED);
-            transcodeTask.setProgress(1000);
-            repository.save(transcodeTask);
-
-            // 清理源临时文件
-            TempFileManager.deleteQuietly(sourceTempFile);
-
-            log.info("转码完成：{} -> {}", candidate.name, remotePath);
-            return new TranscodeResult(candidate.name, true, null);
-
-        } catch (Exception e) {
-            log.error("转码失败：{} — {}", candidate.name, e.getMessage(), e);
-
-            if (transcodeTask != null) {
-                transcodeTask.setStatus(TranscodeTask.TranscodeStatus.FAILED);
-                transcodeTask.setErrorMessage(e.getMessage());
-                // 保留 finalFile 路径用于手动重试
-                if (finalFile != null) {
-                    transcodeTask.setTempFilePath(finalFile.toString());
-                }
-                repository.save(transcodeTask);
-            }
-
-            return new TranscodeResult(candidate.name, false, e.getMessage());
-        }
-    }
-
-    // ================================================================
-    // 转码参数构建
-    // ================================================================
-
-    private EncodingAttributes buildEncodingAttributes(TranscodeTask.TargetFormat targetFormat) {
-        EncodingAttributes attrs = new EncodingAttributes();
-
-        switch (targetFormat) {
-            case MP3 -> {
-                // 仅音频输出：libmp3lame 128kbps 立体声 44100Hz
-                attrs.setOutputFormat("mp3");
-                AudioAttributes audio = new AudioAttributes();
-                audio.setCodec("libmp3lame");
-                audio.setBitRate(128000);
-                audio.setChannels(2);
-                audio.setSamplingRate(44100);
-                attrs.setAudioAttributes(audio);
-            }
-            case MP4 -> {
-                // 视频+音频：libx264 + aac
-                attrs.setOutputFormat("mp4");
-                VideoAttributes video = new VideoAttributes();
-                video.setCodec("libx264");
-                attrs.setVideoAttributes(video);
-                AudioAttributes audio = new AudioAttributes();
-                audio.setCodec("aac");
-                audio.setBitRate(128000);
-                audio.setChannels(2);
-                audio.setSamplingRate(44100);
-                attrs.setAudioAttributes(audio);
-            }
-            case FLV -> {
-                // 视频+音频：flv + libmp3lame
-                attrs.setOutputFormat("flv");
-                VideoAttributes video = new VideoAttributes();
-                video.setCodec("flv");
-                attrs.setVideoAttributes(video);
-                AudioAttributes audio = new AudioAttributes();
-                audio.setCodec("libmp3lame");
-                audio.setBitRate(128000);
-                audio.setChannels(2);
-                audio.setSamplingRate(44100);
-                attrs.setAudioAttributes(audio);
-            }
-        }
-
-        return attrs;
-    }
-
-    // ================================================================
     // 手动重试上传
     // ================================================================
 
@@ -525,47 +311,6 @@ public class TranscodeService {
 
         log.info("手动重试上传成功：{} -> {}", localFile, remotePath);
         return true;
-    }
-
-    // ================================================================
-    // 进度持久化
-    // ================================================================
-
-    /**
-     * 转码进度监听器
-     */
-    private class TranscodeProgressListener implements ws.schild.jave.progress.EncoderProgressListener {
-
-        private final TranscodeTask task;
-        private int lastSavedProgress = 0;
-
-        TranscodeProgressListener(TranscodeTask task) {
-            this.task = task;
-        }
-
-        @Override
-        public void progress(int permil) {
-            task.setProgress(permil);
-            // 每 5% 步进一次，避免频繁写库
-            if (permil - lastSavedProgress >= 50) {
-                lastSavedProgress = permil;
-                try {
-                    repository.save(task);
-                } catch (Exception e) {
-                    log.debug("进度持久化失败（非关键）：{}", e.getMessage());
-                }
-            }
-        }
-
-        @Override
-        public void sourceInfo(ws.schild.jave.info.MultimediaInfo info) {
-            // 不实现额外的源信息处理
-        }
-
-        @Override
-        public void message(String message) {
-            // 不实现额外的消息处理
-        }
     }
 
     // ================================================================
@@ -615,14 +360,6 @@ public class TranscodeService {
     }
 
     // ================================================================
-    // 内部类
+    // 内部类（已提取为独立文件：TranscodeCandidate.java / TranscodeResult.java）
     // ================================================================
-
-    /** 转码候选文件 */
-    record TranscodeCandidate(String name, String fullPath, String targetPath, String format, long size) {
-        static StorageEngine sourceEngine;
-    }
-
-    /** 转码结果 */
-    record TranscodeResult(String sourceFileName, boolean success, String error) {}
 }

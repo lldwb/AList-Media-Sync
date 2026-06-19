@@ -1,0 +1,23 @@
+package top.lldwb.alistmediasync.service;
+
+import top.lldwb.alistmediasync.entity.StorageEngine;
+
+/**
+ * 转码候选文件（DTO）
+ *
+ * @param name       文件名
+ * @param fullPath   源完整路径
+ * @param targetPath 目标路径
+ * @param format     视频格式（由 MagicBytes 检测）
+ * @param size       文件大小（字节）
+ */
+public record TranscodeCandidate(
+        String name,
+        String fullPath,
+        String targetPath,
+        String format,
+        long size
+) {
+    /** 关联的源存储引擎（扫描阶段设置） */
+    static StorageEngine sourceEngine;
+}
