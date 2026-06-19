@@ -138,7 +138,7 @@ public class ServerAddressLogger {
         sb.append("========================================\n");
         int idx = 1;
         for (String url : urls) {
-            sb.append("  [").append(idx++).append("] ").append(url).append("\n");
+            sb.append("  [").append(idx++).append("] ").append(url).append("/app/\n");
         }
         sb.append("========================================");
         log.info(sb.toString());
