@@ -1,10 +1,13 @@
 ---
 name: speckit-agent-context-update
 description: 刷新编码代理上下文文件中受管理的 Spec Kit 区块
+argument-hint: "可选指定计划路径"
 compatibility: 需要包含 .specify/ 目录的 spec-kit 项目结构
 metadata:
   author: github-spec-kit
   source: agent-context:commands/speckit.agent-context.update.md
+user-invocable: true
+disable-model-invocation: false
 ---
 
 # 更新编码代理上下文

@@ -1,6 +1,7 @@
 ---
 name: "speckit-converge"
 description: "根据功能的规格、计划和任务评估当前代码库，然后将任何剩余的未构建工作作为新任务追加到 tasks.md，以便实现阶段可以完成它们。"
+argument-hint: "可选的分析重点领域"
 compatibility: "需要包含 .specify/ 目录的 spec-kit 项目结构"
 metadata:
   author: "github-spec-kit"
