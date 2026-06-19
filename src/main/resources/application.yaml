@@ -13,6 +13,8 @@ server:
 spring:
   application:
     name: AList-Media-Sync
+  main:
+    allow-circular-references: true       # SyncService ↔ TranscodeService 循环引用（设计债务，后续重构修复）
   lifecycle:
     timeout-per-shutdown-phase: 12s    # 优雅关闭超时（略小于 Docker Compose stop_grace_period: 35s）
   datasource:
