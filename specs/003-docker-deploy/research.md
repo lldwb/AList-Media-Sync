@@ -120,10 +120,10 @@ USER appuser
 
 ## 8. Docker Compose 健康检查配置
 
-**决策**：在 `docker-compose.yml` 中配置健康检查，而非在 Dockerfile 中硬编码。
+**决策**：在 `docker-compose.yml` 中配置健康检查，而非在 Dockerfile 中硬编码 HEALTHCHECK 指令。
 
 **理由**：
-- 保持 Dockerfile 简洁，不依赖 `wget` 或 `curl` 等工具
+- 保持 Dockerfile 简洁，不在 Dockerfile 中依赖 `wget` 或 `curl` 工具（Dockerfile 中安装 wget 是为 docker-compose.yml 的 healthcheck 提供依赖，而非为 Dockerfile 自身的 HEALTHCHECK 指令）
 - Docker Compose 的健康检查语法更易维护
 - 规格未强制 Dockerfile 级别的健康检查，Docker Compose 方案满足需求
 
