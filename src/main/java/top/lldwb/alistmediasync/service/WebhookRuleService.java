@@ -6,6 +6,7 @@ import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 import top.lldwb.alistmediasync.dto.webhook.WebhookRuleCreateDTO;
 import top.lldwb.alistmediasync.dto.webhook.WebhookRuleVO;
+import top.lldwb.alistmediasync.entity.StorageEngine;
 import top.lldwb.alistmediasync.entity.WebhookRule;
 import top.lldwb.alistmediasync.repository.StorageEngineRepository;
 import top.lldwb.alistmediasync.repository.WebhookRuleRepository;
@@ -31,12 +32,18 @@ public class WebhookRuleService {
 
     @Transactional
     public WebhookRuleVO create(WebhookRuleCreateDTO dto) {
+        if (dto.getTargetEngineId() == null || dto.getTargetEngineId() < 1) {
+            throw new IllegalArgumentException("targetEngineId 必须为正整数");
+        }
+        StorageEngine engine = storageEngineRepository.findById(dto.getTargetEngineId())
+            .orElseThrow(() -> new NoSuchElementException(
+                "目标存储引擎不存在：id=" + dto.getTargetEngineId()));
         WebhookRule entity = new WebhookRule();
         entity.setName(dto.getName());
         entity.setTriggerEventType(dto.getTriggerEventType());
         entity.setRoomIdFilter(dto.getRoomIdFilter());
         entity.setAction(dto.getAction());
-        entity.setTargetEngine(storageEngineRepository.getReferenceById(dto.getTargetEngineId()));
+        entity.setTargetEngine(engine);
         entity.setTargetPath(dto.getTargetPath());
         entity.setEnabled(true);
         entity = repository.save(entity);

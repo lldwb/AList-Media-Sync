@@ -1,5 +1,6 @@
 package top.lldwb.alistmediasync.dto.webhook;
 
+import jakarta.validation.constraints.Min;
 import jakarta.validation.constraints.NotBlank;
 import jakarta.validation.constraints.NotNull;
 import lombok.Data;
@@ -30,6 +31,7 @@ public class WebhookRuleCreateDTO {
 
     /** 目标存储引擎 ID */
     @NotNull(message = "目标存储引擎不能为空")
+    @Min(value = 1, message = "目标存储引擎 ID 必须为正整数")
     private Long targetEngineId;
 
     /** 目标目录路径 */
