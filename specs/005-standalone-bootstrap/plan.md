@@ -79,8 +79,9 @@ specs/005-standalone-bootstrap/
 
 ```text
 .
-├── start.bat                     # 新增：Windows 启动脚本
-├── start.sh                      # 新增：Linux/Mac 启动脚本
+├── scripts/
+│   ├── start.bat                  # 新增：Windows 启动脚本（源码，打包后复制到根目录）
+│   └── start.sh                   # 新增：Linux/Mac 启动脚本（源码，打包后复制到根目录）
 ├── src/
 │   └── main/
 │       ├── java/top/lldwb/alistmediasync/
@@ -95,7 +96,7 @@ specs/005-standalone-bootstrap/
 ├── assembly/
 │   └── bootstrap.xml              # 新增：Maven Assembly 描述符（定义启动包目录结构）
 ├── pom.xml                        # 修改：添加 bootstrap profile、Maven Assembly 插件
-└── Dockerfile                     # 可能修改：容器环境变量标记
+└── Dockerfile                     # 修改：容器环境变量标记
 ```
 
 **结构决策**：启动脚本放置在项目根目录（标准惯例，与 `mvnw` 同级）。打包描述符放在 `assembly/` 子目录以保持根目录整洁。遵循"选项 1：单项目"布局，无需多层目录结构。

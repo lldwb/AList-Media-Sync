@@ -54,8 +54,8 @@
 
 ### 用户故事 1 的实现
 
-- [ ] T007 [P] [US1] 创建 `scripts/start.sh` Linux 启动脚本，实现：路径解析（`readlink -f`）、JRE 检测、配置文件检测、端口检测（`ss`）、磁盘空间检测（`df`）、已有实例检测（PID 文件 + `kill -0`）、JVM 启动、PID 写入、Ctrl+C 优雅退出（参考 contracts/startup-scripts.md）
-- [ ] T008 [P] [US1] 创建 `scripts/start.bat` Windows 启动脚本，实现：路径解析（`%~dp0`）、JRE 检测、配置文件检测、端口检测（`netstat`）、磁盘空间检测（`wmic`）、已有实例检测（`tasklist`）、JVM 启动、PID 写入、Ctrl+C 优雅退出（参考 contracts/startup-scripts.md）
+- [ ] T007 [P] [US1] 创建 `scripts/start.sh` Linux 启动脚本，实现：路径解析（`readlink -f`）、JRE 检测（含架构匹配检测 `uname -m`，非 x86_64 架构输出明确提示）、配置文件检测、端口检测（`ss`）、磁盘空间检测（`df`）、已有实例检测（PID 文件 + `kill -0`）、JVM 启动、PID 写入、Ctrl+C 优雅退出（参考 contracts/startup-scripts.md）
+- [ ] T008 [P] [US1] 创建 `scripts/start.bat` Windows 启动脚本，实现：路径解析（`%~dp0`）、JRE 检测（含架构匹配检测 `echo %PROCESSOR_ARCHITECTURE%`，非 AMD64 架构输出明确提示）、配置文件检测、端口检测（`netstat`）、磁盘空间检测（`wmic`）、已有实例检测（`tasklist`）、JVM 启动、PID 写入、Ctrl+C 优雅退出（参考 contracts/startup-scripts.md）
 - [ ] T009 [US1] 增强 `src/main/java/top/lldwb/alistmediasync/util/ServerAddressLogger.java`：添加应用名称/版本输出、功能路径列表（`/app/`、`/api/`、`/actuator/health`、`/h2-console`）、网络接口名称标注、醒目的启动成功横幅格式（参考 data-model.md 实体 4 输出格式示例）
 - [ ] T010 [US1] 在 `src/main/resources/application.yaml` 中添加 `app.version` 和 `app.name` 配置项注释，调整 `data-dir` 默认值为 `./data`（启动包场景）
 
@@ -79,7 +79,7 @@
 - [ ] T014 [US2] 在 `scripts/start.bat` 中实现磁盘空间不足时的交互式确认（`choice` 命令）和非交互模式自动退出逻辑
 - [ ] T015 [US2] 在 `scripts/start.sh` 和 `scripts/start.bat` 中实现已有实例检测的交互式确认（询问是否强制重启，旧进程终止后继续启动）
 
-**检查点**：此时，5 种常见启动故障（端口占用、配置文件缺失、磁盘空间不足、JRE 缺失、数据目录无写入权限）的检测覆盖率达到 100%
+**检查点**：此时，5 种常见启动故障（端口占用、配置文件缺失、磁盘空间不足、JRE 缺失、JRE 架构不匹配、数据目录无写入权限）的检测覆盖率达到 100%
 
 ---
 
@@ -115,7 +115,7 @@
 
 ### 用户故事 4 的实现
 
-- [ ] T022 [US4] 在 `pom.xml` 的 `bootstrap` profile 中配置 JRE 下载逻辑：通过 `exec-maven-plugin` 调用 Adoptium API v3 下载对应平台的 Temurin JRE 21，解压到 `${project.build.directory}/runtime/`，校验 SHA-256（参考 research.md 决策 1 和 contracts/build-packaging.md JRE 下载契约）
+- [ ] T022 [US4] 在 `pom.xml` 的 `bootstrap` profile 中配置 JRE 下载逻辑：通过 `exec-maven-plugin` 调用 Adoptium API v3 下载对应平台的 Temurin JRE 21，解压到 `${project.build.directory}/runtime/`，校验 SHA-256。使用 `${project.build.directory}/bootstrap-tmp/` 作为临时工作目录，配置 `maven-clean-plugin` 在 `clean` 阶段清理临时文件，确保打包中断后残留文件可被清理（参考 research.md 决策 1 和 contracts/build-packaging.md JRE 下载契约）
 - [ ] T023 [US4] 在 `pom.xml` 的 `bootstrap` profile 中配置前端构建集成：`validate` 阶段检查 Node.js 可用性，`compile` 阶段执行 `npm run build`（若 `skip.frontend=false`）（参考 contracts/build-packaging.md 生命周期绑定表）
 - [ ] T024 [US4] 完善 `assembly/bootstrap.xml`：配置 `dependencySets`（JAR 到 `lib/`）、`fileSets`（JRE 到 `runtime/`、启动脚本到根目录、配置文件到 `config/`、空目录 `data/` 和 `logs/`），区分 Windows（`.zip`）和 Linux（`.tar.gz`）格式（参考 contracts/build-packaging.md Assembly Descriptor 契约）
 - [ ] T025 [US4] 在 `pom.xml` 的 `bootstrap` profile 中配置 `verify` 阶段完整性校验：解压产物到临时目录，验证关键文件存在（JAR、JRE 可执行文件、配置文件、启动脚本），输出打包摘要（参考 contracts/build-packaging.md 完整性校验契约和打包摘要输出）

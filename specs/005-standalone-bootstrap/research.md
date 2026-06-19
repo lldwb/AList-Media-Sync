@@ -14,6 +14,7 @@
 | 5 | 端口检测跨平台实现 | 技术上下文 — 启动脚本预检查 | ✅ 已解决 |
 | 6 | 磁盘空间检测阈值 | 技术上下文 — 配置化阈值 | ✅ 已解决 |
 | 7 | 已有实例检测 | 技术上下文 — PID 文件与端口双重检测 | ✅ 已解决 |
+| 8 | JRE 架构匹配检测 | 技术上下文 — 启动脚本预检查 | ✅ 已解决 |
 
 ---
 
@@ -270,6 +271,40 @@ echo $$ > "$PID_FILE"
 
 ---
 
+## 决策 8：JRE 架构匹配检测 — 脚本层实现，`uname -m` / `%PROCESSOR_ARCHITECTURE%`
+
+**决策**：在启动脚本中检测当前操作系统架构是否与内置 JRE 匹配。
+
+**理由**：
+- 启动包为 x86-64 平台构建，若用户在 ARM 机器上运行将导致 `java` 无法执行
+- 在 JRE 存在性检查通过后、JVM 启动前进行架构检测，可给出明确的中文提示而非神秘的"无法执行二进制文件"错误
+- `uname -m` 和 `%PROCESSOR_ARCHITECTURE%` 是操作系统标准机制，零额外依赖
+
+**Linux（`start.sh`）实现**：
+```bash
+ARCH=$(uname -m)
+if [ "$ARCH" != "x86_64" ] && [ "$ARCH" != "amd64" ]; then
+    echo "[错误] 当前系统架构为 $ARCH，本启动包仅支持 x86_64 架构。"
+    echo "建议：请下载对应架构的启动包，或使用 Docker 部署方案。"
+    exit 1
+fi
+```
+
+**Windows（`start.bat`）实现**：
+```batch
+if /i not "%PROCESSOR_ARCHITECTURE%"=="AMD64" (
+    echo [错误] 当前系统架构为 %PROCESSOR_ARCHITECTURE%，本启动包仅支持 x86_64 架构。
+    echo 建议：请下载对应架构的启动包，或使用 Docker 部署方案。
+    exit /b 1
+)
+```
+
+**考虑的替代方案**：
+- **Java 内部检测 `os.arch`**：已太晚，JVM 启动失败后才报错
+- **编译时生成多架构包**：v1 范围外，仅预留扩展空间
+
+---
+
 ## 总结
 
 所有技术未知项均已通过研究解决。主要技术路线确立如下：
@@ -283,3 +318,4 @@ echo $$ > "$PID_FILE"
 | 端口检测 | 脚本层 `ss`（Linux）/ `netstat`（Windows） |
 | 磁盘检测 | 脚本层 `df`（Linux）/ `wmic`（Windows） |
 | 实例检测 | PID 文件 + 端口状态双重判断 |
+| 架构检测 | 脚本层 `uname -m`（Linux）/ `%PROCESSOR_ARCHITECTURE%`（Windows） |
