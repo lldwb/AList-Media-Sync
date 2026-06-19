@@ -2,16 +2,22 @@
 ============================================================
 同步影响报告
 ============================================================
-版本变更：无 → 1.0.0（初始章程创建）
-新增原则：全部 6 条核心原则为首次定义
-新增部分：技术约束、开发工作流、治理
-移除部分：无（模板占位符全部替换）
+版本变更：1.0.0 → 1.1.0（MINOR — 技术栈实质性扩展）
+修改原则：
+  - VI. 简洁至上 — 措辞优化（"RestTemplate → RestClient" 改为 "RestClient 首选"）
+新增部分：
+  - 技术约束 > 前端技术栈（React 19、TypeScript、Vite、Tailwind CSS）
+  - 技术约束 > 基础设施（Docker、Docker Compose）
+  - 技术约束 > 转码引擎（JAVE2）
+  - 技术约束 > 认证（Spring Security Crypto）
+  - 技术约束 > HTTP 客户端（RestClient）
+  - 技术约束 > 监控（Spring Boot Actuator）
+移除部分：无
 模板同步状态：
-  ✅ plan-template.md — 章程检查部分已对齐（中文模板，无需修改）
-  ✅ spec-template.md — 需求与用户故事结构已对齐（中文模板，无需修改）
-  ✅ tasks-template.md — 任务组织与原则驱动分类已对齐（中文模板，无需修改）
-  ✅ checklist-template.md — 检查清单格式已对齐（中文模板，无需修改）
-  ✅ CLAUDE.md / .github/copilot-instructions.md — SPECKIT 区块保持不变
+  ✅ plan-template.md — 中文模板，技术上下文为占位符，无需修改
+  ✅ spec-template.md — 中文模板，需求结构通用，无需修改
+  ✅ tasks-template.md — 中文模板，任务分类通用，无需修改
+  ✅ CLAUDE.md — SPECKIT 区块引用 plan.md 间接包含技术栈，无需修改
 延期 TODO：无
 ============================================================
 -->
@@ -79,7 +85,7 @@
 
 - 仅在明确需要时才引入新技术/依赖（YAGNI — You Aren't Gonna Need It）
 - 任何新增的第三方依赖 MUST 在 plan.md 的「复杂性追踪」中记录并证明合理性
-- 优先使用 Spring Boot 内置能力（如 `RestTemplate` → `RestClient`，手动校验 → Bean Validation）而非引入额外框架
+- 优先使用 Spring Boot 内置能力（如 RestClient 而非第三方 HTTP 库，Bean Validation 而非手写校验逻辑）而非引入额外框架
 - 抽象仅在有第二个具体实现时引入（单一实现 = 不需要接口抽象）
 
 **理由**：简单系统更容易理解、测试和维护。过度设计是技术债务的主要来源。
@@ -88,12 +94,32 @@
 
 以下技术选型为项目级约束，变更需要章程修订：
 
+### 后端
+
 - **语言**：Java 21（LTS，虚拟线程可用）
 - **框架**：Spring Boot 4.1.0（Spring Framework 7.x）
 - **构建**：Maven，pom.xml MUST 保持依赖版本统一管理
-- **数据库**：H2
+- **数据库**：H2（嵌入式，用于单实例部署）
 - **持久化**：Spring Data JPA + Hibernate
+- **HTTP 客户端**：RestClient（Spring Framework 7.x 内置，替代 RestTemplate）
+- **转码引擎**：JAVE2（Java 封装的 FFmpeg，含 win64/linux64 原生二进制）
+- **认证**：Spring Security Crypto（仅使用 BCrypt 密码哈希，不引入完整 Security 框架以遵循 YAGNI）
+- **监控**：Spring Boot Actuator
 - **工具**：Lombok（减少样板代码），Jakarta Validation（声明式校验）
+
+### 前端
+
+- **框架**：React 19 + ReactDOM 19
+- **语言**：TypeScript 5.x（strict 模式）
+- **构建工具**：Vite 6.x（Rollup 打包，开发 HMR < 500ms）
+- **样式方案**：Tailwind CSS 4.x（Vite 插件集成，原子化 CSS）
+- **路由**：React Router v7（Hash 模式，无需服务端 fallback 配置）
+- **构建产出**：Vite 构建后作为静态资源输出到 Spring Boot 静态资源目录，与后端同端口提供服务
+
+### 基础设施
+
+- **容器化**：Docker（多阶段构建） + Docker Compose（单机编排）
+- **部署**：Docker 镜像通过环境变量注入配置，支持 Windows 开发环境与 Linux 生产环境
 
 ## 开发工作流
 
@@ -127,4 +153,4 @@
 - 违反不可协商原则（标记为「不可协商」的条目）的代码 MUST 被拒绝
 - 技术约束的例外 MUST 在 plan.md 的「复杂性追踪」表格中记录并获得批准
 
-**版本**：1.0.0 | **批准日期**：2026-06-19 | **最近修订**：2026-06-19
+**版本**：1.1.0 | **批准日期**：2026-06-19 | **最近修订**：2026-06-19
