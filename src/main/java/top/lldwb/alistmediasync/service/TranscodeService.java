@@ -61,7 +61,6 @@ public class TranscodeService {
     private final StorageEngineRepository storageEngineRepository;
     private final AListClient alistClient;
     private final AppProperties appProperties;
-    private final JsonMapper objectMapper;
 
     @Lazy
     private final TranscodeService self;
@@ -609,7 +608,7 @@ public class TranscodeService {
 
     private String toJson(Object obj) {
         try {
-            return objectMapper.writeValueAsString(obj);
+            return JsonMapper.builder().build().writeValueAsString(obj);
         } catch (Exception e) {
             return obj.toString();
         }
