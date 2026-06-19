@@ -227,8 +227,8 @@
 
 ## 假设
 
-- **A1**：Web 前端作为静态资源嵌入 Spring Boot 应用中，与后端运行在同一进程和同一端口，无需配置 CORS。
-- **A2**：前端采用纯 HTML/CSS/JavaScript 或轻量级框架实现，不引入 React/Vue/Angular 等重前端框架（遵循 YAGNI 原则，本项目功能复杂度不需要 SPA 框架）。如评估后发现轻量框架（Vue.js CDN 引入）能显著提升开发效率和代码可维护性，可在 plan 阶段讨论。
+- **A1**：Web 前端经 Vite 构建后作为静态资源嵌入 Spring Boot 应用中（输出到 `src/main/resources/static/app/`），与后端运行在同一进程和同一端口，无需额外 Web 服务器或 CORS 配置。
+- **A2**：前端采用 React 19 + TypeScript + Vite + Tailwind CSS 技术栈实现。与纯 HTML/CSS/JS 或 Vue.js CDN 方案相比，React + TypeScript 提供类型安全和更强的组件化能力，Vite 提供高效构建，Tailwind CSS 消除手写 CSS 维护负担。此选择已经过 plan 阶段完整评估（理由详见 research.md R1 和 plan.md 复杂性追踪）。
 - **A3**：目标用户使用桌面浏览器（分辨率 1024×768 及以上），不支持移动端小屏触屏交互。平板设备（768px 宽度及以上）保持基本可用性。
 - **A4**：前端认证采用 HTTP Basic Authentication 方式，凭据（用户名:密码 Base64 编码）通过 `Authorization` 请求头在每个 API 请求中携带。
 - **A5**：前端页面路由使用 URL Hash（`#/page-name`）或 History API 实现，具体方案在 plan 阶段确定。
