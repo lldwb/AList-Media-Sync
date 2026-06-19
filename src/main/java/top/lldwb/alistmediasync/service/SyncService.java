@@ -1,7 +1,7 @@
 package top.lldwb.alistmediasync.service;
 
-import com.fasterxml.jackson.core.JsonProcessingException;
-import com.fasterxml.jackson.databind.ObjectMapper;
+import tools.jackson.core.JacksonException;
+import tools.jackson.databind.json.JsonMapper;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.scheduling.annotation.Async;
@@ -50,7 +50,7 @@ public class SyncService {
     private final StorageEngineRepository storageEngineRepository;
     private final TaskExecutionRepository taskExecutionRepository;
     private final TranscodeService transcodeService;
-    private final ObjectMapper objectMapper;
+    private final JsonMapper objectMapper;
 
     /** 正在执行的任务执行记录缓存（用于进度查询） */
     private final Map<Long, TaskExecution> activeExecutions = new ConcurrentHashMap<>();
@@ -362,7 +362,7 @@ public class SyncService {
     private String toJson(Object obj) {
         try {
             return objectMapper.writeValueAsString(obj);
-        } catch (JsonProcessingException e) {
+        } catch (JacksonException e) {
             return obj.toString();
         }
     }

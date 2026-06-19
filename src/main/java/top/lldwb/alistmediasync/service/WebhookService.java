@@ -1,7 +1,7 @@
 package top.lldwb.alistmediasync.service;
 
-import com.fasterxml.jackson.core.JsonProcessingException;
-import com.fasterxml.jackson.databind.ObjectMapper;
+import tools.jackson.core.JacksonException;
+import tools.jackson.databind.json.JsonMapper;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.scheduling.annotation.Async;
@@ -41,7 +41,7 @@ public class WebhookService {
     private final TranscodeService transcodeService;
     private final StorageEngineRepository storageEngineRepository;
     private final TaskExecutionRepository taskExecutionRepository;
-    private final ObjectMapper objectMapper;
+    private final JsonMapper objectMapper;
 
     /**
      * 接收 Webhook 事件（同步执行，立即返回）
@@ -80,7 +80,7 @@ public class WebhookService {
         // 3. 保存原始数据
         try {
             event.setRawData(objectMapper.writeValueAsString(eventData));
-        } catch (JsonProcessingException e) {
+        } catch (JacksonException e) {
             event.setRawData(eventData.toString());
         }
 
