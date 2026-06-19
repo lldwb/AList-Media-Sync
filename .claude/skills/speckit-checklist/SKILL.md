@@ -63,7 +63,7 @@ $ARGUMENTS
     提示：{prompt}
     执行方式：`/{command}`
     ```
-  - **强制钩子**（`optional: false`）：
+  - **强制钩子**（`optional: false`）— **必须为每个强制钩子输出 `EXECUTE_COMMAND:`**：
     ```
     ## 扩展钩子
 
@@ -363,7 +363,7 @@ $ARGUMENTS
     提示：{prompt}
     执行方式：`/{command}`
     ```
-  - **强制钩子**（`optional: false`）：
+  - **强制钩子**（`optional: false`）— **必须为每个强制钩子输出 `EXECUTE_COMMAND:`**：
     ```
     ## 扩展钩子
 
