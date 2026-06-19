@@ -1,0 +1,72 @@
+# ============================================================
+# AList-Media-Sync Docker Compose 编排配置
+# ============================================================
+# 用法：
+#   启动：docker compose up -d
+#   查看：docker compose ps
+#   日志：docker compose logs -f
+#   停止：docker compose down
+#   重建：docker compose build --no-cache && docker compose up -d
+#
+# 数据备份方法：
+#   Docker 命名卷存储在 Docker 管理的目录中。
+#   备份数据卷：
+#     docker run --rm -v alist-media-sync-data:/data -v $(pwd):/backup alpine tar czf /backup/alist-data-backup.tar.gz -C /data .
+#   恢复数据卷：
+#     docker run --rm -v alist-media-sync-data:/data -v $(pwd):/backup alpine tar xzf /backup/alist-data-backup.tar.gz -C /data
+#
+# 多容器实例限制：
+#   本应用使用 H2 内嵌数据库（文件模式），数据库文件通过排他锁保护。
+#   同一数据卷只能同时运行一个容器实例。如需多实例部署，请使用外部数据库（如 PostgreSQL）。
+# ============================================================
+
+services:
+  alist-media-sync:
+    # 从当前目录的 Dockerfile 构建镜像
+    build:
+      context: .
+    container_name: alist-media-sync
+
+    # 端口映射：主机端口可通过 .env 文件中的 PORT 变量配置，默认 8080
+    ports:
+      - "${PORT:-8080}:8080"
+
+    # 环境变量注入（已通过 Spring Boot Relaxed Binding 映射到 application.yaml）
+    environment:
+      - SERVER_PORT=8080
+      - DATA_DIR=/app/data
+      - LOGGING_LEVEL=${LOGGING_LEVEL:-INFO}
+      - ALIST_BASE_URL=${ALIST_BASE_URL}
+      - ALIST_TOKEN=${ALIST_TOKEN}
+      - JAVA_OPTS=${JAVA_OPTS:--Xms128m -Xmx256m}
+
+    # 数据卷挂载：H2 数据库文件持久化存储
+    volumes:
+      - alist-media-sync-data:/app/data
+
+    # 重启策略：除非手动停止，否则自动重启
+    restart: unless-stopped
+
+    # 停止宽限期：略大于应用优雅关闭超时（12s），确保请求处理完毕
+    stop_grace_period: 35s
+
+    # 健康检查：通过 Actuator 健康端点探测应用状态
+    healthcheck:
+      test:
+        [
+          "CMD",
+          "wget",
+          "--no-verbose",
+          "--tries=1",
+          "--spider",
+          "http://localhost:8080/actuator/health",
+        ]
+      interval: 30s       # 每 30 秒检查一次
+      timeout: 5s          # 单次检查超时时间
+      start_period: 30s    # 容器启动后等待 30 秒再开始检查
+      retries: 3           # 连续失败 3 次判定为不健康
+
+# 命名卷声明（Docker 自动管理，容器删除后卷保留）
+volumes:
+  alist-media-sync-data:
+    name: alist-media-sync-data
