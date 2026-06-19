@@ -297,4 +297,6 @@ public CompletableFuture<TranscodeResult> transcodeFile(TranscodeCandidate candi
 
 ## 复杂性追踪
 
-> 无违规项，无需记录。
+| 偏离项 | 说明 |
+|--------|------|
+| FR-007 默认值偏离 | spec.md FR-007 要求默认值为"CPU 核心数"（动态获取），plan 的实际配置默认值为 `app.pool.max-size`（静态 32，通过 `${TRANSCODE_MAX_CONCURRENT:${app.pool.max-size}}` 引用）。**理由**：Docker 容器内 `Runtime.getRuntime().availableProcessors()` 可能返回宿主机核心数而非容器分配的核心数，导致默认值偏大。使用静态默认值 32 作为保守上限，用户可通过环境变量 `TRANSCODE_MAX_CONCURRENT` 覆盖。在非容器环境部署时，建议用户在 `application.yaml` 中显式设置此值为 CPU 核心数。
