@@ -61,5 +61,10 @@ public class WebMvcConfig implements WebMvcConfigurer {
         // 注意：href 应为 "/app/vite.svg"，此处仅处理浏览器根路径回退请求
         registry.addResourceHandler("/favicon.ico")
             .addResourceLocations("classpath:/static/app/vite.svg");
+
+        // Chrome DevTools 探测请求：返回空 JSON 避免 NoResourceFoundException 日志污染
+        // Chrome 浏览器会自动请求此路径以检测开发服务器配置
+        registry.addResourceHandler("/.well-known/**")
+            .addResourceLocations("classpath:/static/.well-known/");
     }
 }
