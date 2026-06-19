@@ -1,7 +1,7 @@
 installed:
 - agent-context
 settings:
-  auto_execute_hooks: true
+  auto_execute_hooks: false
 hooks:
   after_specify:
   - extension: agent-context
