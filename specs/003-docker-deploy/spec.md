@@ -21,7 +21,7 @@
 **验收场景**：
 
 1. **假设** 开发者拥有项目源代码且本地安装了 Docker，**当** 在项目根目录执行 `docker build -t alist-media-sync .`，**则** 镜像构建成功（多阶段构建：第一阶段编译打包应用，第二阶段仅包含运行时环境），最终镜像大小不超过 250MB。
-2. **假设** 镜像已构建成功，**当** 执行 `docker run -d -p 8080:8080 alist-media-sync`，**则** 容器启动并在 30 秒内对外提供 HTTP 服务，访问 `http://localhost:8080/actuator/health` 返回健康状态。
+2. **假设** 镜像已构建成功，**当** 执行 `docker run -d -p 8080:8080 -e ALIST_BASE_URL=https://alist.example.com -e ALIST_TOKEN=<token> alist-media-sync`，**则** 容器启动并在 30 秒内对外提供 HTTP 服务，访问 `http://localhost:8080/actuator/health` 返回健康状态。
 3. **假设** 容器正在运行，**当** 执行 `docker stop <容器ID>` 和 `docker rm <容器ID>`，**则** 容器被正常停止并删除，H2 数据库中的数据不丢失（数据保存在命名卷中）。
 4. **假设** 容器首次启动，**当** 应用日志输出，**则** 所有日志输出到标准输出（stdout），可通过 `docker logs` 查看。
 

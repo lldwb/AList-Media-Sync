@@ -51,7 +51,7 @@ server:
 
 # Docker HEALTHCHECK 使用
 # HEALTHCHECK --interval=30s --timeout=5s --start-period=30s --retries=3 \
-#   CMD wget --no-verbose --tries=1 --spider http://localhost:8080/actuator/health || exit 1
+#   CMD wget --no-verbose --tries=1 --spider http://localhost:${SERVER_PORT:-8080}/actuator/health || exit 1
 ```
 
 **考虑的替代方案**：
