@@ -125,9 +125,9 @@ services:
     build: .
     container_name: alist-media-sync
     ports:
-      - "${PORT:-8080}:8080"
+      - "${PORT:-8080}:${SERVER_PORT:-8080}"
     environment:
-      - SERVER_PORT=8080
+      - SERVER_PORT=${SERVER_PORT:-8080}
       - DATA_DIR=/app/data
       - LOGGING_LEVEL=${LOGGING_LEVEL:-INFO}
       - ALIST_BASE_URL=${ALIST_BASE_URL}
@@ -137,7 +137,7 @@ services:
       - alist-media-sync-data:/app/data
     restart: unless-stopped
     healthcheck:
-      test: ["CMD", "wget", "--no-verbose", "--tries=1", "--spider", "http://localhost:8080/actuator/health"]
+      test: ["CMD", "wget", "--no-verbose", "--tries=1", "--spider", "http://localhost:${SERVER_PORT:-8080}/actuator/health"]
       interval: 30s
       timeout: 5s
       start_period: 30s
@@ -154,6 +154,7 @@ volumes:
 ```bash
 # AList-Media-Sync Docker Compose 环境变量
 PORT=8080
+SERVER_PORT=8080
 LOGGING_LEVEL=INFO
 ALIST_BASE_URL=https://alist.example.com
 ALIST_TOKEN=<your-token-here>

@@ -28,12 +28,13 @@ services:
     container_name: alist-media-sync
 
     # 端口映射：主机端口可通过 .env 文件中的 PORT 变量配置，默认 8080
+    # 容器内端口由 SERVER_PORT 环境变量控制（默认 8080）
     ports:
-      - "${PORT:-8080}:8080"
+      - "${PORT:-8080}:${SERVER_PORT:-8080}"
 
     # 环境变量注入（已通过 Spring Boot Relaxed Binding 映射到 application.yaml）
     environment:
-      - SERVER_PORT=8080
+      - SERVER_PORT=${SERVER_PORT:-8080}
       - DATA_DIR=/app/data
       - LOGGING_LEVEL=${LOGGING_LEVEL:-INFO}
       - ALIST_BASE_URL=${ALIST_BASE_URL}
@@ -59,7 +60,7 @@ services:
           "--no-verbose",
           "--tries=1",
           "--spider",
-          "http://localhost:8080/actuator/health",
+          "http://localhost:${SERVER_PORT:-8080}/actuator/health",
         ]
       interval: 30s       # 每 30 秒检查一次
       timeout: 5s          # 单次检查超时时间
