@@ -613,7 +613,7 @@ public class TranscodeService {
 
     /** 转码候选文件 */
     record TranscodeCandidate(String name, String fullPath, String targetPath, String format, long size) {
-        StorageEngine sourceEngine;
+        static StorageEngine sourceEngine;
     }
 
     /** 转码结果 */
