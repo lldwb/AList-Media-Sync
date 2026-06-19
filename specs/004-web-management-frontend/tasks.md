@@ -29,7 +29,7 @@
 - [ ] T005 [P] 在 `src/main/frontend/tsconfig.json` 中配置 TypeScript（`strict: true`、`jsx: "react-jsx"`、路径别名 `@/` → `src/`）
 - [ ] T006 在 `src/main/frontend/src/index.css` 中添加 Tailwind 指令（`@import "tailwindcss"`）和极少量全局样式
 - [ ] T007 修改 `src/main/java/top/lldwb/alistmediasync/config/WebMvcConfig.java`，添加 `/app/**` 路径的 Classpath 静态资源映射规则
-- [ ] T008 [P] 更新 `Dockerfile`（`src/main/docker/Dockerfile` 或根目录 `Dockerfile`），添加前端构建阶段（`node:22-alpine` → `npm ci` → `npm run build` → 复制到 `static/app/`）
+- [ ] T008 [P] 更新根目录 `Dockerfile`，添加前端构建阶段（`node:22-alpine` → `npm ci` → `npm run build` → 复制到 `src/main/resources/static/app/`）
 
 **检查点**：`npm run dev` 可启动 HMR 开发服务器，`npm run build` 可输出到 `static/app/`
 
