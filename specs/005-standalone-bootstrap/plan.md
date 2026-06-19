@@ -88,7 +88,7 @@ specs/005-standalone-bootstrap/
 │       │   ├── AListMediaSyncApplication.java   # 可能修改（无需大改）
 │       │   ├── config/
 │       │   │   ├── AppProperties.java            # 修改：支持明文密码检测
-│       │   │   └── PasswordEncryptionPostProcessor.java  # 新增：密码自动加密 EnvironmentPostProcessor
+│       │   │   └── PasswordEncryptionPostProcessor.java  # 新增：密码自动加密（实现 EnvironmentPostProcessor 接口）
 │       │   └── util/
 │       │       └── ServerAddressLogger.java      # 修改：增强横幅输出、容器环境检测
 │       └── resources/
