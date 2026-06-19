@@ -56,7 +56,7 @@ curl -sL "${FETCH_URL}.sha256.txt" | sha256sum -c
 - 可以对 `Environment` 中的属性值进行读取和修改，使加密后的值立即可用于 Bean 绑定
 - 相比 `ApplicationContextInitializer`，`EnvironmentPostProcessor` 不需要内部 `ApplicationContext` 引用，更加解耦
 - 通过 `spring.factories` 或 `META-INF/spring/org.springframework.boot.env.EnvironmentPostProcessor` 注册，无侵入性
-- 可在此阶段读取 YAML 文件原始内容并写回（通过 `SnakeYAML` 直接操作文件）
+- 可在此阶段读取 `Environment` 中的属性值并修改，使加密后的值立即可用于 Bean 绑定
 
 **考虑的替代方案**：
 - **`ApplicationContextInitializer`**：也可实现类似功能，但需访问内部容器，耦合度更高
@@ -71,8 +71,8 @@ curl -sL "${FETCH_URL}.sha256.txt" | sha256sum -c
 4. 若不是（明文或空值）：
    - 明文：使用 `BCryptPasswordEncoder` 加密并生成 `{bcrypt}$2a$...` 格式
    - 空值：仅记录警告日志
-5. 通过 `SnakeYAML` 写回 `application.yaml`，保留原有注释和格式
-6. 将加密后的值设置到 `Environment` 的 `app.auth.password` 属性，确保后续 `AppProperties` 绑定到已加密值
+5. 将加密后的值设置到 `Environment` 的 `app.auth.password` 属性，确保后续 `AppProperties` 绑定到已加密值
+6. **加密值仅保存在内存中的 Spring Environment，绝不回写到 YAML 文件**
 
 ---
 

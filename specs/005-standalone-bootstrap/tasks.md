@@ -85,25 +85,24 @@
 
 ## 阶段 5：用户故事 3 — 配置密码明文自动加密（优先级：P2）
 
-**目标**：用户在配置文件中填写明文密码，系统首次启动时自动加密为 BCrypt 哈希值，后续启动跳过已加密密码。
+**目标**：用户在配置文件中填写明文密码，系统每次启动时自动加密为 BCrypt 哈希值并保存在内存中的 Spring Environment 内。加密值绝不回写到 YAML 文件，配置文件始终保持用户写入的原始值。
 
-**独立测试**：在 `application.yaml` 中设置 `app.auth.password: "test123"`（明文），启动系统，验证日志输出加密消息，再次启动验证不再输出加密消息且用 `test123` 仍能正常登录。
+**独立测试**：在 `application.yaml` 中设置 `app.auth.password: "test123"`（明文），启动系统，验证日志输出加密消息，用 `test123` 登录成功。关闭应用后检查配置文件，确认密码值未被修改（仍为明文）。再次启动，验证每次启动均输出加密日志（每次启动均重新检测并加密到内存）。
 
 ### 用户故事 3 的测试 ⚠️
 
 > **注意：首先编写这些测试，确保它们在实现前失败（章程 V）**
 
-- [ ] T016 [P] [US3] 在 `src/test/java/top/lldwb/alistmediasync/config/PasswordEncryptionPostProcessorTest.java` 中编写单元测试：覆盖明文加密、已加密跳过、空值警告、写回失败处理、环境变量覆盖场景（参考 contracts/password-encryption.md 处理流程）
+- [ ] T016 [P] [US3] 在 `src/test/java/top/lldwb/alistmediasync/config/PasswordEncryptionPostProcessorTest.java` 中编写单元测试：覆盖明文加密到内存、已加密跳过、空值警告、环境变量覆盖场景（参考 contracts/password-encryption.md 处理流程）
 - [ ] T017 [P] [US3] 在 `src/test/java/top/lldwb/alistmediasync/util/ServerAddressLoggerTest.java` 中编写单元测试：覆盖地址收集、容器环境检测、横幅格式输出
 
 ### 用户故事 3 的实现
 
-- [ ] T018 [US3] 创建 `src/main/java/top/lldwb/alistmediasync/config/PasswordEncryptionPostProcessor.java`，实现 `EnvironmentPostProcessor` 接口：读取 `app.auth.password` → 判断 `{bcrypt}` 前缀 → BCrypt 加密 → 写回 YAML 文件 → 更新 Environment（参考 contracts/password-encryption.md 处理流程图）
-- [ ] T019 [US3] 在 `PasswordEncryptionPostProcessor` 中实现 YAML 文件写回逻辑：使用 `SnakeYAML` 读取原始文件，定位 `app.auth.password` 行并替换，保留原有注释和格式
-- [ ] T020 [US3] 在 `PasswordEncryptionPostProcessor` 中实现 Docker 容器环境检测与降级处理：容器内无法写回时记录警告日志，仅更新内存中的 Environment 值（参考 contracts/password-encryption.md 容器环境注意事项）
-- [ ] T021 [US3] 在 `PasswordEncryptionPostProcessor` 中实现写回失败处理：文件锁定、权限不足等边界情况的中文错误日志输出
+- [ ] T018 [US3] 创建 `src/main/java/top/lldwb/alistmediasync/config/PasswordEncryptionPostProcessor.java`，实现 `EnvironmentPostProcessor` 接口：读取 `app.auth.password` → 判断 `{bcrypt}` 前缀 → BCrypt 加密 → 将加密值设置到内存 Environment（绝不回写 YAML 文件）（参考 contracts/password-encryption.md 处理流程图）
+- [ ] T019 [US3] 在 `PasswordEncryptionPostProcessor` 中实现 BCrypt 加密逻辑：使用 `org.springframework.security.crypto.bcrypt.BCryptPasswordEncoder`（10 轮哈希），生成 `{bcrypt}$2a$...` 格式的加密值，通过 `MutablePropertySources` 或系统属性将加密后的值注入 Environment
+- [ ] T020 [US3] 在 `PasswordEncryptionPostProcessor` 中实现配置来源检测：区分 YAML 文件和环境变量两种密码来源，对两种来源的明文值均执行加密到内存的逻辑。环境变量值同样不写回文件
 
-**检查点**：此时，密码自动加密功能完整可用 — 明文密码在启动后 5 秒内完成加密
+**检查点**：此时，密码自动加密功能完整可用 — 每次启动均检测并加密明文密码到内存，配置文件中的值保持不变
 
 ---
 
@@ -145,7 +144,7 @@
 
 **目的**：影响多个用户故事的改进和最终验证
 
-- [ ] T030 [P] 在 `src/main/resources/application.yaml` 中添加 `app.auth.password` 的详细注释说明（明文支持、自动加密行为、环境变量覆盖）
+- [ ] T030 [P] 在 `src/main/resources/application.yaml` 中添加 `app.auth.password` 的详细注释说明（支持明文和 BCrypt 格式、每次启动自动加密到内存、环境变量覆盖）
 - [ ] T031 [P] 更新项目根目录 `README.md`，添加一体化启动包使用说明章节（下载、解压、启动、配置、常见问题）
 - [ ] T032 端到端验证：按 `specs/005-standalone-bootstrap/quickstart.md` 中所有 10 个场景逐一验证（场景 1-10）
 - [ ] T033 [P] 在 `scripts/start.sh` 和 `scripts/start.bat` 中添加启动耗时统计（脚本开始时间 → Java 进程启动完成时间）
@@ -215,9 +214,8 @@
 
 # 然后实现：
 任务：T018 "创建 PasswordEncryptionPostProcessor.java"
-任务：T019 "实现 YAML 写回逻辑"
-任务：T020 "实现 Docker 容器环境降级处理"
-任务：T021 "实现写回失败处理"
+任务：T019 "实现 BCrypt 加密与内存注入逻辑"
+任务：T020 "实现配置来源检测（YAML 文件 / 环境变量）"
 ```
 
 ---
@@ -238,7 +236,7 @@
 1. 完成设置 + 基础 → 基础就绪
 2. 添加用户故事 1 → 独立测试 → 可启动（MVP！）
 3. 添加用户故事 2 → 独立测试 → 友好错误提示
-4. 添加用户故事 3 → 独立测试 → 密码自动加密
+4. 添加用户故事 3 → 独立测试 → 密码自动加密到内存
 5. 添加用户故事 4 → 独立测试 → 一键打包
 6. 添加用户故事 5 → 独立测试 → Docker 地址输出
 7. 每个故事增加价值而不破坏之前的的故事
