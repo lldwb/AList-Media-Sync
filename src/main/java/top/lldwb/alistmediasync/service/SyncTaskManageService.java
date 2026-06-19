@@ -168,9 +168,9 @@ public class SyncTaskManageService {
     }
 
     /**
-     * 获取实体（内部使用）
+     * 获取实体
      */
-    SyncTask getEntity(Long id) {
+    public SyncTask getEntity(Long id) {
         return repository.findById(id)
             .orElseThrow(() -> new NoSuchElementException("同步任务不存在：id=" + id));
     }
