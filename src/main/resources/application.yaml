@@ -1,3 +1,50 @@
+# ============================================================
+# AList-Media-Sync 应用配置
+# ============================================================
+# 本文件定义应用的默认配置。
+# 所有配置项均可通过环境变量覆盖（Spring Boot Relaxed Binding）。
+# 详见 README.md 中的"环境变量说明"章节。
+# ============================================================
+
+server:
+  port: ${SERVER_PORT:8080}            # HTTP 服务端口（环境变量 SERVER_PORT）
+  shutdown: graceful                   # 优雅关闭：收到 SIGTERM 后等待进行中的请求完成
+
 spring:
   application:
     name: AList-Media-Sync
+  lifecycle:
+    timeout-per-shutdown-phase: 12s    # 优雅关闭超时（略小于 Docker Compose stop_grace_period: 35s）
+  datasource:
+    url: jdbc:h2:file:${app.data-dir}/alist_media_sync;DB_CLOSE_ON_EXIT=FALSE;AUTO_RECONNECT=TRUE
+    driver-class-name: org.h2.Driver
+    username: sa
+    password:                          # H2 默认空密码
+  h2:
+    console:
+      enabled: true                    # H2 控制台（开发调试用）
+      path: /h2-console
+
+# Actuator 健康检查端点配置
+management:
+  endpoints:
+    web:
+      exposure:
+        include: health                # 仅暴露 health 端点
+  endpoint:
+    health:
+      show-details: always             # 始终显示健康检查详情
+
+# 日志级别（环境变量 LOGGING_LEVEL，默认 INFO）
+logging:
+  level:
+    root: ${LOGGING_LEVEL:INFO}
+
+# AList 连接配置（必填，由环境变量注入）
+alist:
+  base-url: ${ALIST_BASE_URL:}         # AList 服务器地址（如 https://alist.example.com）
+  token: ${ALIST_TOKEN:}               # AList API 认证令牌
+
+# 自定义应用配置
+app:
+  data-dir: ${DATA_DIR:/app/data}      # 数据库文件存储目录（环境变量 DATA_DIR）
