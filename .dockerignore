@@ -1,0 +1,42 @@
+# ============================================================
+# .dockerignore — Docker 构建上下文排除规则
+# ============================================================
+# 排除以下文件和目录，减小构建上下文体积，加快构建速度。
+
+# --- 版本控制 ---
+.git/
+.gitignore
+.gitattributes
+
+# --- IDE 配置 ---
+.idea/
+.vscode/
+*.iml
+*.iws
+*.ipr
+
+# --- 项目规范与文档（构建时不需要） ---
+.specify/
+specs/
+
+# --- Claude Code 配置 ---
+.claude/
+
+# --- 本地构建产物 ---
+target/
+build/
+
+# --- 文档（README.md 除外） ---
+HELP.md
+*.md
+!README.md
+
+# --- Docker 相关文件 ---
+.dockerignore
+docker-compose.yml
+.env
+
+# --- 临时文件 ---
+*.tmp
+*.swp
+*.log
