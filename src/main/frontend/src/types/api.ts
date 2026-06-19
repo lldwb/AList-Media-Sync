@@ -1,0 +1,298 @@
+// ===================================================================
+// AList-Media-Sync 前端 API 类型定义
+// 与后端 DTO/VO 字段一一对应
+// ===================================================================
+
+/* ---- 通用响应包装 ---- */
+
+/** 统一 API 响应包装 */
+export interface ApiResult<T> {
+  code: number;
+  message: string;
+  data: T | null;
+}
+
+/* ---- 存储引擎 ---- */
+
+export interface StorageEngineVO {
+  id: number;
+  name: string;
+  baseUrl: string;
+  username: string;
+  status: 'ONLINE' | 'OFFLINE' | 'ERROR';
+  createdAt: string; // ISO 8601
+  updatedAt: string;
+}
+
+export interface StorageEngineCreateDTO {
+  name: string;
+  baseUrl: string;
+  username: string;
+  token: string;
+}
+
+export interface StorageEngineUpdateDTO {
+  name?: string;
+  baseUrl?: string;
+  username?: string;
+  token?: string;
+}
+
+/* ---- 同步任务 ---- */
+
+export type SyncMode = 'NEW_ONLY' | 'FULL' | 'MOVE';
+export type ScheduleType = 'CRON' | 'INTERVAL' | 'MANUAL';
+export type ConflictStrategy = 'OVERWRITE' | 'SKIP' | 'RENAME';
+
+export interface SyncTaskVO {
+  id: number;
+  name: string;
+  sourceEngineId: number;
+  sourceEngineName: string;
+  targetEngineId: number;
+  targetEngineName: string;
+  sourcePath: string;
+  targetPath: string;
+  syncMode: SyncMode;
+  transcodeEnabled: boolean;
+  targetFormat?: string;
+  conflictStrategy: ConflictStrategy;
+  excludePatterns?: string;
+  scheduleType: ScheduleType;
+  cronExpression?: string;
+  intervalSeconds?: number;
+  enabled: boolean;
+  lastExecutedAt?: string;
+  createdAt: string;
+}
+
+export interface SyncTaskCreateDTO {
+  name: string;
+  sourceEngineId: number;
+  targetEngineId: number;
+  sourcePath: string;
+  targetPath: string;
+  syncMode: SyncMode;
+  transcodeEnabled: boolean;
+  targetFormat: string;
+  conflictStrategy: ConflictStrategy;
+  excludePatterns?: string;
+  scheduleType: ScheduleType;
+  cronExpression?: string;
+  intervalSeconds?: number;
+}
+
+export interface SyncTaskUpdateDTO {
+  name?: string;
+  sourceEngineId?: number;
+  targetEngineId?: number;
+  sourcePath?: string;
+  targetPath?: string;
+  syncMode?: SyncMode;
+  transcodeEnabled?: boolean;
+  targetFormat?: string;
+  conflictStrategy?: ConflictStrategy;
+  excludePatterns?: string;
+  scheduleType?: ScheduleType;
+  cronExpression?: string;
+  intervalSeconds?: number;
+}
+
+/* ---- 任务执行记录 ---- */
+
+export type TaskType = 'SYNC' | 'TRANSCODE' | 'WEBHOOK';
+export type ExecutionStatus =
+  | 'RUNNING'
+  | 'SUCCESS'
+  | 'FAILED'
+  | 'PARTIAL_SUCCESS'
+  | 'INTERRUPTED';
+
+export interface TaskExecution {
+  id: number;
+  syncTaskId: number;
+  taskType: TaskType;
+  startTime: string;
+  endTime?: string;
+  status: ExecutionStatus;
+  totalFiles: number;
+  successFiles: number;
+  failedFiles: number;
+  failureDetails?: string; // JSON 字符串
+}
+
+export interface FailureDetail {
+  fileName: string;
+  reason: string;
+}
+
+/* ---- 转码任务 ---- */
+
+export type TargetFormat = 'MP3' | 'MP4' | 'FLV';
+export type TranscodeStatus =
+  | 'PENDING'
+  | 'SCANNING'
+  | 'TRANSCODING'
+  | 'UPLOADING'
+  | 'COMPLETED'
+  | 'FAILED';
+
+export interface TranscodeTaskVO {
+  id: number;
+  sourceFilePath: string;
+  targetFilePath: string;
+  sourceFormat?: string;
+  targetFormat: TargetFormat;
+  bitrate: number;
+  progressPercent: number; // 0-100
+  status: TranscodeStatus;
+  errorMessage?: string;
+  tempFilePath?: string;
+  createdAt: string;
+}
+
+export interface TranscodeTaskCreateDTO {
+  sourceEngineId?: number;
+  targetEngineId: number;
+  sourceFilePath: string;
+  targetFilePath: string;
+  targetFormat: TargetFormat;
+  bitrate?: number; // 默认 128000
+}
+
+/* ---- Webhook 规则 ---- */
+
+export type WebhookEventType =
+  | 'FILE_OPENED'
+  | 'FILE_CLOSED'
+  | 'FILE_RENAMED'
+  | 'SESSION_STARTED'
+  | 'SESSION_ENDED'
+  | 'SPACE_FULL'
+  | 'OTHER';
+
+export type RuleAction = 'SYNC_ONLY' | 'TRANSCODE_ONLY' | 'BOTH';
+
+export interface WebhookRuleVO {
+  id: number;
+  name: string;
+  triggerEventType: WebhookEventType;
+  roomIdFilter?: number;
+  action: RuleAction;
+  targetEngineId: number;
+  targetPath: string;
+  enabled: boolean;
+  createdAt: string;
+}
+
+export interface WebhookRuleCreateDTO {
+  name: string;
+  triggerEventType: WebhookEventType;
+  roomIdFilter?: number;
+  action: RuleAction;
+  targetEngineId: number;
+  targetPath: string;
+}
+
+/* ---- Webhook 事件 ---- */
+
+export type WebhookEventStatus =
+  | 'PENDING'
+  | 'PROCESSING'
+  | 'COMPLETED'
+  | 'FAILED'
+  | 'DUPLICATE';
+
+export interface WebhookEventVO {
+  id: number;
+  eventId: string;
+  eventType: WebhookEventType;
+  eventTimestamp: string;
+  sessionId?: string;
+  roomId?: number;
+  relativePath?: string;
+  fileName?: string;
+  fileSize?: number;
+  duration?: number;
+  status: WebhookEventStatus;
+}
+
+/* ---- 仪表板统计 ---- */
+
+export interface DashboardStatsVO {
+  activeSyncTasks: number;
+  pendingTranscodeTasks: number;
+  todayProcessedFiles: number;
+  last24hSuccessRate: number;
+  totalEngines: number;
+  totalWebhookRules: number;
+}
+
+/* ---- 通用枚举映射 ---- */
+
+/** 同步模式 → 中文描述 */
+export const SYNC_MODE_LABELS: Record<SyncMode, string> = {
+  NEW_ONLY: '仅新增',
+  FULL: '完全同步',
+  MOVE: '移动模式',
+};
+
+/** 调度类型 → 中文描述 */
+export const SCHEDULE_TYPE_LABELS: Record<ScheduleType, string> = {
+  CRON: 'Cron 表达式',
+  INTERVAL: '固定间隔',
+  MANUAL: '手动触发',
+};
+
+/** 冲突策略 → 中文描述 */
+export const CONFLICT_STRATEGY_LABELS: Record<ConflictStrategy, string> = {
+  OVERWRITE: '覆盖目标',
+  SKIP: '跳过已存在',
+  RENAME: '自动重命名',
+};
+
+/** 执行状态 → 中文描述 */
+export const EXECUTION_STATUS_LABELS: Record<ExecutionStatus, string> = {
+  RUNNING: '运行中',
+  SUCCESS: '成功',
+  FAILED: '失败',
+  PARTIAL_SUCCESS: '部分成功',
+  INTERRUPTED: '中断',
+};
+
+/** 转码状态 → 中文描述 */
+export const TRANSCODE_STATUS_LABELS: Record<TranscodeStatus, string> = {
+  PENDING: '等待中',
+  SCANNING: '扫描中',
+  TRANSCODING: '转码中',
+  UPLOADING: '上传中',
+  COMPLETED: '已完成',
+  FAILED: '失败',
+};
+
+/** Webhook 事件类型 → 中文描述 */
+export const WEBHOOK_EVENT_TYPE_LABELS: Record<WebhookEventType, string> = {
+  FILE_OPENED: '文件打开',
+  FILE_CLOSED: '文件关闭',
+  FILE_RENAMED: '文件重命名',
+  SESSION_STARTED: '录制开始',
+  SESSION_ENDED: '录制结束',
+  SPACE_FULL: '空间不足',
+  OTHER: '其他',
+};
+
+/** 规则动作 → 中文描述 */
+export const RULE_ACTION_LABELS: Record<RuleAction, string> = {
+  SYNC_ONLY: '仅同步至 AList',
+  TRANSCODE_ONLY: '仅转 MP3',
+  BOTH: '同步至 AList + 转 MP3',
+};
+
+/** Webhook 事件状态 → 中文描述 */
+export const WEBHOOK_EVENT_STATUS_LABELS: Record<WebhookEventStatus, string> = {
+  PENDING: '待处理',
+  PROCESSING: '处理中',
+  COMPLETED: '已完成',
+  FAILED: '失败',
+  DUPLICATE: '重复',
+};

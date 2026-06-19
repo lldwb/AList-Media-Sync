@@ -3,13 +3,15 @@ package top.lldwb.alistmediasync.config;
 import org.springframework.context.annotation.Configuration;
 import org.springframework.web.servlet.config.annotation.CorsRegistry;
 import org.springframework.web.servlet.config.annotation.InterceptorRegistry;
+import org.springframework.web.servlet.config.annotation.ResourceHandlerRegistry;
 import org.springframework.web.servlet.config.annotation.WebMvcConfigurer;
 import top.lldwb.alistmediasync.interceptor.AuthInterceptor;
 
 /**
  * Web MVC 配置
  * <p>
- * 注册认证拦截器到拦截器链，配置 CORS 跨域策略。
+ * 注册认证拦截器到拦截器链，配置 CORS 跨域策略，
+ * 以及前端静态资源映射。
  * </p>
  *
  * @author AList-Media-Sync
@@ -37,5 +39,12 @@ public class WebMvcConfig implements WebMvcConfigurer {
             .allowedOrigins("*")
             .allowedMethods("GET", "POST", "PUT", "DELETE", "OPTIONS")
             .allowedHeaders("*");
+    }
+
+    @Override
+    public void addResourceHandlers(ResourceHandlerRegistry registry) {
+        // 前端 SPA 静态资源映射（Vite 构建产物输出到 classpath:/static/app/）
+        registry.addResourceHandler("/app/**")
+            .addResourceLocations("classpath:/static/app/");
     }
 }
