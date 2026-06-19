@@ -73,7 +73,7 @@ app:
     username: admin
     # BCrypt 哈希密码（{bcrypt} 前缀标识，默认对应明文 "admin123"）
     # 生成方法：使用 BCrypt 在线工具或 Spring Security Crypto
-    password: "{bcrypt}$2a$10$N9qo8uLOickgx2ZMRZoMyeIjZAgcfl7p92ldGxad68LJZdL17lhWy"
+    password: "{bcrypt}$2a$10$AtWuyDKJC0K5FXjtF/vhZ.HEk2ZoLWMpyzlsOc3ac4wxY7D5Y2Yke"
 
   # ----------------------------------------
   # 转码配置
