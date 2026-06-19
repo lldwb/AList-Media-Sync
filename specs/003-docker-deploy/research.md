@@ -73,7 +73,7 @@ server:
   shutdown: graceful
 spring:
   lifecycle:
-    timeout-per-shutdown-phase: 12s  # 略小于 Docker 的 stop_grace_period (15s)
+    timeout-per-shutdown-phase: 12s  # 略小于 Docker Compose 的 stop_grace_period (35s)
 ```
 
 ## 5. H2 数据库文件持久化
