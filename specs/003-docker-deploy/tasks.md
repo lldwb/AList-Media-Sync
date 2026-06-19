@@ -26,7 +26,7 @@
 
 **目的**：添加 Docker 部署所需的基础依赖
 
-- [X] T001 在 `pom.xml` 中添加 `spring-boot-starter-actuator` 依赖（位于现有 `<dependencies>` 块内，与其它 Spring Boot starter 并列），为健康检查端点提供支持
+- [ ] T001 在 `pom.xml` 中添加 `spring-boot-starter-actuator` 依赖（位于现有 `<dependencies>` 块内，与其它 Spring Boot starter 并列），为健康检查端点提供支持
 
 ---
 
@@ -36,8 +36,8 @@
 
 **⚠️ 关键**：在此阶段完成之前，不能开始任何用户故事的工作
 
-- [X] T002 在 `src/main/resources/application.yaml` 中配置优雅关闭：添加 `server.shutdown: graceful` 和 `spring.lifecycle.timeout-per-shutdown-phase: 12s`（略小于 Docker Compose 的 `stop_grace_period: 35s`）
-- [X] T003 在 `src/main/resources/application.yaml` 中配置 Actuator 健康检查端点：暴露 `/actuator/health`，启用 `management.endpoint.health.show-details: always`，并配置 `management.endpoints.web.exposure.include: health`
+- [ ] T002 在 `src/main/resources/application.yaml` 中配置优雅关闭：添加 `server.shutdown: graceful` 和 `spring.lifecycle.timeout-per-shutdown-phase: 12s`（略小于 Docker Compose 的 `stop_grace_period: 35s`）
+- [ ] T003 在 `src/main/resources/application.yaml` 中配置 Actuator 健康检查端点：暴露 `/actuator/health`，启用 `management.endpoint.health.show-details: always`，并配置 `management.endpoints.web.exposure.include: health`
 
 **检查点**：基础就绪 — 应用具备健康检查能力与优雅关闭机制，可以开始 Docker 化工作
 
@@ -51,8 +51,8 @@
 
 ### 用户故事 1 的实现
 
-- [X] T004 [US1] 在项目根目录 `Dockerfile` 中实现多阶段构建：阶段 1（builder）使用 `eclipse-temurin:21-jdk-alpine` + Maven Wrapper 编译打包应用（含 BuildKit `--mount=type=cache` 缓存 Maven 仓库加速构建）；阶段 2（runtime）使用 `eclipse-temurin:21-jre-alpine`，仅复制 JAR 文件，创建非 root 用户 `appuser`（UID 1000），设置工作目录 `/app`，暴露端口 `8080/tcp`，入口点 `java $JAVA_OPTS -jar /app/app.jar`，添加中文注释说明各阶段用途
-- [X] T005 [P] [US1] 在项目根目录 `.dockerignore` 中排除构建上下文无关文件：`.git/`、`.idea/`、`.vscode/`、`.specify/`、`target/`、`build/`、`*.iml`、`*.iws`、`*.ipr`、`HELP.md`、`*.md`（除 `README.md` 外）、`.dockerignore`、`docker-compose.yml`、`.env`、`specs/`、`.claude/`
+- [ ] T004 [US1] 在项目根目录 `Dockerfile` 中实现多阶段构建：阶段 1（builder）使用 `eclipse-temurin:21-jdk-alpine` + Maven Wrapper 编译打包应用（含 BuildKit `--mount=type=cache` 缓存 Maven 仓库加速构建）；阶段 2（runtime）使用 `eclipse-temurin:21-jre-alpine`，仅复制 JAR 文件，创建非 root 用户 `appuser`（UID 1000），设置工作目录 `/app`，暴露端口 `8080/tcp`，入口点 `java $JAVA_OPTS -jar /app/app.jar`，添加中文注释说明各阶段用途
+- [ ] T005 [P] [US1] 在项目根目录 `.dockerignore` 中排除构建上下文无关文件：`.git/`、`.idea/`、`.vscode/`、`.specify/`、`target/`、`build/`、`*.iml`、`*.iws`、`*.ipr`、`HELP.md`、`*.md`（除 `README.md` 外）、`.dockerignore`、`docker-compose.yml`、`.env`、`specs/`、`.claude/`
 
 **检查点**：此时，用户故事 1 应完全功能可用——开发者可通过 `docker build` + `docker run` 部署并访问健康端点
 
@@ -66,8 +66,8 @@
 
 ### 用户故事 2 的实现
 
-- [X] T006 [US2] 在项目根目录 `docker-compose.yml` 中定义服务编排：服务名 `alist-media-sync`，构建上下文 `.`，端口映射 `"${PORT:-8080}:8080"`，挂载命名卷 `alist-media-sync-data:/app/data`，配置健康检查（HTTP GET `/actuator/health`，30s 间隔，5s 超时，30s 启动等待，3 次重试），重启策略 `unless-stopped`，停止宽限期 `35s`，注入环境变量（`SERVER_PORT`、`DATA_DIR`、`LOGGING_LEVEL`、`ALIST_BASE_URL`、`ALIST_TOKEN`、`JAVA_OPTS`），定义顶层 `volumes` 命名卷 `alist-media-sync-data`，添加中文注释说明数据备份方法
-- [X] T007 [P] [US2] 在项目根目录 `.env` 中创建环境变量模板文件：包含 `PORT=8080`、`LOGGING_LEVEL=INFO`、`ALIST_BASE_URL=https://alist.example.com`、`ALIST_TOKEN=<your-token-here>`、`JAVA_OPTS=-Xms128m -Xmx256m`，添加中文注释说明每个变量的用途
+- [ ] T006 [US2] 在项目根目录 `docker-compose.yml` 中定义服务编排：服务名 `alist-media-sync`，构建上下文 `.`，端口映射 `"${PORT:-8080}:8080"`，挂载命名卷 `alist-media-sync-data:/app/data`，配置健康检查（HTTP GET `/actuator/health`，30s 间隔，5s 超时，30s 启动等待，3 次重试），重启策略 `unless-stopped`，停止宽限期 `35s`，注入环境变量（`SERVER_PORT`、`DATA_DIR`、`LOGGING_LEVEL`、`ALIST_BASE_URL`、`ALIST_TOKEN`、`JAVA_OPTS`），定义顶层 `volumes` 命名卷 `alist-media-sync-data`，添加中文注释说明数据备份方法
+- [ ] T007 [P] [US2] 在项目根目录 `.env` 中创建环境变量模板文件：包含 `PORT=8080`、`LOGGING_LEVEL=INFO`、`ALIST_BASE_URL=https://alist.example.com`、`ALIST_TOKEN=<your-token-here>`、`JAVA_OPTS=-Xms128m -Xmx256m`，添加中文注释说明每个变量的用途
 
 **检查点**：此时，运维人员可通过 `docker compose up -d` 一键启动服务，可通过 `docker compose logs -f` 查看日志
 
@@ -81,9 +81,9 @@
 
 ### 用户故事 3 的实现
 
-- [X] T008 [US3] 在 `src/main/resources/application.yaml` 中添加自定义配置属性 `app.data-dir`（默认值 `/app/data`），配置 `spring.datasource.url` 使用文件模式 H2 路径（引用 `${app.data-dir}` 属性），添加 `alist.base-url` 和 `alist.token` 占位配置（默认值为空，由环境变量注入）
-- [X] T009 [P] [US3] 在 `src/main/resources/application.yaml` 中配置日志级别默认值：`logging.level.root: ${LOGGING_LEVEL:INFO}`，利用 Spring Boot Relaxed Binding 自动将 `LOGGING_LEVEL` 环境变量映射到日志配置
-- [X] T010 [US3] 验证环境变量覆盖行为：确认 `SERVER_PORT` → `server.port`、`DATA_DIR` → `app.data-dir`、`LOGGING_LEVEL` → `logging.level.root`、`ALIST_BASE_URL` → `alist.base-url` 的 Spring Boot Relaxed Binding 映射正常工作
+- [ ] T008 [US3] 在 `src/main/resources/application.yaml` 中添加自定义配置属性 `app.data-dir`（默认值 `/app/data`），配置 `spring.datasource.url` 使用文件模式 H2 路径（引用 `${app.data-dir}` 属性），添加 `alist.base-url` 和 `alist.token` 占位配置（默认值为空，由环境变量注入）
+- [ ] T009 [P] [US3] 在 `src/main/resources/application.yaml` 中配置日志级别默认值：`logging.level.root: ${LOGGING_LEVEL:INFO}`，利用 Spring Boot Relaxed Binding 自动将 `LOGGING_LEVEL` 环境变量映射到日志配置
+- [ ] T010 [US3] 验证环境变量覆盖行为：确认 `SERVER_PORT` → `server.port`、`DATA_DIR` → `app.data-dir`、`LOGGING_LEVEL` → `logging.level.root`、`ALIST_BASE_URL` → `alist.base-url` 的 Spring Boot Relaxed Binding 映射正常工作
 
 **检查点**：此时所有用户故事应各自独立功能可用——运维人员可通过环境变量灵活配置应用，无需修改配置文件或重新构建镜像
 
@@ -93,8 +93,8 @@
 
 **目的**：文档编写与端到端验证
 
-- [X] T011 [P] 在项目根目录 `README.md` 中编写 Docker 部署文档（如文件不存在则创建）：包含前置条件（Docker 20.10+ / Docker Compose 2.0+）、快速开始（`docker build` + `docker run` 或 `docker compose up -d`）、环境变量说明表格、数据卷备份方法说明、多容器实例限制说明（H2 文件锁），所有文档内容使用简体中文
-- [X] T012 依照 `specs/003-docker-deploy/quickstart.md` 中的六个验证场景（镜像构建、容器启动与健康检查、数据持久化、Docker Compose 编排、环境变量配置、非 root 用户运行）执行端到端验证，确认所有验收场景通过
+- [ ] T011 [P] 在项目根目录 `README.md` 中编写 Docker 部署文档（如文件不存在则创建）：包含前置条件（Docker 20.10+ / Docker Compose 2.0+）、快速开始（`docker build` + `docker run` 或 `docker compose up -d`）、环境变量说明表格、数据卷备份方法说明、多容器实例限制说明（H2 文件锁），所有文档内容使用简体中文
+- [ ] T012 依照 `specs/003-docker-deploy/quickstart.md` 中的六个验证场景（镜像构建、容器启动与健康检查、数据持久化、Docker Compose 编排、环境变量配置、非 root 用户运行）执行端到端验证，确认所有验收场景通过
 
 ---
 
