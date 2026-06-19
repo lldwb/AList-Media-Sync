@@ -31,8 +31,8 @@ export function WebhookRuleForm({ engines, initialValues, onSubmit, onCancel, lo
 
   const isEdit = !!initialValues;
 
-  // 需要同步目标引擎的条件显示
-  const needsTarget = action === 'SYNC_ONLY' || action === 'BOTH';
+  // 需要同步目标引擎的条件显示（TRANSCODE_ONLY 也需要目标引擎存储转码结果）
+  const needsTarget = action === 'SYNC_ONLY' || action === 'BOTH' || action === 'TRANSCODE_ONLY';
 
   useEffect(() => {
     setErrors({});
@@ -77,8 +77,8 @@ export function WebhookRuleForm({ engines, initialValues, onSubmit, onCancel, lo
         triggerEventType,
         roomIdFilter: roomIdFilter.trim() ? parseInt(roomIdFilter, 10) : undefined,
         action,
-        targetEngineId: needsTarget ? targetEngineId : 0,
-        targetPath: needsTarget ? targetPath.trim() : '/',
+        targetEngineId,
+        targetPath: targetPath.trim(),
       });
     } catch (err) {
       setSubmitError(err instanceof Error ? err.message : '提交失败');
