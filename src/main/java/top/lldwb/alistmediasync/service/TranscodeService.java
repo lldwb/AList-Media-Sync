@@ -440,7 +440,7 @@ public class TranscodeService {
         switch (targetFormat) {
             case MP3 -> {
                 // 仅音频输出：libmp3lame 128kbps 立体声 44100Hz
-                attrs.setFormat("mp3");
+                attrs.setOutputFormat("mp3");
                 AudioAttributes audio = new AudioAttributes();
                 audio.setCodec("libmp3lame");
                 audio.setBitRate(128000);
@@ -450,7 +450,7 @@ public class TranscodeService {
             }
             case MP4 -> {
                 // 视频+音频：libx264 + aac
-                attrs.setFormat("mp4");
+                attrs.setOutputFormat("mp4");
                 VideoAttributes video = new VideoAttributes();
                 video.setCodec("libx264");
                 attrs.setVideoAttributes(video);
@@ -463,7 +463,7 @@ public class TranscodeService {
             }
             case FLV -> {
                 // 视频+音频：flv + libmp3lame
-                attrs.setFormat("flv");
+                attrs.setOutputFormat("flv");
                 VideoAttributes video = new VideoAttributes();
                 video.setCodec("flv");
                 attrs.setVideoAttributes(video);
@@ -532,7 +532,7 @@ public class TranscodeService {
     /**
      * 转码进度监听器
      */
-    private class TranscodeProgressListener implements ws.schild.jave.encode.EncoderProgressListener {
+    private class TranscodeProgressListener implements ws.schild.jave.progress.EncoderProgressListener {
 
         private final TranscodeTask task;
         private int lastSavedProgress = 0;
@@ -558,6 +558,11 @@ public class TranscodeService {
         @Override
         public void sourceInfo(ws.schild.jave.info.MultimediaInfo info) {
             // 不实现额外的源信息处理
+        }
+
+        @Override
+        public void message(String message) {
+            // 不实现额外的消息处理
         }
     }
 
