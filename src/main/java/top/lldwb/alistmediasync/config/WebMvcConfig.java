@@ -1,0 +1,41 @@
+package top.lldwb.alistmediasync.config;
+
+import org.springframework.context.annotation.Configuration;
+import org.springframework.web.servlet.config.annotation.CorsRegistry;
+import org.springframework.web.servlet.config.annotation.InterceptorRegistry;
+import org.springframework.web.servlet.config.annotation.WebMvcConfigurer;
+import top.lldwb.alistmediasync.interceptor.AuthInterceptor;
+
+/**
+ * Web MVC 配置
+ * <p>
+ * 注册认证拦截器到拦截器链，配置 CORS 跨域策略。
+ * </p>
+ *
+ * @author AList-Media-Sync
+ */
+@Configuration
+public class WebMvcConfig implements WebMvcConfigurer {
+
+    private final AuthInterceptor authInterceptor;
+
+    public WebMvcConfig(AuthInterceptor authInterceptor) {
+        this.authInterceptor = authInterceptor;
+    }
+
+    @Override
+    public void addInterceptors(InterceptorRegistry registry) {
+        registry.addInterceptor(authInterceptor)
+            .addPathPatterns("/api/**")
+            .excludePathPatterns("/api/webhooks/**", "/actuator/health", "/h2-console/**");
+    }
+
+    @Override
+    public void addCorsMappings(CorsRegistry registry) {
+        // 开发阶段允许所有来源跨域
+        registry.addMapping("/api/**")
+            .allowedOrigins("*")
+            .allowedMethods("GET", "POST", "PUT", "DELETE", "OPTIONS")
+            .allowedHeaders("*");
+    }
+}

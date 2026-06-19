@@ -1,0 +1,36 @@
+package top.lldwb.alistmediasync.dto.storage;
+
+import lombok.Data;
+import top.lldwb.alistmediasync.entity.StorageEngine;
+
+import java.time.LocalDateTime;
+
+/**
+ * 存储引擎视图 VO（脱敏，不返回 Token 凭据）
+ *
+ * @author AList-Media-Sync
+ */
+@Data
+public class StorageEngineVO {
+
+    private Long id;
+    private String name;
+    private String baseUrl;
+    private String username;
+    private String status;
+    private LocalDateTime createdAt;
+    private LocalDateTime updatedAt;
+
+    /** 从实体构建 VO（不暴露 Token） */
+    public static StorageEngineVO from(StorageEngine entity) {
+        StorageEngineVO vo = new StorageEngineVO();
+        vo.setId(entity.getId());
+        vo.setName(entity.getName());
+        vo.setBaseUrl(entity.getBaseUrl());
+        vo.setUsername(entity.getUsername());
+        vo.setStatus(entity.getStatus().name());
+        vo.setCreatedAt(entity.getCreatedAt());
+        vo.setUpdatedAt(entity.getUpdatedAt());
+        return vo;
+    }
+}
