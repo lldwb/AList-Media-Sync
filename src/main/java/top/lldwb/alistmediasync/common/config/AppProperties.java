@@ -61,7 +61,8 @@ public class AppProperties {
 
         /**
          * BCrypt 哈希后的密码（必须以 {bcrypt} 前缀标识）
-         * 默认值对应明文 "admin123"
+         * 默认值对应明文 "admin123"，由 PasswordEncryptionPostProcessor 在启动时覆盖。
+         * 若运行时密码不以 {bcrypt} 开头，说明 PasswordEncryptionPostProcessor 未生效。
          */
         @NotEmpty
         private String password = "{bcrypt}$2a$10$N9qo8uLOickgx2ZMRZoMyeIjZAgcfl7p92ldGxad68LJZdL17lhWy";
