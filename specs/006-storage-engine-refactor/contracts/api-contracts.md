@@ -190,7 +190,7 @@
 
 #### GET /api/transcode-tasks
 
-列表查询。`TranscodeStatus` 扩展为 7 状态，`bitrate` 可为 null。
+列表查询。`TranscodeStatus` 扩展为 8 状态，`bitrate` 可为 null。
 
 **响应字段变更**：
 ```json

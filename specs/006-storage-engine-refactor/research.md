@@ -64,11 +64,11 @@ public class StorageEngineService {
 
 ---
 
-## 决策 2：转码 7 状态机实现
+## 决策 2：转码 8 状态机实现
 
 ### 决策
 
-在 `TranscodeStatus` 枚举中定义 8 个值（7 状态 + 完成态），采用状态转换表 + 守卫条件校验，将 `TranscodeFileProcessor.doProcess` 拆分为三个独立步骤方法。
+在 `TranscodeStatus` 枚举中定义 8 个值（8 状态模型：3 对失败/重试状态 + PENDING + COMPLETED），采用状态转换表 + 守卫条件校验，将 `TranscodeFileProcessor.doProcess` 拆分为三个独立步骤方法。
 
 ### 状态枚举
 
@@ -92,8 +92,8 @@ PENDING → DOWNLOADING → TRANSCODING → UPLOADING → COMPLETED
               ↓              ↓             ↓
       DOWNLOAD_FAILED  TRANSCODE_FAILED  UPLOAD_FAILED
               ↓              ↓             ↓
-         [重试回PENDING] [重试回DOWNLOADING] [重试回TRANSCODING]
-         不保留部分文件  保留源临时文件    保留源+输出临时文件
+         [重试回DOWNLOADING] [重试回TRANSCODING] [重试回UPLOADING]
+         删除部分下载文件  保留源临时文件    保留源+输出临时文件
 ```
 
 ### 合法性校验
@@ -102,9 +102,9 @@ PENDING → DOWNLOADING → TRANSCODING → UPLOADING → COMPLETED
 
 ### 重试逻辑
 
-- `DOWNLOAD_FAILED` → 回退到 `PENDING`，删除部分下载文件，完整重试
-- `TRANSCODE_FAILED` → 回退到 `DOWNLOADING`，保留已下载源文件，跳过下载步骤
-- `UPLOAD_FAILED` → 回退到 `TRANSCODING`，保留源文件和转码输出，跳过前两步
+- `DOWNLOAD_FAILED` → 回退到 `DOWNLOADING`，删除部分下载文件，重新下载
+- `TRANSCODE_FAILED` → 回退到 `TRANSCODING`，保留已下载源文件，跳过下载步骤
+- `UPLOAD_FAILED` → 回退到 `UPLOADING`，保留源文件和转码输出，跳过前两步
 
 ### 临时文件生命周期
 
@@ -116,7 +116,7 @@ PENDING → DOWNLOADING → TRANSCODING → UPLOADING → COMPLETED
 
 ### 理由
 
-1. 细粒度失败隔离：三步独立 + 7 状态模型使得每步失败不影响已完成工作
+1. 细粒度失败隔离：三步独立 + 8 状态模型使得每步失败不影响已完成工作
 2. 显式状态转换表：可测试、可审计、可维护
 3. 步骤拆分比引入状态机框架更轻量，符合 YAGNI
 

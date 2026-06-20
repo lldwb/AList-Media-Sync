@@ -7,7 +7,7 @@
 | 实体 | 变更类型 | 说明 |
 |------|---------|------|
 | StorageEngine | 修改 | 移除 username，新增 engineType，baseUrl 改为可选 |
-| TranscodeTask | 修改 | TranscodeStatus 扩展为 7 状态，bitrate 改为可选，新增 tempSourcePath |
+| TranscodeTask | 修改 | TranscodeStatus 扩展为 8 状态，bitrate 改为可选，新增 tempSourcePath |
 | WebhookRule | 修改 | 新增 recordingEngine 关联，targetPath 改为 targetFilePath |
 | FileEntry | 新增 | 策略模式统一文件信息 DTO |
 | DirectoryEntry | 新增 | 策略模式统一目录信息 DTO |
@@ -94,10 +94,10 @@ public class StorageEngine {
 
 | 字段 | 操作 | 说明 |
 |------|------|------|
-| `status` | **修改** | TranscodeStatus 扩展为 7 状态模型（FR-007） |
+| `status` | **修改** | TranscodeStatus 扩展为 8 状态模型（FR-007） |
 | `bitrate` | **修改** | nullable=true，不填时使用系统默认码率（FR-009） |
 | `tempSourcePath` | **新增** | 已下载源文件的临时路径，供转码/上传失败重试使用 |
-| `SCANNING` | **删除** | 不再需要扫描状态（三步流程无扫描步骤） |
+| `SCANNING` | **删除** | 不再需要扫描状态（三步流程无扫描步骤，扫描时递归遍历所有子目录中的文件，最大深度 10 层） |
 
 ### TranscodeStatus 枚举
 
