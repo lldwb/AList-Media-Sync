@@ -39,6 +39,7 @@ import java.util.concurrent.Semaphore;
 @Slf4j
 @Service
 @RequiredArgsConstructor
+@SuppressWarnings("deprecation") // JAVE2 3.5.0 Encoder/Attributes API
 public class TranscodeFileProcessor {
 
     private final TranscodeTaskRepository repository;
@@ -208,8 +209,19 @@ public class TranscodeFileProcessor {
         String format = candidate.format() != null ? candidate.format().toLowerCase() : "tmp";
         Path sourceTempFile = Files.createTempFile("alist-src-", "." + format);
 
-        StorageEngine sourceEngine = TranscodeCandidate.sourceEngine != null
-            ? TranscodeCandidate.sourceEngine : null;
+        StorageEngine sourceEngine = candidate.sourceEngine();
+        if (sourceEngine == null) {
+            throw new IllegalStateException(
+                "源存储引擎未设置，无法下载文件：" + candidate.fullPath());
+        }
+        if (sourceEngine.getBaseUrl() == null || sourceEngine.getBaseUrl().isBlank()) {
+            throw new IllegalStateException(
+                "源存储引擎 baseUrl 未配置：engineId=" + sourceEngine.getId());
+        }
+        if (sourceEngine.getEncryptedToken() == null || sourceEngine.getEncryptedToken().isBlank()) {
+            throw new IllegalStateException(
+                "源存储引擎 token 未配置：engineId=" + sourceEngine.getId());
+        }
         try (InputStream in = alistClient.downloadFile(
                 sourceEngine.getBaseUrl(), sourceEngine.getEncryptedToken(),
                 candidate.fullPath())) {

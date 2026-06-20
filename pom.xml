@@ -134,8 +134,6 @@
                             <artifactId>lombok</artifactId>
                         </exclude>
                     </excludes>
-                    <executable>true</executable>
-                    <layout>JAR</layout>
                 </configuration>
             </plugin>
             <plugin>
