@@ -14,28 +14,44 @@ export interface ApiResult<T> {
 
 /* ---- 存储引擎 ---- */
 
+export type EngineType = 'ALIST' | 'LOCAL';
+
 export interface StorageEngineVO {
   id: number;
   name: string;
-  baseUrl: string;
-  username: string;
+  engineType: EngineType;
+  baseUrl: string | null;
+  localPath: string | null;
   status: 'ONLINE' | 'OFFLINE' | 'ERROR';
   createdAt: string; // ISO 8601
   updatedAt: string;
+  // 移除: username
 }
 
 export interface StorageEngineCreateDTO {
   name: string;
-  baseUrl: string;
-  username: string;
-  token: string;
+  engineType: EngineType;
+  baseUrl?: string;
+  token?: string;
+  localPath?: string;
+  // 移除: username
 }
 
 export interface StorageEngineUpdateDTO {
   name?: string;
   baseUrl?: string;
-  username?: string;
   token?: string;
+  localPath?: string;
+  // 移除: username
+  // engineType 不可更改
+}
+
+/* ---- 目录浏览 ---- */
+
+export interface DirectoryEntryVO {
+  name: string;
+  path: string;
+  hasChildren: boolean;
 }
 
 /* ---- 同步任务 ---- */
@@ -126,16 +142,21 @@ export interface FailureDetail {
   reason: string;
 }
 
-/* ---- 转码任务 ---- */
+/* ---- 转码任务（8 状态模型） ---- */
 
 export type TargetFormat = 'MP3' | 'MP4' | 'FLV';
+
+/** 转码状态（8 状态模型：三步流程，每步可独立失败和重试） */
 export type TranscodeStatus =
   | 'PENDING'
-  | 'SCANNING'
+  | 'DOWNLOADING'
+  | 'DOWNLOAD_FAILED'
   | 'TRANSCODING'
+  | 'TRANSCODE_FAILED'
   | 'UPLOADING'
-  | 'COMPLETED'
-  | 'FAILED';
+  | 'UPLOAD_FAILED'
+  | 'COMPLETED';
+  // 移除: SCANNING, FAILED
 
 export interface TranscodeTaskVO {
   id: number;
@@ -143,12 +164,13 @@ export interface TranscodeTaskVO {
   targetFilePath: string;
   sourceFormat?: string;
   targetFormat: TargetFormat;
-  bitrate: number;
+  bitrate: number | null; // null 表示使用系统默认码率
   progressPercent: number; // 0-100
   status: TranscodeStatus;
+  canRetry: boolean; // 失败状态时为 true
   errorMessage?: string;
-  tempFilePath?: string;
   createdAt: string;
+  // 移除: tempFilePath（内部实现细节）
 }
 
 export interface TranscodeTaskCreateDTO {
@@ -157,7 +179,7 @@ export interface TranscodeTaskCreateDTO {
   sourceFilePath: string;
   targetFilePath: string;
   targetFormat: TargetFormat;
-  bitrate?: number; // 默认 128000
+  bitrate?: number;
 }
 
 /* ---- Webhook 规则 ---- */
@@ -179,8 +201,12 @@ export interface WebhookRuleVO {
   triggerEventType: WebhookEventType;
   roomIdFilter?: number;
   action: RuleAction;
+  recordingEngineId?: number;
+  recordingEngineName?: string;
+  recordingPath?: string;
   targetEngineId: number;
-  targetPath: string;
+  targetEngineName: string;
+  targetFilePath: string; // 原 targetPath
   enabled: boolean;
   createdAt: string;
 }
@@ -190,8 +216,10 @@ export interface WebhookRuleCreateDTO {
   triggerEventType: WebhookEventType;
   roomIdFilter?: number;
   action: RuleAction;
+  recordingEngineId?: number;
+  recordingPath?: string;
   targetEngineId: number;
-  targetPath: string;
+  targetFilePath: string; // 原 targetPath
 }
 
 /* ---- Webhook 事件 ---- */
@@ -230,6 +258,12 @@ export interface DashboardStatsVO {
 
 /* ---- 通用枚举映射 ---- */
 
+/** 引擎类型 → 中文描述 */
+export const ENGINE_TYPE_LABELS: Record<EngineType, string> = {
+  ALIST: 'AList 远程存储',
+  LOCAL: '本地路径',
+};
+
 /** 同步模式 → 中文描述 */
 export const SYNC_MODE_LABELS: Record<SyncMode, string> = {
   NEW_ONLY: '仅新增',
@@ -260,14 +294,16 @@ export const EXECUTION_STATUS_LABELS: Record<ExecutionStatus, string> = {
   INTERRUPTED: '中断',
 };
 
-/** 转码状态 → 中文描述 */
+/** 转码状态 → 中文描述（8 状态模型） */
 export const TRANSCODE_STATUS_LABELS: Record<TranscodeStatus, string> = {
   PENDING: '等待中',
-  SCANNING: '扫描中',
+  DOWNLOADING: '下载中',
+  DOWNLOAD_FAILED: '下载失败',
   TRANSCODING: '转码中',
+  TRANSCODE_FAILED: '转码失败',
   UPLOADING: '上传中',
+  UPLOAD_FAILED: '上传失败',
   COMPLETED: '已完成',
-  FAILED: '失败',
 };
 
 /** Webhook 事件类型 → 中文描述 */
@@ -283,9 +319,9 @@ export const WEBHOOK_EVENT_TYPE_LABELS: Record<WebhookEventType, string> = {
 
 /** 规则动作 → 中文描述 */
 export const RULE_ACTION_LABELS: Record<RuleAction, string> = {
-  SYNC_ONLY: '仅同步至 AList',
+  SYNC_ONLY: '仅同步',
   TRANSCODE_ONLY: '仅转 MP3',
-  BOTH: '同步至 AList + 转 MP3',
+  BOTH: '同步 + 转 MP3',
 };
 
 /** Webhook 事件状态 → 中文描述 */

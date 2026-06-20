@@ -1,5 +1,5 @@
 // ===================================================================
-// 存储引擎列表页 — US2
+// 存储引擎列表页 — 支持 AList/LOCAL 双类型
 // ===================================================================
 import { useState, useEffect, useCallback } from 'react';
 import { api } from '@/api/client';
@@ -23,16 +23,13 @@ export function EngineListPage() {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
 
-  // 表单状态
   const [showForm, setShowForm] = useState(false);
   const [editingItem, setEditingItem] = useState<StorageEngineVO | null>(null);
   const [formLoading, setFormLoading] = useState(false);
 
-  // 删除状态
   const [deleteTarget, setDeleteTarget] = useState<StorageEngineVO | null>(null);
   const [deleteError, setDeleteError] = useState<string | null>(null);
 
-  // 测试连接状态
   const [testingId, setTestingId] = useState<number | null>(null);
   const [testResults, setTestResults] = useState<Record<number, boolean>>({});
 
@@ -72,9 +69,8 @@ export function EngineListPage() {
       const updateDTO: StorageEngineUpdateDTO = {
         name: values.name,
         baseUrl: values.baseUrl,
-        username: values.username,
+        localPath: values.localPath,
       };
-      // 仅当 token 有值时传递
       if (values.token) {
         updateDTO.token = values.token;
       }
@@ -113,12 +109,32 @@ export function EngineListPage() {
   /* ---- 表格列定义 ---- */
   const columns: ColumnDef<StorageEngineVO>[] = [
     { key: 'name', header: '名称' },
-    { key: 'baseUrl', header: 'AList 地址', className: 'max-w-[200px] truncate' },
-    { key: 'username', header: '用户名' },
+    {
+      key: 'engineType',
+      header: '类型',
+      render: (item) => (
+        <span className={`inline-flex items-center rounded-full px-2 py-0.5 text-xs font-medium ${
+          item.engineType === 'ALIST' ? 'bg-blue-100 text-blue-700' : 'bg-green-100 text-green-700'
+        }`}>
+          {item.engineType === 'ALIST' ? 'AList' : '本地'}
+        </span>
+      ),
+    },
+    {
+      key: 'baseUrl',
+      header: '地址/路径',
+      className: 'max-w-[200px] truncate',
+      render: (item) => item.engineType === 'ALIST' ? (item.baseUrl ?? '-') : (item.localPath ?? '-'),
+    },
     {
       key: 'status',
       header: '状态',
-      render: (item) => <StatusBadge status={item.status} label={item.status === 'ONLINE' ? '在线' : item.status === 'OFFLINE' ? '离线' : '异常'} />,
+      render: (item) => (
+        <StatusBadge
+          status={item.status}
+          label={item.status === 'ONLINE' ? '在线' : item.status === 'OFFLINE' ? '离线' : '异常'}
+        />
+      ),
     },
     {
       key: 'createdAt',
@@ -130,7 +146,6 @@ export function EngineListPage() {
       header: '操作',
       render: (item) => (
         <div className="flex items-center gap-2">
-          {/* 测试连接 */}
           <button
             type="button"
             disabled={testingId === item.id}
@@ -144,8 +159,6 @@ export function EngineListPage() {
               {testResults[item.id] ? '✓ 成功' : '✗ 失败'}
             </span>
           )}
-
-          {/* 编辑 */}
           <button
             type="button"
             className="text-xs text-blue-600 hover:text-blue-800"
@@ -153,8 +166,6 @@ export function EngineListPage() {
           >
             编辑
           </button>
-
-          {/* 删除 */}
           <button
             type="button"
             className="text-xs text-red-600 hover:text-red-800"
@@ -166,8 +177,6 @@ export function EngineListPage() {
       ),
     },
   ];
-
-  /* ---- 渲染 ---- */
 
   if (loading) return <LoadingSpinner size="lg" />;
 
@@ -197,14 +206,13 @@ export function EngineListPage() {
         emptyState={
           <EmptyState
             title="暂无存储引擎"
-            description="添加您的第一个 AList 存储引擎以开始使用"
+            description="添加您的第一个存储引擎以开始使用"
             actionLabel="创建第一个引擎"
             onAction={() => setShowForm(true)}
           />
         }
       />
 
-      {/* 创建表单 */}
       {showForm && (
         <EngineForm
           onSubmit={handleCreate}
@@ -213,7 +221,6 @@ export function EngineListPage() {
         />
       )}
 
-      {/* 编辑表单 */}
       {editingItem && (
         <EngineForm
           initialValues={editingItem}
@@ -223,7 +230,6 @@ export function EngineListPage() {
         />
       )}
 
-      {/* 删除确认 */}
       {deleteTarget && (
         <ConfirmDialog
           title="确认删除"

@@ -188,7 +188,6 @@ export function parseCron(expr: string): CronResult {
   const parsed: number[][] = [];
   for (let i = 0; i < 5; i++) {
     const field = fields[i]!;
-    // 星期字段特殊处理：7 等价于 0
     const [min, max] = FIELD_RANGES[i]!;
     if (!FIELD_REGEX.test(field)) {
       return { valid: false, error: `第 ${i + 1} 个字段格式无效："${field}"` };
@@ -207,4 +206,38 @@ export function parseCron(expr: string): CronResult {
   } catch {
     return { valid: false, error: '无法计算下次执行时间' };
   }
+}
+
+/* ---- 字段值类型 ---- */
+
+export type FieldMode = 'every' | 'specific' | 'range' | 'step';
+
+export interface CronFields {
+  minute: string;     // 原始字段值
+  hour: string;
+  dayOfMonth: string;
+  month: string;
+  dayOfWeek: string;
+}
+
+/** 预设快捷模式 */
+export interface CronPreset {
+  label: string;
+  value: string;
+}
+
+export const CRON_PRESETS: CronPreset[] = [
+  { label: '每小时', value: '0 * * * *' },
+  { label: '每天凌晨', value: '0 0 * * *' },
+  { label: '每天 8 点', value: '0 8 * * *' },
+  { label: '每周一', value: '0 0 * * 1' },
+  { label: '每月 1 号', value: '0 0 1 * *' },
+  { label: '每 6 小时', value: '0 */6 * * *' },
+];
+
+/**
+ * 根据 CronFields 反向生成 cron 表达式
+ */
+export function buildCronExpression(fields: CronFields): string {
+  return `${fields.minute} ${fields.hour} ${fields.dayOfMonth} ${fields.month} ${fields.dayOfWeek}`;
 }

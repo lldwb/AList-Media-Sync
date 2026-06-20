@@ -1,39 +1,38 @@
 // ===================================================================
-// 存储引擎表单组件 — 创建/编辑
+// 存储引擎表单组件 — 创建/编辑（支持 AList/LOCAL 双类型）
 // ===================================================================
 import { useState, useEffect, type FormEvent } from 'react';
-import type { StorageEngineVO, StorageEngineCreateDTO } from '@/types/api';
+import type { StorageEngineVO, StorageEngineCreateDTO, EngineType } from '@/types/api';
 import { validateRequired, validateUrl } from '@/utils/validate';
 
 interface EngineFormProps {
-  /** 编辑模式时的初始值（创建时为 null） */
   initialValues?: StorageEngineVO | null;
-  /** 提交回调 */
   onSubmit: (values: StorageEngineCreateDTO) => Promise<void>;
-  /** 取消回调 */
   onCancel: () => void;
-  /** 加载状态 */
   loading?: boolean;
 }
 
 interface FormErrors {
   name?: string;
+  engineType?: string;
   baseUrl?: string;
-  username?: string;
   token?: string;
+  localPath?: string;
 }
 
 export function EngineForm({ initialValues, onSubmit, onCancel, loading }: EngineFormProps) {
   const [name, setName] = useState(initialValues?.name ?? '');
+  const [engineType, setEngineType] = useState<EngineType>(
+    (initialValues?.engineType as EngineType) ?? 'ALIST'
+  );
   const [baseUrl, setBaseUrl] = useState(initialValues?.baseUrl ?? '');
-  const [username, setUsername] = useState(initialValues?.username ?? '');
-  const [token, setToken] = useState(''); // 编辑时不回显 Token
+  const [token, setToken] = useState('');
+  const [localPath, setLocalPath] = useState(initialValues?.localPath ?? '');
   const [errors, setErrors] = useState<FormErrors>({});
   const [submitError, setSubmitError] = useState<string | null>(null);
 
   const isEdit = !!initialValues;
 
-  // 编辑模式下重置错误
   useEffect(() => {
     setErrors({});
     setSubmitError(null);
@@ -45,16 +44,17 @@ export function EngineForm({ initialValues, onSubmit, onCancel, loading }: Engin
     const nameCheck = validateRequired(name, '名称');
     if (!nameCheck.valid) newErrors.name = nameCheck.error;
 
-    const urlCheck = validateUrl(baseUrl, '服务器地址');
-    if (!urlCheck.valid) newErrors.baseUrl = urlCheck.error;
+    if (engineType === 'ALIST') {
+      const urlCheck = validateUrl(baseUrl, '服务器地址');
+      if (!urlCheck.valid) newErrors.baseUrl = urlCheck.error;
 
-    const userCheck = validateRequired(username, '用户名');
-    if (!userCheck.valid) newErrors.username = userCheck.error;
-
-    // 创建时 Token 必填，编辑时可选
-    if (!isEdit) {
-      const tokenCheck = validateRequired(token, 'API 令牌');
-      if (!tokenCheck.valid) newErrors.token = tokenCheck.error;
+      if (!isEdit) {
+        const tokenCheck = validateRequired(token, 'API 令牌');
+        if (!tokenCheck.valid) newErrors.token = tokenCheck.error;
+      }
+    } else if (engineType === 'LOCAL') {
+      const pathCheck = validateRequired(localPath, '本地路径');
+      if (!pathCheck.valid) newErrors.localPath = pathCheck.error;
     }
 
     setErrors(newErrors);
@@ -69,15 +69,11 @@ export function EngineForm({ initialValues, onSubmit, onCancel, loading }: Engin
 
     const values: StorageEngineCreateDTO = {
       name: name.trim(),
-      baseUrl: baseUrl.trim(),
-      username: username.trim(),
-      token: token.trim(),
+      engineType,
+      baseUrl: engineType === 'ALIST' ? baseUrl.trim() : undefined,
+      token: engineType === 'ALIST' && token.trim() ? token.trim() : undefined,
+      localPath: engineType === 'LOCAL' ? localPath.trim() : undefined,
     };
-
-    // 编辑时 Token 不传（可选），但 DTO 要求 token 字段存在
-    if (isEdit && !token.trim()) {
-      values.token = ''; // 后端 update 时忽略空 token
-    }
 
     try {
       await onSubmit(values);
@@ -100,6 +96,7 @@ export function EngineForm({ initialValues, onSubmit, onCancel, loading }: Engin
         )}
 
         <form onSubmit={handleSubmit} className="space-y-4">
+          {/* 名称 */}
           <div>
             <label htmlFor="eng-name" className="block text-sm font-medium text-gray-700 mb-1">
               名称 <span className="text-red-500">*</span>
@@ -112,63 +109,90 @@ export function EngineForm({ initialValues, onSubmit, onCancel, loading }: Engin
               className={`block w-full rounded-md border px-3 py-2 text-sm shadow-sm focus:outline-none focus:ring-1 ${
                 errors.name ? 'border-red-400 focus:border-red-500 focus:ring-red-500' : 'border-gray-300 focus:border-blue-500 focus:ring-blue-500'
               }`}
-              placeholder="例如：我的 AList 服务器"
+              placeholder="例如：我的存储服务器"
             />
             {errors.name && <p className="mt-1 text-xs text-red-600">{errors.name}</p>}
           </div>
 
+          {/* 引擎类型 */}
           <div>
-            <label htmlFor="eng-url" className="block text-sm font-medium text-gray-700 mb-1">
-              AList API 地址 <span className="text-red-500">*</span>
+            <label htmlFor="eng-type" className="block text-sm font-medium text-gray-700 mb-1">
+              引擎类型 <span className="text-red-500">*</span>
             </label>
-            <input
-              id="eng-url"
-              type="text"
-              value={baseUrl}
-              onChange={(e) => setBaseUrl(e.target.value)}
-              className={`block w-full rounded-md border px-3 py-2 text-sm shadow-sm focus:outline-none focus:ring-1 ${
-                errors.baseUrl ? 'border-red-400 focus:border-red-500 focus:ring-red-500' : 'border-gray-300 focus:border-blue-500 focus:ring-blue-500'
+            <select
+              id="eng-type"
+              value={engineType}
+              onChange={(e) => setEngineType(e.target.value as EngineType)}
+              disabled={isEdit}
+              className={`block w-full rounded-md border px-3 py-2 text-sm focus:outline-none focus:ring-1 ${
+                isEdit ? 'bg-gray-100 text-gray-500 cursor-not-allowed' : 'border-gray-300 focus:border-blue-500 focus:ring-blue-500'
               }`}
-              placeholder="例如：https://alist.example.com"
-            />
-            {errors.baseUrl && <p className="mt-1 text-xs text-red-600">{errors.baseUrl}</p>}
+            >
+              <option value="ALIST">AList 远程存储</option>
+              <option value="LOCAL">本地路径</option>
+            </select>
+            {isEdit && <p className="mt-1 text-xs text-gray-400">引擎类型创建后不可更改</p>}
           </div>
 
-          <div>
-            <label htmlFor="eng-user" className="block text-sm font-medium text-gray-700 mb-1">
-              用户名 <span className="text-red-500">*</span>
-            </label>
-            <input
-              id="eng-user"
-              type="text"
-              autoComplete="off"
-              value={username}
-              onChange={(e) => setUsername(e.target.value)}
-              className={`block w-full rounded-md border px-3 py-2 text-sm shadow-sm focus:outline-none focus:ring-1 ${
-                errors.username ? 'border-red-400 focus:border-red-500 focus:ring-red-500' : 'border-gray-300 focus:border-blue-500 focus:ring-blue-500'
-              }`}
-              placeholder="AList 登录用户名"
-            />
-            {errors.username && <p className="mt-1 text-xs text-red-600">{errors.username}</p>}
-          </div>
+          {/* AList 专属字段 */}
+          {engineType === 'ALIST' && (
+            <>
+              <div>
+                <label htmlFor="eng-url" className="block text-sm font-medium text-gray-700 mb-1">
+                  服务器地址 <span className="text-red-500">*</span>
+                </label>
+                <input
+                  id="eng-url"
+                  type="text"
+                  value={baseUrl}
+                  onChange={(e) => setBaseUrl(e.target.value)}
+                  className={`block w-full rounded-md border px-3 py-2 text-sm shadow-sm focus:outline-none focus:ring-1 ${
+                    errors.baseUrl ? 'border-red-400 focus:border-red-500 focus:ring-red-500' : 'border-gray-300 focus:border-blue-500 focus:ring-blue-500'
+                  }`}
+                  placeholder="例如：https://alist.example.com"
+                />
+                {errors.baseUrl && <p className="mt-1 text-xs text-red-600">{errors.baseUrl}</p>}
+              </div>
 
-          <div>
-            <label htmlFor="eng-token" className="block text-sm font-medium text-gray-700 mb-1">
-              API 令牌 {!isEdit && <span className="text-red-500">*</span>}
-            </label>
-            <input
-              id="eng-token"
-              type="password"
-              autoComplete="off"
-              value={token}
-              onChange={(e) => setToken(e.target.value)}
-              className={`block w-full rounded-md border px-3 py-2 text-sm shadow-sm focus:outline-none focus:ring-1 ${
-                errors.token ? 'border-red-400 focus:border-red-500 focus:ring-red-500' : 'border-gray-300 focus:border-blue-500 focus:ring-blue-500'
-              }`}
-              placeholder={isEdit ? '留空则不修改' : 'AList API Token'}
-            />
-            {errors.token && <p className="mt-1 text-xs text-red-600">{errors.token}</p>}
-          </div>
+              <div>
+                <label htmlFor="eng-token" className="block text-sm font-medium text-gray-700 mb-1">
+                  API 令牌 {!isEdit && <span className="text-red-500">*</span>}
+                </label>
+                <input
+                  id="eng-token"
+                  type="password"
+                  autoComplete="off"
+                  value={token}
+                  onChange={(e) => setToken(e.target.value)}
+                  className={`block w-full rounded-md border px-3 py-2 text-sm shadow-sm focus:outline-none focus:ring-1 ${
+                    errors.token ? 'border-red-400 focus:border-red-500 focus:ring-red-500' : 'border-gray-300 focus:border-blue-500 focus:ring-blue-500'
+                  }`}
+                  placeholder={isEdit ? '留空则不修改' : 'API Token'}
+                />
+                {errors.token && <p className="mt-1 text-xs text-red-600">{errors.token}</p>}
+              </div>
+            </>
+          )}
+
+          {/* LOCAL 专属字段 */}
+          {engineType === 'LOCAL' && (
+            <div>
+              <label htmlFor="eng-path" className="block text-sm font-medium text-gray-700 mb-1">
+                本地路径 <span className="text-red-500">*</span>
+              </label>
+              <input
+                id="eng-path"
+                type="text"
+                value={localPath}
+                onChange={(e) => setLocalPath(e.target.value)}
+                className={`block w-full rounded-md border px-3 py-2 text-sm shadow-sm focus:outline-none focus:ring-1 ${
+                  errors.localPath ? 'border-red-400 focus:border-red-500 focus:ring-red-500' : 'border-gray-300 focus:border-blue-500 focus:ring-blue-500'
+                }`}
+                placeholder="例如：/data/media 或 C:\media"
+              />
+              {errors.localPath && <p className="mt-1 text-xs text-red-600">{errors.localPath}</p>}
+            </div>
+          )}
 
           <div className="flex justify-end gap-3 pt-2">
             <button
