@@ -51,17 +51,31 @@ public class PasswordEncryptionPostProcessor implements EnvironmentPostProcessor
 
         // 2. 空值检测
         if (password == null || password.isBlank()) {
-            log.warn("认证密码未设置，管理后台将无法登录。请在 application.yaml 中配置 app.auth.password。");
+            log.warn("========================================");
+            log.warn("认证密码未设置！管理后台将无法登录。");
+            log.warn("请在 application.yaml 中配置 app.auth.password，");
+            log.warn("或设置环境变量 APP_AUTH_PASSWORD。");
+            log.warn("========================================");
             return;
         }
 
-        // 3. BCrypt 加密（所有值均视为明文，包括含 {bcrypt} 前缀的旧格式）
+        // 3. 检测环境变量来源（仅用于诊断日志）
+        boolean fromEnvVar = environment.getPropertySources().stream()
+            .filter(ps -> ps.getName().contains("environment"))
+            .anyMatch(ps -> ps.getProperty(PASSWORD_KEY) != null);
+        if (fromEnvVar) {
+            log.info("检测到 APP_AUTH_PASSWORD 环境变量，将使用其值进行加密");
+        }
+
+        // 4. BCrypt 加密（所有值均视为明文，包括含 {bcrypt} 前缀的旧格式）
         String encrypted = encryptIfPlain(password);
         if (encrypted == null) {
             return;
         }
 
-        // 4. 更新 Environment（仅内存，不回写文件）
+        log.info("PasswordEncryptionPostProcessor：密码已成功加密为 BCrypt 格式（内存注入）");
+
+        // 5. 更新 Environment（仅内存，不回写文件）
         setPasswordInEnvironment(environment, encrypted);
     }
 
