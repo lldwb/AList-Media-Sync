@@ -138,13 +138,14 @@ class WebhookRuleServiceTest {
     @DisplayName("更新规则 — 部分字段为 null 时保持原值")
     void shouldUpdateOnlyNonNullFields() {
         when(repository.findById(1L)).thenReturn(Optional.of(mockRule));
+        when(storageEngineRepository.getReferenceById(1L)).thenReturn(mockEngine);
         when(repository.save(any(WebhookRule.class))).thenReturn(mockRule);
 
         WebhookRuleCreateDTO partialDTO = new WebhookRuleCreateDTO();
         partialDTO.setName("仅更新名称");
         partialDTO.setAction(WebhookRule.RuleAction.SYNC_ONLY);
-        // 其他字段为 null（包括 targetEngineId、triggerEventType 等）
-        // update 中仅非 null 字段被更新，targetEngineId 为 null 时不更新 targetEngine
+        partialDTO.setTargetEngineId(1L); // SYNC_ONLY 时 targetEngineId 必填
+        // triggerEventType、roomIdFilter 等字段为 null，应保持原值
 
         WebhookRuleVO result = service.update(1L, partialDTO);
 

@@ -413,7 +413,7 @@ public class TranscodeService {
             }
 
             candidates.add(new TranscodeCandidate(
-                name, fullPath, concatPath(targetDir, name), format, entry.size()));
+                name, fullPath, concatPath(targetDir, name), format, entry.size(), sourceEngine));
         }
     }
 

@@ -1,0 +1,23 @@
+# ============================================================
+# AList-Media-Sync 测试配置（test profile）
+# ============================================================
+# 测试环境使用 H2 内存数据库，避免文件数据库损坏影响测试。
+# 通过 @ActiveProfiles("test") 激活。
+# ============================================================
+
+spring:
+  datasource:
+    # 内存数据库模式：每次测试启动创建，测试结束销毁
+    url: jdbc:h2:mem:testdb;DB_CLOSE_DELAY=-1;MODE=MySQL
+    driver-class-name: org.h2.Driver
+    username: sa
+    password:
+  jpa:
+    hibernate:
+      ddl-auto: create-drop
+    show-sql: false
+
+# 测试环境禁用密码加密后处理器，避免干扰
+app:
+  auth:
+    password: "{bcrypt}$2a$10$testplaceholderhashfortestenv"

@@ -34,6 +34,7 @@ import static org.mockito.Mockito.*;
  */
 @ExtendWith(MockitoExtension.class)
 @DisplayName("转码文件处理器测试")
+@SuppressWarnings("deprecation") // JAVE2 3.5.0 Encoder/Attributes API
 class TranscodeFileProcessorTest {
 
     @Mock
@@ -52,6 +53,7 @@ class TranscodeFileProcessorTest {
     private TranscodeFileProcessor processor;
 
     private TranscodeCandidate candidate;
+    private StorageEngine sourceEngine;
     private StorageEngine targetEngine;
     private SyncTask syncTask;
     private TaskExecution execution;
@@ -63,9 +65,15 @@ class TranscodeFileProcessorTest {
         // 初始化信号量
         processor.init();
 
+        sourceEngine = new StorageEngine();
+        sourceEngine.setId(1L);
+        sourceEngine.setName("源引擎");
+        sourceEngine.setBaseUrl("https://source.example.com");
+        sourceEngine.setEncryptedToken("source-token");
+
         candidate = new TranscodeCandidate(
             "test-video.mp4", "/videos/test-video.mp4",
-            "/output/test-video.mp3", "MP4", 50_000_000L);
+            "/output/test-video.mp3", "MP4", 50_000_000L, sourceEngine);
 
         targetEngine = new StorageEngine();
         targetEngine.setId(2L);
