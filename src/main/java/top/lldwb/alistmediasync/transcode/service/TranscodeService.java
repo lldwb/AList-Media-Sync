@@ -154,40 +154,48 @@ public class TranscodeService {
 
     /**
      * 执行转码任务（三步流程 + 状态机）
+     * <p>
+     * 从数据库重新加载实体以确保拿到最新版本号，避免乐观锁冲突。
+     * 三步流程中的状态变更仅修改内存对象，最终在 finally 块统一持久化。
+     * </p>
      */
     @Transactional
     void executeTask(TranscodeTask task) {
-        StorageEngine sourceEngine = task.getSourceEngineId() != null
-            ? storageEngineService.getEntity(task.getSourceEngineId())
+        // 重新加载实体，确保拿到最新的 @Version 字段值，避免分离实体 merge 时乐观锁冲突
+        TranscodeTask managedTask = repository.findById(task.getId())
+            .orElseThrow(() -> new NoSuchElementException("转码任务不存在：id=" + task.getId()));
+
+        StorageEngine sourceEngine = managedTask.getSourceEngineId() != null
+            ? storageEngineService.getEntity(managedTask.getSourceEngineId())
             : null;
-        StorageEngine targetEngine = storageEngineService.getEntity(task.getTargetEngineId());
+        StorageEngine targetEngine = storageEngineService.getEntity(managedTask.getTargetEngineId());
 
         // 创建执行记录
         TaskExecution execution = new TaskExecution();
-        execution.setTranscodeTask(task);
+        execution.setTranscodeTask(managedTask);
         execution.setTaskType(TaskExecution.TaskType.TRANSCODE);
         execution.setStartTime(java.time.LocalDateTime.now());
         execution.setStatus(TaskExecution.ExecutionStatus.RUNNING);
         execution = taskExecutionRepository.save(execution);
 
         try {
-            executeThreeStepFlow(task, sourceEngine, targetEngine);
-            task.setStatus(TranscodeStatus.COMPLETED);
-            task.setProgress(1000);
+            executeThreeStepFlow(managedTask, sourceEngine, targetEngine);
+            managedTask.setStatus(TranscodeStatus.COMPLETED);
+            managedTask.setProgress(1000);
             execution.setStatus(TaskExecution.ExecutionStatus.SUCCESS);
-            log.info("转码任务已完成：{}", task.getSourceFilePath());
+            log.info("转码任务已完成：{}", managedTask.getSourceFilePath());
         } catch (Exception e) {
-            log.error("转码任务失败：{} — {}", task.getSourceFilePath(), e.getMessage(), e);
+            log.error("转码任务失败：{} — {}", managedTask.getSourceFilePath(), e.getMessage(), e);
             // 仅在非失败状态时设置（可能已在三步流程中设置具体失败状态）
-            if (!isFailureStatus(task.getStatus())) {
-                task.setErrorMessage(e.getMessage());
+            if (!isFailureStatus(managedTask.getStatus())) {
+                managedTask.setErrorMessage(e.getMessage());
             }
             execution.setStatus(TaskExecution.ExecutionStatus.FAILED);
             execution.setFailureDetails(e.getMessage());
         } finally {
             execution.setEndTime(java.time.LocalDateTime.now());
             taskExecutionRepository.save(execution);
-            repository.save(task);
+            repository.save(managedTask);
         }
     }
 
@@ -217,13 +225,11 @@ public class TranscodeService {
             }
             String sourceTempPath = downloadSourceFile(task, sourceEngine, sourceStrategy, tempDir);
             task.setTempSourcePath(sourceTempPath);
-            repository.save(task);
 
             // 步骤 2：转码
             transition(task, TranscodeStatus.TRANSCODING);
             String outputTempPath = transcodeFile(task, sourceTempPath, tempDir);
             task.setTempFilePath(outputTempPath);
-            repository.save(task);
 
             // 步骤 3：上传
             transition(task, TranscodeStatus.UPLOADING);
@@ -256,7 +262,6 @@ public class TranscodeService {
         } catch (Exception e) {
             transition(task, TranscodeStatus.DOWNLOAD_FAILED);
             task.setErrorMessage("下载失败：" + e.getMessage());
-            repository.save(task);
             throw new RuntimeException("下载源文件失败", e);
         }
     }
@@ -282,7 +287,6 @@ public class TranscodeService {
         } catch (Exception e) {
             transition(task, TranscodeStatus.TRANSCODE_FAILED);
             task.setErrorMessage("转码失败：" + e.getMessage());
-            repository.save(task);
             throw new RuntimeException("转码失败", e);
         }
     }
@@ -305,7 +309,6 @@ public class TranscodeService {
         } catch (Exception e) {
             transition(task, TranscodeStatus.UPLOAD_FAILED);
             task.setErrorMessage("上传失败：" + e.getMessage());
-            repository.save(task);
             throw new RuntimeException("上传转码文件失败", e);
         }
     }
@@ -508,12 +511,14 @@ public class TranscodeService {
     // ================================================================
 
     /**
-     * 执行状态转换并校验
+     * 执行状态转换并校验（仅更新内存状态，不单独持久化）
+     * <p>
+     * 状态变更由调用方统一持久化，避免事务内多次 save 引发乐观锁冲突。
+     * </p>
      */
     private void transition(TranscodeTask task, TranscodeStatus targetStatus) {
         validateTransition(task.getStatus(), targetStatus);
         task.setStatus(targetStatus);
-        repository.save(task);
     }
 
     /**
