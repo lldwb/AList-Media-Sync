@@ -59,8 +59,13 @@ public class PasswordEncryptionPostProcessor implements EnvironmentPostProcessor
         }
 
         if (password.startsWith(BCRYPT_PREFIX)) {
-            // 已加密 — 静默跳过
-            return;
+            String hash = password.substring(BCRYPT_PREFIX.length());
+            if (BCRYPT_HASH_PATTERN.matcher(hash).matches()) {
+                // 已加密且哈希格式有效 — 静默跳过
+                return;
+            }
+            // 哈希格式无效，继续走加密流程
+            log.warn("检测到无效的 BCrypt 哈希格式，将重新加密: {}", password);
         }
 
         // 3. 明文密码 — BCrypt 加密
@@ -74,6 +79,10 @@ public class PasswordEncryptionPostProcessor implements EnvironmentPostProcessor
 
         log.info("检测到明文密码，已自动加密为 BCrypt 格式。");
     }
+
+    /** 有效 BCrypt 哈希的正则（$2a/$2b/$2y$ + 2位cost + $ + 53位Base64字符） */
+    private static final java.util.regex.Pattern BCRYPT_HASH_PATTERN =
+            java.util.regex.Pattern.compile("^\\$2[aby]\\$\\d{2}\\$[./A-Za-z0-9]{53}$");
 
     /**
      * 对明文密码执行 BCrypt 加密。
@@ -89,9 +98,13 @@ public class PasswordEncryptionPostProcessor implements EnvironmentPostProcessor
             return null;
         }
 
-        // 如果已经是 {bcrypt} 格式，直接返回
+        // 如果已经是有效的 {bcrypt} 格式，直接返回；无效哈希则重新加密
         if (plainPassword.startsWith(BCRYPT_PREFIX)) {
-            return plainPassword;
+            String hash = plainPassword.substring(BCRYPT_PREFIX.length());
+            if (BCRYPT_HASH_PATTERN.matcher(hash).matches()) {
+                return plainPassword;
+            }
+            log.warn("检测到无效的 BCrypt 哈希格式，将重新加密: {}", plainPassword);
         }
 
         String hash = ENCODER.encode(plainPassword);
@@ -108,7 +121,12 @@ public class PasswordEncryptionPostProcessor implements EnvironmentPostProcessor
         if (password == null || password.isBlank()) {
             return false;
         }
-        return !password.startsWith(BCRYPT_PREFIX);
+        if (!password.startsWith(BCRYPT_PREFIX)) {
+            return true;
+        }
+        // 带有 {bcrypt} 前缀但哈希格式无效，视为明文
+        String hash = password.substring(BCRYPT_PREFIX.length());
+        return !BCRYPT_HASH_PATTERN.matcher(hash).matches();
     }
 
     /**
