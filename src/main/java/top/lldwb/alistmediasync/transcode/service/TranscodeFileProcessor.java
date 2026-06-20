@@ -164,18 +164,22 @@ public class TranscodeFileProcessor {
             // 步骤 2：转码
             String outputExt = targetFormat.name().toLowerCase();
             outputTempFile = TempFileManager.createTempFile(tempDir, candidate.name(), tempSuffix);
+            // 重新加载实体以获取最新版本号（downloadStep 内部已 save，版本号已递增）
+            transcodeTask = reloadTask(transcodeTask.getId());
             transcodeTask.setStatus(TranscodeTask.TranscodeStatus.TRANSCODING);
             transcodeTask.setTempSourcePath(sourceTempFile.toString());
-            repository.save(transcodeTask);
+            transcodeTask = repository.save(transcodeTask);
 
             int bitrate = appProperties.getTranscode().getDefaultBitrate();
             doTranscode(sourceTempFile, outputTempFile, targetFormat, bitrate, transcodeTask);
 
             // 重命名去掉临时后缀
             Path finalFile = TempFileManager.renameToFinal(outputTempFile, outputExt);
+            // 转码完成后重新加载实体（TranscodeProgressListener 可能已修改版本号）
+            transcodeTask = reloadTask(transcodeTask.getId());
             transcodeTask.setTempFilePath(finalFile.toString());
             transcodeTask.setStatus(TranscodeTask.TranscodeStatus.UPLOADING);
-            repository.save(transcodeTask);
+            transcodeTask = repository.save(transcodeTask);
 
             // 步骤 3：上传
             uploadStep(candidate, targetFormat, targetEngine, finalFile, transcodeTask);
@@ -183,6 +187,7 @@ public class TranscodeFileProcessor {
             // 成功 — 清理临时文件
             TempFileManager.deleteQuietly(finalFile);
             TempFileManager.deleteQuietly(sourceTempFile);
+            transcodeTask = reloadTask(transcodeTask.getId());
             transcodeTask.setStatus(TranscodeTask.TranscodeStatus.COMPLETED);
             transcodeTask.setProgress(1000);
             repository.save(transcodeTask);
@@ -194,7 +199,8 @@ public class TranscodeFileProcessor {
             log.error("转码失败：{} — {}", candidate.name(), e.getMessage(), e);
 
             if (transcodeTask != null) {
-                // 保持当前失败状态（已在各步骤中设置）
+                // 重新加载以获取最新版本号，避免乐观锁冲突
+                transcodeTask = reloadTask(transcodeTask.getId());
                 transcodeTask.setErrorMessage(e.getMessage());
                 if (outputTempFile != null && Files.exists(outputTempFile)) {
                     transcodeTask.setTempFilePath(outputTempFile.toString());
@@ -225,9 +231,23 @@ public class TranscodeFileProcessor {
             Files.copy(in, sourceTempFile, java.nio.file.StandardCopyOption.REPLACE_EXISTING);
         }
 
+        // 注意：调用方在 save 后应使用返回的 managed entity，此处仅更新引用
+        // downloadStep 不负责持久化（由 doProcess 统一管理）
         transcodeTask.setTempSourcePath(sourceTempFile.toString());
-        repository.save(transcodeTask);
+        transcodeTask = repository.save(transcodeTask);
         return sourceTempFile;
+    }
+
+    /**
+     * 重新加载 TranscodeTask 实体以获取最新版本号
+     * <p>
+     * 在每次 save() 之后、下一次修改之前调用，避免 detached entity
+     * merge 时因版本号过期导致 ObjectOptimisticLockingFailureException。
+     * </p>
+     */
+    private TranscodeTask reloadTask(Long taskId) {
+        return repository.findById(taskId)
+            .orElseThrow(() -> new IllegalStateException("转码任务不存在：id=" + taskId));
     }
 
     /**
@@ -301,20 +321,23 @@ public class TranscodeFileProcessor {
 
     private class TranscodeProgressListener implements EncoderProgressListener {
 
-        private final TranscodeTask task;
+        private final Long taskId;
         private int lastSavedProgress = 0;
 
         TranscodeProgressListener(TranscodeTask task) {
-            this.task = task;
+            this.taskId = task.getId();
         }
 
         @Override
         public void progress(int permil) {
-            task.setProgress(permil);
             if (permil - lastSavedProgress >= 50) {
                 lastSavedProgress = permil;
                 try {
-                    repository.save(task);
+                    TranscodeTask managed = repository.findById(taskId).orElse(null);
+                    if (managed != null) {
+                        managed.setProgress(permil);
+                        repository.save(managed);
+                    }
                 } catch (Exception e) {
                     log.debug("进度持久化失败（非关键）：{}", e.getMessage());
                 }
