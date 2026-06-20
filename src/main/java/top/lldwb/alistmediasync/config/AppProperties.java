@@ -44,6 +44,13 @@ public class AppProperties {
     private int retentionDays = 30;
 
     /**
+     * 服务器地址（用于生成 Webhook 地址等外部 URL）
+     * 未配置时使用请求 origin
+     * 可通过环境变量 SERVER_ADDRESS 覆盖
+     */
+    private String serverAddress;
+
+    /**
      * 认证配置内部类
      */
     @Data
@@ -89,6 +96,14 @@ public class AppProperties {
          */
         @Min(1)
         private int maxConcurrentTranscode = 32;
+
+        /**
+         * 默认音频比特率（bps，默认 128000 = 128kbps）
+         * 转码任务未指定码率时使用此值
+         * 可通过环境变量 TRANSCODE_DEFAULT_BITRATE 覆盖
+         */
+        @Min(1)
+        private int defaultBitrate = 128000;
 
         /** 临时文件后缀最大长度（超过截断并警告） */
         @Min(1)

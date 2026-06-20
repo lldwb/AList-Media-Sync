@@ -8,6 +8,7 @@ import top.lldwb.alistmediasync.dto.webhook.WebhookRuleCreateDTO;
 import top.lldwb.alistmediasync.dto.webhook.WebhookRuleVO;
 import top.lldwb.alistmediasync.entity.StorageEngine;
 import top.lldwb.alistmediasync.entity.WebhookRule;
+import top.lldwb.alistmediasync.entity.WebhookRule.RuleAction;
 import top.lldwb.alistmediasync.repository.StorageEngineRepository;
 import top.lldwb.alistmediasync.repository.WebhookRuleRepository;
 
@@ -18,6 +19,7 @@ import java.util.NoSuchElementException;
  * Webhook 规则管理服务
  * <p>
  * 负责规则的 CRUD 和启用/禁用操作。
+ * 支持录播存储引擎关联和 recordingEngine 校验。
  * </p>
  *
  * @author AList-Media-Sync
@@ -35,19 +37,34 @@ public class WebhookRuleService {
         if (dto.getTargetEngineId() == null || dto.getTargetEngineId() < 1) {
             throw new IllegalArgumentException("targetEngineId 必须为正整数");
         }
-        StorageEngine engine = storageEngineRepository.findById(dto.getTargetEngineId())
+        StorageEngine targetEngine = storageEngineRepository.findById(dto.getTargetEngineId())
             .orElseThrow(() -> new NoSuchElementException(
                 "目标存储引擎不存在：id=" + dto.getTargetEngineId()));
+
+        // 校验：TRANSCODE_ONLY / BOTH 时 recordingEngineId 和 recordingPath 必填
+        validateRecordingEngine(dto);
+
         WebhookRule entity = new WebhookRule();
         entity.setName(dto.getName());
         entity.setTriggerEventType(dto.getTriggerEventType());
         entity.setRoomIdFilter(dto.getRoomIdFilter());
         entity.setAction(dto.getAction());
-        entity.setTargetEngine(engine);
-        entity.setTargetPath(dto.getTargetPath());
+        entity.setTargetEngine(targetEngine);
+        entity.setTargetFilePath(dto.getTargetFilePath());
+
+        // 录播存储引擎关联
+        if (dto.getRecordingEngineId() != null && dto.getRecordingEngineId() > 0) {
+            StorageEngine recordingEngine = storageEngineRepository.findById(dto.getRecordingEngineId())
+                .orElseThrow(() -> new NoSuchElementException(
+                    "录播存储引擎不存在：id=" + dto.getRecordingEngineId()));
+            entity.setRecordingEngine(recordingEngine);
+        }
+        entity.setRecordingPath(dto.getRecordingPath());
+
         entity.setEnabled(true);
         entity = repository.save(entity);
-        log.info("Webhook 规则已创建：{} (触发: {})", entity.getName(), entity.getTriggerEventType());
+        log.info("Webhook 规则已创建：{} (触发: {}, 操作: {})", entity.getName(),
+            entity.getTriggerEventType(), entity.getAction());
         return WebhookRuleVO.from(entity);
     }
 
@@ -59,9 +76,19 @@ public class WebhookRuleService {
         if (dto.getName() != null) entity.setName(dto.getName());
         if (dto.getTriggerEventType() != null) entity.setTriggerEventType(dto.getTriggerEventType());
         if (dto.getRoomIdFilter() != null) entity.setRoomIdFilter(dto.getRoomIdFilter());
-        if (dto.getAction() != null) entity.setAction(dto.getAction());
-        if (dto.getTargetEngineId() != null) entity.setTargetEngine(storageEngineRepository.getReferenceById(dto.getTargetEngineId()));
-        if (dto.getTargetPath() != null) entity.setTargetPath(dto.getTargetPath());
+        if (dto.getAction() != null) {
+            entity.setAction(dto.getAction());
+            // 操作变更后重新校验 recordingEngine
+            validateRecordingEngineForEntity(dto, dto.getAction());
+        }
+        if (dto.getTargetEngineId() != null) {
+            entity.setTargetEngine(storageEngineRepository.getReferenceById(dto.getTargetEngineId()));
+        }
+        if (dto.getTargetFilePath() != null) entity.setTargetFilePath(dto.getTargetFilePath());
+        if (dto.getRecordingEngineId() != null) {
+            entity.setRecordingEngine(storageEngineRepository.getReferenceById(dto.getRecordingEngineId()));
+        }
+        if (dto.getRecordingPath() != null) entity.setRecordingPath(dto.getRecordingPath());
 
         entity = repository.save(entity);
         log.info("Webhook 规则已更新：{}", entity.getName());
@@ -106,5 +133,37 @@ public class WebhookRuleService {
         entity = repository.save(entity);
         log.info("Webhook 规则已禁用：{}", entity.getName());
         return WebhookRuleVO.from(entity);
+    }
+
+    // ================================================================
+    // 私有辅助方法
+    // ================================================================
+
+    /**
+     * 校验 recordingEngine 必填关系
+     */
+    private void validateRecordingEngine(WebhookRuleCreateDTO dto) {
+        RuleAction action = dto.getAction();
+        if (action == RuleAction.TRANSCODE_ONLY || action == RuleAction.BOTH) {
+            if (dto.getRecordingEngineId() == null || dto.getRecordingEngineId() < 1) {
+                throw new IllegalArgumentException(
+                    "操作为" + action + "时，录播存储引擎（recordingEngineId）为必填项");
+            }
+            if (dto.getRecordingPath() == null || dto.getRecordingPath().isBlank()) {
+                throw new IllegalArgumentException(
+                    "操作为" + action + "时，录播文件路径（recordingPath）为必填项");
+            }
+        }
+    }
+
+    /** 更新时的 recordingEngine 校验 */
+    private void validateRecordingEngineForEntity(WebhookRuleCreateDTO dto, RuleAction action) {
+        if (action == RuleAction.TRANSCODE_ONLY || action == RuleAction.BOTH) {
+            Long recordingEngineId = dto.getRecordingEngineId();
+            if (recordingEngineId == null || recordingEngineId < 1) {
+                throw new IllegalArgumentException(
+                    "操作变更为" + action + "时，录播存储引擎（recordingEngineId）为必填项");
+            }
+        }
     }
 }

@@ -46,7 +46,7 @@ class TranscodeFileProcessorTest {
     private AppProperties appProperties;
 
     @Mock
-    private AppProperties.TranscodeConfig transcodeConfig;
+    private AppProperties.Transcode transcodeConfig;
 
     @InjectMocks
     private TranscodeFileProcessor processor;

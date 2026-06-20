@@ -7,6 +7,8 @@ import org.junit.jupiter.api.extension.ExtendWith;
 import org.mockito.InjectMocks;
 import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
+import org.mockito.junit.jupiter.MockitoSettings;
+import org.mockito.quality.Strictness;
 import top.lldwb.alistmediasync.client.AListClient;
 import top.lldwb.alistmediasync.config.AppProperties;
 import top.lldwb.alistmediasync.dto.transcode.TranscodeTaskVO;
@@ -27,7 +29,7 @@ import static org.mockito.Mockito.*;
 /**
  * 转码引擎（编排层）单元测试
  * <p>
- * 覆盖 createTask()、listAll()、getById()、retryUpload() 方法。
+ * 覆盖 createTask()、listAll()、getById()、retry() 方法。
  * executeAsync() 和 executePostSyncTranscode() 涉及文件系统和 JAVE2，
  * 需要集成测试环境，此处仅验证调用路径。
  * </p>
@@ -35,6 +37,7 @@ import static org.mockito.Mockito.*;
  * @author AList-Media-Sync
  */
 @ExtendWith(MockitoExtension.class)
+@MockitoSettings(strictness = Strictness.LENIENT)
 @DisplayName("转码引擎服务测试")
 class TranscodeServiceTest {
 
@@ -54,7 +57,7 @@ class TranscodeServiceTest {
     private AppProperties appProperties;
 
     @Mock
-    private AppProperties.TranscodeConfig transcodeConfig;
+    private AppProperties.Transcode transcodeConfig;
 
     @Mock
     private TranscodeFileProcessor fileProcessor;
@@ -181,50 +184,63 @@ class TranscodeServiceTest {
     }
 
     // ================================================================
-    // retryUpload 方法测试
+    // retry 方法测试
     // ================================================================
 
     @Test
-    @DisplayName("重试上传 — 非 FAILED 状态应抛出异常")
+    @DisplayName("重试 — 非失败状态应抛出异常")
     void shouldRejectRetryForNonFailedTask() {
         mockTask.setStatus(TranscodeTask.TranscodeStatus.COMPLETED);
         when(repository.findById(1L)).thenReturn(Optional.of(mockTask));
 
-        assertThrows(IllegalStateException.class, () -> service.retryUpload(1L));
+        assertThrows(IllegalStateException.class, () -> service.retry(1L));
     }
 
     @Test
-    @DisplayName("重试上传 — 临时文件不存在应抛出异常")
-    void shouldRejectRetryWhenTempFileMissing() {
-        mockTask.setStatus(TranscodeTask.TranscodeStatus.FAILED);
-        mockTask.setTempFilePath("/nonexistent/path.tmp");
+    @DisplayName("重试 — 下载失败应回退到 DOWNLOADING")
+    void shouldRetryFromDownloadFailed() {
+        mockTask.setStatus(TranscodeTask.TranscodeStatus.DOWNLOAD_FAILED);
+        mockTask.setTempSourcePath("/tmp/src-test.mp4");
         when(repository.findById(1L)).thenReturn(Optional.of(mockTask));
 
-        assertThrows(IllegalStateException.class, () -> service.retryUpload(1L));
+        service.retry(1L);
+
+        assertEquals(TranscodeTask.TranscodeStatus.DOWNLOADING, mockTask.getStatus());
+        assertNull(mockTask.getTempSourcePath());
+        assertNull(mockTask.getErrorMessage());
     }
 
     @Test
-    @DisplayName("重试上传 — 任务不存在应抛出 NoSuchElementException")
+    @DisplayName("重试 — 任务不存在应抛出 NoSuchElementException")
     void shouldThrowWhenRetryNonExistentTask() {
         when(repository.findById(999L)).thenReturn(Optional.empty());
 
-        assertThrows(NoSuchElementException.class, () -> service.retryUpload(999L));
+        assertThrows(NoSuchElementException.class, () -> service.retry(999L));
     }
 
     @Test
-    @DisplayName("重试上传 — 目标引擎不存在应抛出异常")
-    void shouldThrowWhenTargetEngineNotFoundOnRetry() throws Exception {
-        mockTask.setStatus(TranscodeTask.TranscodeStatus.FAILED);
-        // 创建真实临时文件
-        java.nio.file.Path tempFile = java.nio.file.Files.createTempFile("test-retry-", ".tmp");
-        tempFile.toFile().deleteOnExit();
-        mockTask.setTempFilePath(tempFile.toString());
-        mockTask.setSourceFilePath("/videos/test.mp4");
-        mockTask.setTargetFilePath("/output/");
-
+    @DisplayName("重试 — 转码失败应回退到 TRANSCODING")
+    void shouldRetryFromTranscodeFailed() {
+        mockTask.setStatus(TranscodeTask.TranscodeStatus.TRANSCODE_FAILED);
+        mockTask.setTempSourcePath("/tmp/src-test.mp4");
         when(repository.findById(1L)).thenReturn(Optional.of(mockTask));
-        when(storageEngineRepository.findById(2L)).thenReturn(Optional.empty());
 
-        assertThrows(NoSuchElementException.class, () -> service.retryUpload(1L));
+        service.retry(1L);
+
+        assertEquals(TranscodeTask.TranscodeStatus.TRANSCODING, mockTask.getStatus());
+        assertNull(mockTask.getErrorMessage());
+    }
+
+    @Test
+    @DisplayName("重试 — 上传失败应回退到 UPLOADING")
+    void shouldRetryFromUploadFailed() {
+        mockTask.setStatus(TranscodeTask.TranscodeStatus.UPLOAD_FAILED);
+        mockTask.setTempFilePath("/tmp/out-test.mp3");
+        when(repository.findById(1L)).thenReturn(Optional.of(mockTask));
+
+        service.retry(1L);
+
+        assertEquals(TranscodeTask.TranscodeStatus.UPLOADING, mockTask.getStatus());
+        assertNull(mockTask.getErrorMessage());
     }
 }

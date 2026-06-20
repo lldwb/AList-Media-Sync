@@ -10,7 +10,7 @@ import java.time.LocalDateTime;
  * 转码任务实体
  * <p>
  * 记录视频文件转码为 MP3/MP4/FLV 的任务信息，
- * 包括源文件路径、目标格式、进度和临时文件路径。
+ * 采用三步流程（下载→转码→上传）和 8 状态模型。
  * </p>
  *
  * @author AList-Media-Sync
@@ -36,11 +36,11 @@ public class TranscodeTask {
     @JoinColumn(name = "webhook_rule_id")
     private WebhookRule webhookRule;
 
-    /** 源文件在 AList 中的完整路径 */
+    /** 源文件在源存储引擎中的完整路径 */
     @Column(nullable = false, length = 1000)
     private String sourceFilePath;
 
-    /** 目标文件在 AList 中的完整路径 */
+    /** 目标文件在目标存储引擎中的完整路径 */
     @Column(nullable = false, length = 1000)
     private String targetFilePath;
 
@@ -54,9 +54,8 @@ public class TranscodeTask {
     @Enumerated(EnumType.STRING)
     private TargetFormat targetFormat = TargetFormat.MP3;
 
-    /** 音频比特率（bps，默认 128000 = 128kbps） */
-    @Column(nullable = false)
-    private Integer bitrate = 128000;
+    /** 音频比特率（bps，null 时使用系统默认码率 128kbps） */
+    private Integer bitrate;
 
     /**
      * 转码进度（千分比 0-1000）
@@ -65,20 +64,24 @@ public class TranscodeTask {
     @Column(nullable = false)
     private Integer progress = 0;
 
-    /** 转码状态 */
+    /** 转码状态（8 状态模型） */
     @Column(nullable = false, length = 20)
     @Enumerated(EnumType.STRING)
     private TranscodeStatus status = TranscodeStatus.PENDING;
 
-    /** 本地临时文件路径（上传失败时保留，用于手动重试） */
+    /** 本地临时转码输出文件路径（上传失败时保留，用于手动重试） */
     @Column(length = 1000)
     private String tempFilePath;
+
+    /** 已下载源文件的临时路径（供转码/上传失败重试使用） */
+    @Column(length = 1000)
+    private String tempSourcePath;
 
     /** 错误消息（失败时记录） */
     @Column(length = 2000)
     private String errorMessage;
 
-    /** 源存储引擎 ID（从 AList 下载源文件） */
+    /** 源存储引擎 ID（下载源文件） */
     private Long sourceEngineId;
 
     /** 目标存储引擎 ID（上传转码结果） */
@@ -117,19 +120,38 @@ public class TranscodeTask {
         MP3, MP4, FLV
     }
 
-    /** 转码状态枚举 */
+    /**
+     * 转码状态枚举（8 状态模型）
+     * <p>
+     * 三步流程：下载 → 转码 → 上传，每步可独立失败和重试。
+     * </p>
+     */
     public enum TranscodeStatus {
         /** 待处理 */
-        PENDING,
-        /** 扫描中（阶段 1） */
-        SCANNING,
-        /** 转码中（阶段 2） */
-        TRANSCODING,
+        PENDING(0),
+        /** 下载中 */
+        DOWNLOADING(1),
+        /** 下载失败 */
+        DOWNLOAD_FAILED(2),
+        /** 转码中 */
+        TRANSCODING(3),
+        /** 转码失败 */
+        TRANSCODE_FAILED(4),
         /** 上传中 */
-        UPLOADING,
+        UPLOADING(5),
+        /** 上传失败 */
+        UPLOAD_FAILED(6),
         /** 完成 */
-        COMPLETED,
-        /** 失败 */
-        FAILED
+        COMPLETED(7);
+
+        private final int code;
+
+        TranscodeStatus(int code) {
+            this.code = code;
+        }
+
+        public int getCode() {
+            return code;
+        }
     }
 }

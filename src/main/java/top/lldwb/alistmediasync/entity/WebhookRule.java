@@ -11,6 +11,7 @@ import java.time.LocalDateTime;
  * <p>
  * 定义当录播姬 Webhook 事件到达时，系统应执行的操作。
  * 支持按事件类型和房间号过滤，可触发同步、转码或两者。
+ * 源端使用录播存储引擎 + 路径组合，目标端使用目标存储引擎 + 目标文件路径组合。
  * </p>
  *
  * @author AList-Media-Sync
@@ -47,14 +48,23 @@ public class WebhookRule {
     @Enumerated(EnumType.STRING)
     private RuleAction action = RuleAction.BOTH;
 
+    /** 录播存储引擎（源端，用户显式选择） */
+    @ManyToOne(fetch = FetchType.LAZY)
+    @JoinColumn(name = "recording_engine_id")
+    private StorageEngine recordingEngine;
+
+    /** 录播文件路径（源端路径） */
+    @Column(length = 1000)
+    private String recordingPath;
+
     /** 同步/转码的目标存储引擎 */
     @ManyToOne(fetch = FetchType.LAZY)
     @JoinColumn(name = "target_engine_id", nullable = false)
     private StorageEngine targetEngine;
 
-    /** 目标目录路径 */
+    /** 目标文件路径（原 targetPath） */
     @Column(nullable = false, length = 1000)
-    private String targetPath;
+    private String targetFilePath;
 
     /** 是否启用 */
     @Column(nullable = false)

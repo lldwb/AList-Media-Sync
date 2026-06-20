@@ -62,7 +62,7 @@ class ScheduleServiceTest {
         cronTask.setSourceEngine(mockEngine);
         cronTask.setTargetEngine(mockEngine);
         cronTask.setScheduleType(SyncTask.ScheduleType.CRON);
-        cronTask.setCronExpression("0 */6 * * *");
+        cronTask.setCronExpression("0 0 */6 * * *");
         cronTask.setSyncMode(SyncTask.SyncMode.NEW_ONLY);
         cronTask.setEnabled(true);
 
@@ -73,7 +73,7 @@ class ScheduleServiceTest {
         intervalTask.setSourceEngine(mockEngine);
         intervalTask.setTargetEngine(mockEngine);
         intervalTask.setScheduleType(SyncTask.ScheduleType.INTERVAL);
-        intervalTask.setIntervalSeconds(3600L);
+        intervalTask.setIntervalSeconds(3600);
         intervalTask.setSyncMode(SyncTask.SyncMode.NEW_ONLY);
         intervalTask.setEnabled(true);
 
@@ -142,7 +142,7 @@ class ScheduleServiceTest {
     @Test
     @DisplayName("注册调度 — 间隔秒数小于 10 应跳过")
     void shouldSkipTooShortInterval() {
-        intervalTask.setIntervalSeconds(5L);
+        intervalTask.setIntervalSeconds(5);
 
         assertDoesNotThrow(() -> service.registerSchedule(intervalTask));
     }

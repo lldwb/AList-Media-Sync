@@ -1,8 +1,10 @@
 package top.lldwb.alistmediasync.controller;
 
+import jakarta.servlet.http.HttpServletRequest;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.web.bind.annotation.*;
+import top.lldwb.alistmediasync.config.AppProperties;
 import top.lldwb.alistmediasync.dto.ApiResult;
 import top.lldwb.alistmediasync.entity.WebhookEvent;
 import top.lldwb.alistmediasync.service.WebhookService;
@@ -26,6 +28,7 @@ import java.util.Map;
 public class WebhookController {
 
     private final WebhookService webhookService;
+    private final AppProperties appProperties;
 
     /**
      * 接收录播姬 Webhook 事件
@@ -48,6 +51,31 @@ public class WebhookController {
         webhookService.processWebhookEvent(event);
 
         return ApiResult.success("accepted", event.getEventId());
+    }
+
+    /**
+     * 获取录播姬 Webhook V2 的完整 URL
+     * <p>
+     * 优先使用 app.server-address 配置，未配置时使用当前请求的 origin。
+     * </p>
+     */
+    @GetMapping("/address")
+    public ApiResult<String> getWebhookAddress(HttpServletRequest request) {
+        String serverAddress = appProperties.getServerAddress();
+        if (serverAddress == null || serverAddress.isBlank()) {
+            // 使用请求 origin
+            String scheme = request.getScheme();
+            String host = request.getServerName();
+            int port = request.getServerPort();
+            if ((scheme.equals("http") && port == 80) || (scheme.equals("https") && port == 443)) {
+                serverAddress = scheme + "://" + host;
+            } else {
+                serverAddress = scheme + "://" + host + ":" + port;
+            }
+        }
+        // 去掉末尾斜杠
+        serverAddress = serverAddress.replaceAll("/$", "");
+        return ApiResult.success(serverAddress + "/api/webhooks/recorder");
     }
 
     private String getString(Map<String, Object> map, String key) {

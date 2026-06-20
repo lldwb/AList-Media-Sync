@@ -49,12 +49,12 @@ public class DashboardService {
             )
             .size();
 
-        // 等待处理的转码任务数（PENDING + SCANNING + TRANSCODING + UPLOADING）
+        // 等待处理的转码任务数（PENDING + DOWNLOADING + TRANSCODING + UPLOADING）
         long pendingCount = transcodeTaskRepository.findByStatus(TranscodeTask.TranscodeStatus.PENDING).size();
-        long scanningCount = transcodeTaskRepository.findByStatus(TranscodeTask.TranscodeStatus.SCANNING).size();
+        long downloadingCount = transcodeTaskRepository.findByStatus(TranscodeTask.TranscodeStatus.DOWNLOADING).size();
         long transcodingCount = transcodeTaskRepository.findByStatus(TranscodeTask.TranscodeStatus.TRANSCODING).size();
         long uploadingCount = transcodeTaskRepository.findByStatus(TranscodeTask.TranscodeStatus.UPLOADING).size();
-        long pendingTranscodeTasks = pendingCount + scanningCount + transcodingCount + uploadingCount;
+        long pendingTranscodeTasks = pendingCount + downloadingCount + transcodingCount + uploadingCount;
 
         // 24 小时内处理的文件总数及成功率
         LocalDateTime now = LocalDateTime.now();

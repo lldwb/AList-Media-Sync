@@ -20,6 +20,9 @@ import static org.junit.jupiter.api.Assertions.*;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.Mockito.*;
 
+import org.mockito.junit.jupiter.MockitoSettings;
+import org.mockito.quality.Strictness;
+
 /**
  * 清理服务单元测试
  * <p>
@@ -30,6 +33,7 @@ import static org.mockito.Mockito.*;
  * @author AList-Media-Sync
  */
 @ExtendWith(MockitoExtension.class)
+@MockitoSettings(strictness = Strictness.LENIENT)
 @DisplayName("清理服务测试")
 class CleanupServiceTest {
 
@@ -43,7 +47,7 @@ class CleanupServiceTest {
     private AppProperties appProperties;
 
     @Mock
-    private AppProperties.TranscodeConfig transcodeConfig;
+    private AppProperties.Transcode transcodeConfig;
 
     @InjectMocks
     private CleanupService service;

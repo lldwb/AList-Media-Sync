@@ -18,8 +18,12 @@ public class WebhookRuleVO {
     private String triggerEventType;
     private Long roomIdFilter;
     private String action;
+    private Long recordingEngineId;
+    private String recordingEngineName;
+    private String recordingPath;
     private Long targetEngineId;
-    private String targetPath;
+    private String targetEngineName;
+    private String targetFilePath;
     private Boolean enabled;
     private LocalDateTime createdAt;
 
@@ -30,8 +34,14 @@ public class WebhookRuleVO {
         vo.setTriggerEventType(entity.getTriggerEventType().name());
         vo.setRoomIdFilter(entity.getRoomIdFilter());
         vo.setAction(entity.getAction().name());
+        if (entity.getRecordingEngine() != null) {
+            vo.setRecordingEngineId(entity.getRecordingEngine().getId());
+            vo.setRecordingEngineName(entity.getRecordingEngine().getName());
+        }
+        vo.setRecordingPath(entity.getRecordingPath());
         vo.setTargetEngineId(entity.getTargetEngine().getId());
-        vo.setTargetPath(entity.getTargetPath());
+        vo.setTargetEngineName(entity.getTargetEngine().getName());
+        vo.setTargetFilePath(entity.getTargetFilePath());
         vo.setEnabled(entity.getEnabled());
         vo.setCreatedAt(entity.getCreatedAt());
         return vo;

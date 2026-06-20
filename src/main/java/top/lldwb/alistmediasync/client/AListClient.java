@@ -13,15 +13,22 @@ import java.util.List;
 import java.util.Map;
 
 /**
- * AList API HTTP 客户端
+ * AList API HTTP 客户端（@Deprecated — 使用 {@link top.lldwb.alistmediasync.service.engine.AListStorageStrategy} 替代）
  * <p>
  * 基于 Spring RestClient 封装 AList 的 REST API 调用，
  * 包括文件列表、下载、上传、删除和目录操作。
  * 所有请求通过 AList Token 认证（X-Auth 请求头）。
  * </p>
+ * <p>
+ * 注意：此客户端已由策略模式接管。新代码应通过 {@code StorageEngineService.resolve()}
+ * 获取 {@code StorageEngineStrategy} 实现来操作文件。
+ * 保留此类以支持尚未迁移的调用方（如 SyncTaskManageService 中的连接测试）。
+ * </p>
  *
  * @author AList-Media-Sync
+ * @deprecated 使用 {@link top.lldwb.alistmediasync.service.engine.AListStorageStrategy} 替代
  */
+@Deprecated
 @Slf4j
 @Component
 public class AListClient {
