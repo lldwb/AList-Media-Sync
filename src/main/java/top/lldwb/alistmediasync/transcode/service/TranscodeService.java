@@ -21,7 +21,6 @@ import top.lldwb.alistmediasync.common.util.*;
 import tools.jackson.databind.json.JsonMapper;
 
 import java.io.IOException;
-import java.io.InputStream;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.util.*;
@@ -156,7 +155,12 @@ public class TranscodeService {
      * 执行转码任务（三步流程 + 状态机）
      * <p>
      * 从数据库重新加载实体以确保拿到最新版本号，避免乐观锁冲突。
-     * 三步流程中的状态变更仅修改内存对象，最终在 finally 块统一持久化。
+     * 统一采用"先收集待处理文件列表，再并行处理"的架构：
+     * <ul>
+     *   <li><b>目录模式</b>：递归扫描目录下所有视频文件，并行执行下载→转码→上传</li>
+     *   <li><b>文件模式</b>：将该单个文件视为扫描结果中唯一的一项，
+     *       同样纳入统一的并行处理流水线</li>
+     * </ul>
      * </p>
      */
     @Transactional
@@ -179,14 +183,54 @@ public class TranscodeService {
         execution = taskExecutionRepository.save(execution);
 
         try {
-            executeThreeStepFlow(managedTask, sourceEngine, targetEngine);
+            List<TranscodeCandidate> candidates;
+            boolean isDir = isDirectory(sourceEngine, managedTask.getSourceFilePath());
+
+            if (isDir) {
+                // 目录模式：递归扫描所有视频文件
+                StorageEngineStrategy sourceStrategy = storageEngineService.resolve(sourceEngine);
+                StorageEngineStrategy targetStrategy = storageEngineService.resolve(targetEngine);
+                candidates = scanSourceDirectory(
+                    sourceEngine, sourceStrategy, targetEngine, targetStrategy,
+                    managedTask.getSourceFilePath(), managedTask.getTargetFilePath(),
+                    SyncTask.ConflictStrategy.SKIP);
+            } else {
+                // 文件模式：构建单元素候选列表，统一纳入并行处理流水线
+                String sourcePath = managedTask.getSourceFilePath();
+                String name = sourcePath.substring(sourcePath.lastIndexOf('/') + 1);
+                candidates = List.of(new TranscodeCandidate(
+                    name, sourcePath, managedTask.getTargetFilePath(),
+                    MagicBytesDetector.detectByExtension(name), 0, sourceEngine));
+            }
+
+            if (candidates.isEmpty()) {
+                log.info("未发现需要转码的文件：{}", managedTask.getSourceFilePath());
+                execution.setTotalFiles(0);
+                execution.setSuccessFiles(0);
+                execution.setStatus(TaskExecution.ExecutionStatus.SUCCESS);
+                managedTask.setStatus(TranscodeStatus.COMPLETED);
+                managedTask.setProgress(1000);
+                return;
+            }
+
+            log.info("收集到 {} 个待转码文件", candidates.size());
+            execution.setTotalFiles(candidates.size());
+
+            // 统一并行处理
+            int successCount = processCandidates(candidates, managedTask.getTargetFormat(),
+                targetEngine, execution);
+
             managedTask.setStatus(TranscodeStatus.COMPLETED);
             managedTask.setProgress(1000);
-            execution.setStatus(TaskExecution.ExecutionStatus.SUCCESS);
-            log.info("转码任务已完成：{}", managedTask.getSourceFilePath());
+            if (successCount == candidates.size()) {
+                execution.setStatus(TaskExecution.ExecutionStatus.SUCCESS);
+            }
+            log.info("转码任务已完成：{}，成功 {} / 失败 {}",
+                managedTask.getSourceFilePath(), successCount,
+                candidates.size() - successCount);
         } catch (Exception e) {
             log.error("转码任务失败：{} — {}", managedTask.getSourceFilePath(), e.getMessage(), e);
-            // 仅在非失败状态时设置（可能已在三步流程中设置具体失败状态）
+            // 仅在非失败状态时设置（可能已在处理流程中设置具体失败状态）
             if (!isFailureStatus(managedTask.getStatus())) {
                 managedTask.setErrorMessage(e.getMessage());
             }
@@ -200,117 +244,78 @@ public class TranscodeService {
     }
 
     /**
-     * 三步流程编排
+     * 判断源路径是否为目录
      */
-    private void executeThreeStepFlow(TranscodeTask task, StorageEngine sourceEngine,
-                                       StorageEngine targetEngine) {
-        Path tempDir = Path.of(appProperties.getTranscode().getTempDir());
+    private boolean isDirectory(StorageEngine sourceEngine, String path) {
+        if (sourceEngine == null) return false;
+        try {
+            StorageEngineStrategy strategy = storageEngineService.resolve(sourceEngine);
+            FileEntry info = strategy.getFileInfo(sourceEngine, path);
+            return info != null && info.isDirectory();
+        } catch (Exception e) {
+            log.warn("无法判断路径类型，默认为文件：{} — {}", path, e.getMessage());
+            return false;
+        }
+    }
 
-        // 创建临时目录
+    /**
+     * 并行处理候选文件列表（统一的下载→转码→上传流水线）
+     * <p>
+     * 对每个 {@link TranscodeCandidate} 调用 {@link TranscodeFileProcessor#process}，
+     * 由 fileProcessor 内部执行三步流程并维护独立的 TranscodeTask 状态记录。
+     * 此方法为文件模式和目录模式提供统一的并行处理入口。
+     * </p>
+     *
+     * @return 成功处理的文件数量
+     */
+    private int processCandidates(List<TranscodeCandidate> candidates,
+                                  TranscodeTask.TargetFormat targetFormat,
+                                  StorageEngine targetEngine,
+                                  TaskExecution execution) {
+        String tempSuffix = appProperties.getTranscode().getTempSuffix();
+        Path tempDir = Path.of(appProperties.getTranscode().getTempDir());
         try {
             Files.createDirectories(tempDir);
         } catch (IOException e) {
             throw new RuntimeException("无法创建临时目录：" + tempDir, e);
         }
 
-        StorageEngineStrategy sourceStrategy = sourceEngine != null
-            ? storageEngineService.resolve(sourceEngine) : null;
-        StorageEngineStrategy targetStrategy = storageEngineService.resolve(targetEngine);
+        List<CompletableFuture<TranscodeResult>> futures = new ArrayList<>();
+        for (TranscodeCandidate candidate : candidates) {
+            CompletableFuture<TranscodeResult> future = fileProcessor.process(
+                candidate, targetFormat, tempSuffix, tempDir, targetEngine, null, execution);
+            futures.add(future);
+        }
 
-        try {
-            // 步骤 1：下载源文件
-            transition(task, TranscodeStatus.DOWNLOADING);
-            if (sourceStrategy == null) {
-                throw new RuntimeException("源存储引擎不存在");
+        // 收集结果
+        int successCount = 0;
+        List<String> failures = new ArrayList<>();
+        for (int i = 0; i < futures.size(); i++) {
+            try {
+                TranscodeResult result = futures.get(i).get(10, TimeUnit.MINUTES);
+                if (result.success()) {
+                    successCount++;
+                } else {
+                    failures.add(result.sourceFileName() + ": " + result.error());
+                }
+            } catch (Exception e) {
+                failures.add(candidates.get(i).name() + ": " + e.getMessage());
             }
-            String sourceTempPath = downloadSourceFile(task, sourceEngine, sourceStrategy, tempDir);
-            task.setTempSourcePath(sourceTempPath);
-
-            // 步骤 2：转码
-            transition(task, TranscodeStatus.TRANSCODING);
-            String outputTempPath = transcodeFile(task, sourceTempPath, tempDir);
-            task.setTempFilePath(outputTempPath);
-
-            // 步骤 3：上传
-            transition(task, TranscodeStatus.UPLOADING);
-            uploadOutputFile(task, targetEngine, targetStrategy, outputTempPath);
-
-            // 成功 — 清理临时文件
-            cleanupTempFiles(sourceTempPath, outputTempPath);
-
-        } catch (Exception e) {
-            // 已在 transition 中设置具体失败状态
-            throw e;
         }
-    }
 
-    /**
-     * 步骤 1：下载源文件到临时目录
-     */
-    private String downloadSourceFile(TranscodeTask task, StorageEngine sourceEngine,
-                                       StorageEngineStrategy strategy, Path tempDir) {
-        try {
-            String sourceFormat = task.getSourceFilePath().substring(
-                task.getSourceFilePath().lastIndexOf('.') + 1).toLowerCase();
-            Path sourceTemp = Files.createTempFile(tempDir, "src-", "." + sourceFormat);
-            try (InputStream in = strategy.downloadFile(sourceEngine, task.getSourceFilePath())) {
-                if (in == null) throw new IOException("下载源文件失败：" + task.getSourceFilePath());
-                Files.copy(in, sourceTemp, java.nio.file.StandardCopyOption.REPLACE_EXISTING);
+        execution.setSuccessFiles(successCount);
+        execution.setFailedFiles(failures.size());
+        if (!failures.isEmpty()) {
+            execution.setFailureDetails(toJson(failures));
+            if (successCount > 0) {
+                execution.setStatus(TaskExecution.ExecutionStatus.PARTIAL_SUCCESS);
+            } else {
+                execution.setStatus(TaskExecution.ExecutionStatus.FAILED);
+                throw new RuntimeException("所有文件转码失败：" + failures.size() + " 个");
             }
-            log.info("源文件已下载：{} -> {}", task.getSourceFilePath(), sourceTemp);
-            return sourceTemp.toString();
-        } catch (Exception e) {
-            transition(task, TranscodeStatus.DOWNLOAD_FAILED);
-            task.setErrorMessage("下载失败：" + e.getMessage());
-            throw new RuntimeException("下载源文件失败", e);
         }
-    }
-
-    /**
-     * 步骤 2：转码
-     */
-    private String transcodeFile(TranscodeTask task, String sourceTempPath, Path tempDir) {
-        try {
-            TranscodeTask.TargetFormat targetFormat = task.getTargetFormat();
-            String outputExt = targetFormat.name().toLowerCase();
-            Path outputTemp = Files.createTempFile(tempDir, "out-", "." + outputExt);
-
-            // 委托 TranscodeFileProcessor 执行实际转码
-            fileProcessor.doTranscode(
-                Path.of(sourceTempPath), outputTemp, targetFormat,
-                task.getBitrate() != null ? task.getBitrate()
-                    : appProperties.getTranscode().getDefaultBitrate(),
-                task);
-
-            log.info("转码完成：{} -> {}", sourceTempPath, outputTemp);
-            return outputTemp.toString();
-        } catch (Exception e) {
-            transition(task, TranscodeStatus.TRANSCODE_FAILED);
-            task.setErrorMessage("转码失败：" + e.getMessage());
-            throw new RuntimeException("转码失败", e);
-        }
-    }
-
-    /**
-     * 步骤 3：上传转码输出
-     */
-    private void uploadOutputFile(TranscodeTask task, StorageEngine targetEngine,
-                                   StorageEngineStrategy strategy, String outputTempPath) {
-        try {
-            Path outputFile = Path.of(outputTempPath);
-            String targetFileName = getOutputName(task.getSourceFilePath(), task.getTargetFormat());
-            String remotePath = concatPath(
-                getDirPath(task.getTargetFilePath()), targetFileName);
-
-            try (InputStream fileIn = Files.newInputStream(outputFile)) {
-                strategy.uploadFile(targetEngine, remotePath, fileIn, Files.size(outputFile));
-            }
-            log.info("转码文件已上传：{} -> {}", outputTempPath, remotePath);
-        } catch (Exception e) {
-            transition(task, TranscodeStatus.UPLOAD_FAILED);
-            task.setErrorMessage("上传失败：" + e.getMessage());
-            throw new RuntimeException("上传转码文件失败", e);
-        }
+        log.info("并行转码完成：成功 {}，失败 {}", successCount, failures.size());
+        return successCount;
     }
 
     // ================================================================
@@ -528,18 +533,6 @@ public class TranscodeService {
         return status == TranscodeStatus.DOWNLOAD_FAILED
             || status == TranscodeStatus.TRANSCODE_FAILED
             || status == TranscodeStatus.UPLOAD_FAILED;
-    }
-
-    /**
-     * 清理临时文件
-     */
-    private void cleanupTempFiles(String sourceTempPath, String outputTempPath) {
-        if (sourceTempPath != null) {
-            TempFileManager.deleteQuietly(Path.of(sourceTempPath));
-        }
-        if (outputTempPath != null) {
-            TempFileManager.deleteQuietly(Path.of(outputTempPath));
-        }
     }
 
     private boolean checkTargetExists(StorageEngine engine, StorageEngineStrategy strategy, String path) {
