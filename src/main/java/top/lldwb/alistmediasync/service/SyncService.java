@@ -67,7 +67,7 @@ public class SyncService {
         List<TaskExecution> conflicting = taskExecutionRepository.findByStatusAndTaskType(
             TaskExecution.ExecutionStatus.RUNNING, TaskExecution.TaskType.SYNC);
         if (!conflicting.isEmpty()) {
-            log.warn("存在正在运行的同步任务，当前任务等待中：{}", task.getName());
+            log.warn("存在正在运行的同步任务，当前任务将继续执行：{}", task.getName());
         }
 
         // 创建执行记录
@@ -179,14 +179,14 @@ public class SyncService {
                         try {
                             sourceStrategy.deleteFile(sourceEngine, sourceFilePath);
                         } catch (Exception e) {
-                            log.warn("MOVE 模式删除源文件失败：{}", sourceFilePath);
+                            log.warn("MOVE 模式删除源文件失败，源文件将保留：{}", sourceFilePath);
                         }
                     }
 
                     log.debug("文件已同步：{} -> {} ({}/{})",
                         sourceFilePath, targetFilePath, completedCount, toSync.size());
                 } catch (Exception e) {
-                    log.error("同步文件失败：{}，原因：{}", file.name, e.getMessage());
+                    log.error("同步文件失败：{}，原因：{}", file.name, e.getMessage(), e);
                     failedFiles.add(file.name + ": " + e.getMessage());
                     execution.setFailedFiles(execution.getFailedFiles() + 1);
                 }

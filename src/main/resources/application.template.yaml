@@ -45,7 +45,10 @@ management:
     health:
       show-details: always
 
-# 日志级别
+# 日志级别配置
+# 开发环境：将 LOGGING_LEVEL 设为 DEBUG 或保持默认 INFO
+# 生产环境：必须将 LOGGING_LEVEL 设为 WARN（通过环境变量或启动参数注入）
+#   业务包 top.lldwb.alistmediasync 单独设为 INFO，确保关键业务日志可见
 logging:
   level:
     root: ${LOGGING_LEVEL:INFO}

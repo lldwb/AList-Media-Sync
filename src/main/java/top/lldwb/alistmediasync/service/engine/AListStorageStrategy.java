@@ -155,7 +155,7 @@ public class AListStorageStrategy implements StorageEngineStrategy {
                 .map(f -> new DirectoryEntryVO(f.name(), f.path(), hasChildren(engine, f.path())))
                 .toList();
         } catch (Exception e) {
-            log.error("列出目录失败：{} — {}", path, e.getMessage());
+            log.error("列出目录失败：{} — {}", path, e.getMessage(), e);
             return List.of();
         }
     }

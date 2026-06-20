@@ -49,7 +49,7 @@ public class GlobalExceptionHandler {
     @ExceptionHandler(DiskSpaceChecker.InsufficientDiskSpaceException.class)
     public ResponseEntity<ApiResult<Void>> handleInsufficientDiskSpace(
         DiskSpaceChecker.InsufficientDiskSpaceException e) {
-        log.error("磁盘空间不足：{}", e.getMessage());
+        log.error("磁盘空间不足：{}", e.getMessage(), e);
         return ResponseEntity.status(507)
             .body(ApiResult.error(507, e.getMessage()));
     }

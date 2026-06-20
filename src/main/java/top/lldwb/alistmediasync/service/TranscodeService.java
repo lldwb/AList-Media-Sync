@@ -382,7 +382,7 @@ public class TranscodeService {
         List<TranscodeCandidate> candidates, int depth, int maxDepth) {
 
         if (depth > maxDepth) {
-            log.warn("扫描深度已达上限 {}：{}", maxDepth, sourceDir);
+            log.warn("扫描深度已达上限 {}，停止递归：{}", maxDepth, sourceDir);
             return;
         }
 
