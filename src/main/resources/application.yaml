@@ -51,6 +51,10 @@ logging:
   level:
     root: ${LOGGING_LEVEL:INFO}
     top.lldwb.alistmediasync: ${LOGGING_LEVEL:INFO}
+    # 静态资源 404 不输出错误堆栈，避免 NoResourceFoundException 日志污染
+    # 浏览器缓存旧版构建产物、Chrome DevTools 探测请求均会触发此异常
+    # 将 Spring MVC 资源映射层的日志级别设为 WARN，跳过 404 堆栈输出
+    org.springframework.web.servlet.resource: WARN
 
 # AList 连接配置（必填，由环境变量注入）
 alist:
