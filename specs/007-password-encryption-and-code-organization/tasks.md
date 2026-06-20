@@ -147,7 +147,8 @@
 - [ ] T047 执行 `./mvnw clean test` 验证所有测试通过（含新增和修改的测试）
 - [ ] T048 启动应用，使用明文密码登录管理界面验证密码加密简化功能正常
 - [ ] T049 创建转码任务验证原目录转码选项功能正常（`sameDirectoryTranscode=true` 和 `false` 两种场景）
-- [ ] T050 检查代码目录结构符合 FR-010 定义，每个功能子包的类文件数量不超过 15 个（SC-005）
+- [ ] T050 检查代码目录结构符合 FR-010 定义，每个功能子包的类文件数量不超过 15 个（SC-005），验证 PasswordEncryptionPostProcessor.java 代码行数较重构前减少 ≥30%（SC-002）
+- [ ] T051 更新项目根目录 `README.md`：反映新的 5 模块包结构（common/storage/sync/transcode/webhook）、密码配置仅支持明文且每次启动随机盐值加密（`{bcrypt}` 预加密格式已废弃）、新增原目录转码选项（`sameDirectoryTranscode`）的使用说明（constitution 原则 IX）
 
 ---
 
