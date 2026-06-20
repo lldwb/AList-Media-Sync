@@ -1,9 +1,9 @@
 // ===================================================================
-// Webhook 规则表单组件 — 创建/编辑
+// Webhook 规则表单组件 — 创建/编辑（支持录播存储引擎关联）
 // ===================================================================
 import { useState, useEffect, type FormEvent } from 'react';
 import type { StorageEngineVO, WebhookRuleVO, WebhookRuleCreateDTO, WebhookEventType, RuleAction } from '@/types/api';
-import { validateRequired, validatePositiveInt } from '@/utils/validate';
+import { validateRequired } from '@/utils/validate';
 
 interface WebhookRuleFormProps {
   engines: StorageEngineVO[];
@@ -15,8 +15,10 @@ interface WebhookRuleFormProps {
 
 interface FormErrors {
   name?: string;
+  recordingEngineId?: string;
+  recordingPath?: string;
   targetEngineId?: string;
-  targetPath?: string;
+  targetFilePath?: string;
 }
 
 export function WebhookRuleForm({ engines, initialValues, onSubmit, onCancel, loading }: WebhookRuleFormProps) {
@@ -24,15 +26,17 @@ export function WebhookRuleForm({ engines, initialValues, onSubmit, onCancel, lo
   const [triggerEventType, setTriggerEventType] = useState<WebhookEventType>(initialValues?.triggerEventType ?? 'FILE_CLOSED');
   const [roomIdFilter, setRoomIdFilter] = useState(initialValues?.roomIdFilter?.toString() ?? '');
   const [action, setAction] = useState<RuleAction>(initialValues?.action ?? 'BOTH');
+  const [recordingEngineId, setRecordingEngineId] = useState(initialValues?.recordingEngineId ?? 0);
+  const [recordingPath, setRecordingPath] = useState(initialValues?.recordingPath ?? '');
   const [targetEngineId, setTargetEngineId] = useState(initialValues?.targetEngineId ?? 0);
-  const [targetPath, setTargetPath] = useState(initialValues?.targetPath ?? '');
+  const [targetFilePath, setTargetFilePath] = useState(initialValues?.targetFilePath ?? '');
   const [errors, setErrors] = useState<FormErrors>({});
   const [submitError, setSubmitError] = useState<string | null>(null);
 
   const isEdit = !!initialValues;
 
-  // 需要同步目标引擎的条件显示（TRANSCODE_ONLY 也需要目标引擎存储转码结果）
-  const needsTarget = action === 'SYNC_ONLY' || action === 'BOTH' || action === 'TRANSCODE_ONLY';
+  // TRANSCODE_ONLY 和 BOTH 需要录播存储引擎
+  const needsRecording = action === 'TRANSCODE_ONLY' || action === 'BOTH';
 
   useEffect(() => {
     setErrors({});
@@ -45,20 +49,18 @@ export function WebhookRuleForm({ engines, initialValues, onSubmit, onCancel, lo
     const nameCheck = validateRequired(name, '规则名称');
     if (!nameCheck.valid) newErrors.name = nameCheck.error;
 
-    if (needsTarget) {
-      if (!targetEngineId) newErrors.targetEngineId = '请选择目标存储引擎';
-      if (!targetPath.trim()) {
-        newErrors.targetPath = '目标路径不能为空';
-      } else if (!targetPath.trim().startsWith('/')) {
-        newErrors.targetPath = '目标路径必须以 "/" 开头';
+    if (needsRecording) {
+      if (!recordingEngineId) newErrors.recordingEngineId = '请选择录播存储引擎';
+      if (!recordingPath.trim()) {
+        newErrors.recordingPath = '录播文件路径不能为空';
       }
     }
 
-    if (roomIdFilter.trim()) {
-      const roomCheck = validatePositiveInt(roomIdFilter, '房间号');
-      if (!roomCheck.valid) {
-        // 房间号为非必填值，格式错误记录但在 name 上做提示
-      }
+    if (!targetEngineId) newErrors.targetEngineId = '请选择目标存储引擎';
+    if (!targetFilePath.trim()) {
+      newErrors.targetFilePath = '目标文件路径不能为空';
+    } else if (!targetFilePath.trim().startsWith('/')) {
+      newErrors.targetFilePath = '目标文件路径必须以 "/" 开头';
     }
 
     setErrors(newErrors);
@@ -77,8 +79,10 @@ export function WebhookRuleForm({ engines, initialValues, onSubmit, onCancel, lo
         triggerEventType,
         roomIdFilter: roomIdFilter.trim() ? parseInt(roomIdFilter, 10) : undefined,
         action,
+        recordingEngineId: needsRecording ? recordingEngineId : undefined,
+        recordingPath: needsRecording ? recordingPath.trim() : undefined,
         targetEngineId,
-        targetPath: targetPath.trim(),
+        targetFilePath: targetFilePath.trim(),
       });
     } catch (err) {
       setSubmitError(err instanceof Error ? err.message : '提交失败');
@@ -99,6 +103,7 @@ export function WebhookRuleForm({ engines, initialValues, onSubmit, onCancel, lo
         )}
 
         <form onSubmit={handleSubmit} className="space-y-4">
+          {/* 规则名称 */}
           <div>
             <label className="block text-sm font-medium text-gray-700 mb-1">
               规则名称 <span className="text-red-500">*</span>
@@ -110,11 +115,12 @@ export function WebhookRuleForm({ engines, initialValues, onSubmit, onCancel, lo
               className={`block w-full rounded-md border px-3 py-2 text-sm focus:outline-none focus:ring-1 ${
                 errors.name ? 'border-red-400' : 'border-gray-300 focus:border-blue-500 focus:ring-blue-500'
               }`}
-              placeholder="例如：自动同步录制文件"
+              placeholder="例如：自动转码录制文件"
             />
             {errors.name && <p className="mt-1 text-xs text-red-600">{errors.name}</p>}
           </div>
 
+          {/* 触发事件类型 */}
           <div>
             <label className="block text-sm font-medium text-gray-700 mb-1">触发事件类型</label>
             <select
@@ -132,6 +138,7 @@ export function WebhookRuleForm({ engines, initialValues, onSubmit, onCancel, lo
             </select>
           </div>
 
+          {/* 房间号 */}
           <div>
             <label className="block text-sm font-medium text-gray-700 mb-1">房间号（可选）</label>
             <input
@@ -143,6 +150,7 @@ export function WebhookRuleForm({ engines, initialValues, onSubmit, onCancel, lo
             />
           </div>
 
+          {/* 操作 */}
           <div>
             <label className="block text-sm font-medium text-gray-700 mb-1">触发后续操作</label>
             <select
@@ -150,50 +158,91 @@ export function WebhookRuleForm({ engines, initialValues, onSubmit, onCancel, lo
               onChange={(e) => setAction(e.target.value as RuleAction)}
               className="block w-full rounded-md border border-gray-300 px-3 py-2 text-sm focus:border-blue-500 focus:outline-none focus:ring-1 focus:ring-blue-500"
             >
-              <option value="SYNC_ONLY">仅同步至 AList</option>
+              <option value="SYNC_ONLY">仅同步</option>
               <option value="TRANSCODE_ONLY">仅转 MP3</option>
-              <option value="BOTH">同步至 AList + 转 MP3</option>
+              <option value="BOTH">同步 + 转 MP3</option>
             </select>
           </div>
 
-          {/* 条件字段：需要同步目标引擎时显示 */}
-          {needsTarget && (
+          {/* 录播存储引擎（TRANSCODE_ONLY / BOTH 时显示） */}
+          {needsRecording && (
             <>
               <div>
                 <label className="block text-sm font-medium text-gray-700 mb-1">
-                  目标存储引擎 <span className="text-red-500">*</span>
+                  录播存储引擎 <span className="text-red-500">*</span>
                 </label>
                 <select
-                  value={targetEngineId || ''}
-                  onChange={(e) => setTargetEngineId(Number(e.target.value))}
+                  value={recordingEngineId || ''}
+                  onChange={(e) => setRecordingEngineId(Number(e.target.value))}
                   className={`block w-full rounded-md border px-3 py-2 text-sm focus:outline-none focus:ring-1 ${
-                    errors.targetEngineId ? 'border-red-400' : 'border-gray-300 focus:border-blue-500 focus:ring-blue-500'
+                    errors.recordingEngineId ? 'border-red-400' : 'border-gray-300 focus:border-blue-500 focus:ring-blue-500'
                   }`}
                 >
                   <option value="">请选择...</option>
                   {engines.map((eng) => (
-                    <option key={eng.id} value={eng.id}>{eng.name}</option>
+                    <option key={eng.id} value={eng.id}>
+                      {eng.name} ({eng.engineType === 'ALIST' ? 'AList' : '本地'})
+                    </option>
                   ))}
                 </select>
-                {errors.targetEngineId && <p className="mt-1 text-xs text-red-600">{errors.targetEngineId}</p>}
+                {errors.recordingEngineId && <p className="mt-1 text-xs text-red-600">{errors.recordingEngineId}</p>}
               </div>
               <div>
                 <label className="block text-sm font-medium text-gray-700 mb-1">
-                  目标目录路径 <span className="text-red-500">*</span>
+                  录播文件路径 <span className="text-red-500">*</span>
                 </label>
                 <input
                   type="text"
-                  value={targetPath}
-                  onChange={(e) => setTargetPath(e.target.value)}
+                  value={recordingPath}
+                  onChange={(e) => setRecordingPath(e.target.value)}
                   className={`block w-full rounded-md border px-3 py-2 text-sm focus:outline-none focus:ring-1 ${
-                    errors.targetPath ? 'border-red-400' : 'border-gray-300 focus:border-blue-500 focus:ring-blue-500'
+                    errors.recordingPath ? 'border-red-400' : 'border-gray-300 focus:border-blue-500 focus:ring-blue-500'
                   }`}
-                  placeholder="例如：/sync/recordings"
+                  placeholder="例如：/录播/2024"
                 />
-                {errors.targetPath && <p className="mt-1 text-xs text-red-600">{errors.targetPath}</p>}
+                {errors.recordingPath && <p className="mt-1 text-xs text-red-600">{errors.recordingPath}</p>}
               </div>
             </>
           )}
+
+          {/* 目标存储引擎 */}
+          <div>
+            <label className="block text-sm font-medium text-gray-700 mb-1">
+              目标存储引擎 <span className="text-red-500">*</span>
+            </label>
+            <select
+              value={targetEngineId || ''}
+              onChange={(e) => setTargetEngineId(Number(e.target.value))}
+              className={`block w-full rounded-md border px-3 py-2 text-sm focus:outline-none focus:ring-1 ${
+                errors.targetEngineId ? 'border-red-400' : 'border-gray-300 focus:border-blue-500 focus:ring-blue-500'
+              }`}
+            >
+              <option value="">请选择...</option>
+              {engines.map((eng) => (
+                <option key={eng.id} value={eng.id}>
+                  {eng.name} ({eng.engineType === 'ALIST' ? 'AList' : '本地'})
+                </option>
+              ))}
+            </select>
+            {errors.targetEngineId && <p className="mt-1 text-xs text-red-600">{errors.targetEngineId}</p>}
+          </div>
+
+          {/* 目标文件路径 */}
+          <div>
+            <label className="block text-sm font-medium text-gray-700 mb-1">
+              目标文件路径 <span className="text-red-500">*</span>
+            </label>
+            <input
+              type="text"
+              value={targetFilePath}
+              onChange={(e) => setTargetFilePath(e.target.value)}
+              className={`block w-full rounded-md border px-3 py-2 text-sm focus:outline-none focus:ring-1 ${
+                errors.targetFilePath ? 'border-red-400' : 'border-gray-300 focus:border-blue-500 focus:ring-blue-500'
+              }`}
+              placeholder="例如：/转码/输出"
+            />
+            {errors.targetFilePath && <p className="mt-1 text-xs text-red-600">{errors.targetFilePath}</p>}
+          </div>
 
           <div className="flex justify-end gap-3 pt-2">
             <button

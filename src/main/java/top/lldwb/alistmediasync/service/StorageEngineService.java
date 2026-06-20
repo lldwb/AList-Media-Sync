@@ -179,10 +179,10 @@ public class StorageEngineService {
         switch (engineType) {
             case ALIST -> {
                 if (dto.getBaseUrl() == null || dto.getBaseUrl().isBlank()) {
-                    throw new IllegalArgumentException("AList 类型存储引擎必须提供服务器地址");
+                    throw new IllegalArgumentException("ALIST 类型存储引擎必须提供服务器地址");
                 }
                 if (dto.getToken() == null || dto.getToken().isBlank()) {
-                    throw new IllegalArgumentException("AList 类型存储引擎必须提供 API 令牌");
+                    throw new IllegalArgumentException("ALIST 类型存储引擎必须提供 API 令牌");
                 }
             }
             case LOCAL -> {

@@ -11,6 +11,7 @@ import type {
   ConflictStrategy,
 } from '@/types/api';
 import { parseCron } from '@/utils/cron';
+import { CronBuilder } from '@/components/ui/CronBuilder';
 import { validateRequired, validatePath, validatePositiveInt } from '@/utils/validate';
 import type { ValidationResult } from '@/utils/validate';
 
@@ -319,22 +320,8 @@ export function SyncTaskForm({ engines, initialValues, onSubmit, onCancel, loadi
               <label className="block text-sm font-medium text-gray-700 mb-1">
                 Cron 表达式 <span className="text-red-500">*</span>
               </label>
-              <input
-                type="text"
-                value={cronExpression}
-                onChange={(e) => setCronExpression(e.target.value)}
-                className={`block w-full rounded-md border px-3 py-2 text-sm focus:outline-none focus:ring-1 ${
-                  errors.cronExpression ? 'border-red-400' : 'border-gray-300 focus:border-blue-500 focus:ring-blue-500'
-                }`}
-                placeholder="例如：0 */6 * * *"
-              />
+              <CronBuilder value={cronExpression} onChange={setCronExpression} />
               {errors.cronExpression && <p className="mt-1 text-xs text-red-600">{errors.cronExpression}</p>}
-              {cronPreview && !errors.cronExpression && (
-                <p className="mt-1 text-xs text-green-600">
-                  📅 {cronPreview}
-                  {cronNextTime && ` — 下次执行：${cronNextTime}`}
-                </p>
-              )}
             </div>
           )}
 

@@ -1,5 +1,5 @@
 // ===================================================================
-// 转码任务列表页 — US4
+// 转码任务列表页 — 8 状态模型 + canRetry
 // ===================================================================
 import { useState, useEffect, useCallback } from 'react';
 import { api } from '@/api/client';
@@ -18,6 +18,11 @@ import type {
   TranscodeTaskCreateDTO,
 } from '@/types/api';
 
+/** 活跃状态：需要持续轮询 */
+const ACTIVE_STATUSES = new Set([
+  'PENDING', 'DOWNLOADING', 'TRANSCODING', 'UPLOADING',
+]);
+
 export function TranscodeTaskListPage() {
   const [items, setItems] = useState<TranscodeTaskVO[]>([]);
   const [engines, setEngines] = useState<StorageEngineVO[]>([]);
@@ -26,15 +31,15 @@ export function TranscodeTaskListPage() {
   const [showForm, setShowForm] = useState(false);
   const [formLoading, setFormLoading] = useState(false);
   const [cleanupResult, setCleanupResult] = useState<string | null>(null);
+  const [retryingId, setRetryingId] = useState<number | null>(null);
 
   const fetchTasks = useCallback(async () => {
     const data = await api.get<TranscodeTaskVO[]>('/transcode-tasks');
     setItems(data);
-    // 同时加载引擎列表
     try {
       const engData = await api.get<StorageEngineVO[]>('/storage-engines');
       setEngines(engData);
-    } catch { /* 引擎加载失败不影响列表 */ }
+    } catch { /* 非关键 */ }
     return data;
   }, []);
 
@@ -44,12 +49,12 @@ export function TranscodeTaskListPage() {
       .finally(() => setLoading(false));
   }, [fetchTasks]);
 
-  // 轮询更新执行中任务的进度
+  // 活跃任务时每 5 秒轮询
   usePolling(
     fetchTasks,
     5000,
     (data: TranscodeTaskVO[]) =>
-      !data.some((t) => t.status === 'TRANSCODING' || t.status === 'UPLOADING' || t.status === 'SCANNING'),
+      !data.some((t) => ACTIVE_STATUSES.has(t.status)),
   );
 
   /* ---- 操作 ---- */
@@ -65,12 +70,15 @@ export function TranscodeTaskListPage() {
     }
   };
 
-  const handleRetryUpload = async (id: number) => {
+  const handleRetry = async (id: number) => {
+    setRetryingId(id);
     try {
-      await api.post(`/transcode-tasks/${id}/retry-upload`);
+      await api.post(`/transcode-tasks/${id}/retry`);
       await fetchTasks();
     } catch (err) {
       alert(err instanceof Error ? err.message : '重试失败');
+    } finally {
+      setRetryingId(null);
     }
   };
 
@@ -129,13 +137,14 @@ export function TranscodeTaskListPage() {
       header: '操作',
       render: (item) => (
         <div className="flex items-center gap-2">
-          {item.status === 'FAILED' && (
+          {item.canRetry && (
             <button
               type="button"
-              onClick={() => handleRetryUpload(item.id)}
-              className="text-xs px-2 py-1 rounded border border-gray-300 hover:bg-gray-100"
+              disabled={retryingId === item.id}
+              onClick={() => handleRetry(item.id)}
+              className="text-xs px-2 py-1 rounded border border-gray-300 hover:bg-gray-100 disabled:opacity-50"
             >
-              重试上传
+              {retryingId === item.id ? '重试中...' : '重试'}
             </button>
           )}
         </div>
@@ -193,7 +202,6 @@ export function TranscodeTaskListPage() {
         }
       />
 
-      {/* 创建表单 */}
       {showForm && (
         <TranscodeTaskForm
           engines={engines}
