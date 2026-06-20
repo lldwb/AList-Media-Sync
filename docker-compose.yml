@@ -39,6 +39,7 @@ services:
       - LOGGING_LEVEL=${LOGGING_LEVEL:-INFO}
       - ALIST_BASE_URL=${ALIST_BASE_URL}
       - ALIST_TOKEN=${ALIST_TOKEN}
+      - ALIST_CRYPTO_KEY=${ALIST_CRYPTO_KEY}
       - JAVA_OPTS=${JAVA_OPTS:--Xms128m -Xmx256m}
 
     # 数据卷挂载：H2 数据库文件持久化存储
