@@ -118,7 +118,7 @@ class PasswordEncryptionPostProcessorTest {
     void shouldCorrectlyDetectPlainPassword() {
         assertTrue(processor.isPlainPassword("admin123"));
         assertTrue(processor.isPlainPassword("my_secret"));
-        assertFalse(processor.isPlainPassword("{bcrypt}$2a$10$..."));
+        assertFalse(processor.isPlainPassword("{bcrypt}$2a$10$AtWuyDKJC0K5FXjtF/vhZ.HEk2ZoLWMpyzlsOc3ac4wxY7D5Y2Yke"));
         assertFalse(processor.isPlainPassword(null));
         assertFalse(processor.isPlainPassword(""));
         assertFalse(processor.isPlainPassword("  "));
