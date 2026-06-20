@@ -9,7 +9,6 @@ import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
 import org.mockito.junit.jupiter.MockitoSettings;
 import org.mockito.quality.Strictness;
-import top.lldwb.alistmediasync.common.client.AListClient;
 import top.lldwb.alistmediasync.common.config.AppProperties;
 import top.lldwb.alistmediasync.transcode.dto.transcode.TranscodeTaskVO;
 import top.lldwb.alistmediasync.storage.entity.StorageEngine;
@@ -49,9 +48,6 @@ class TranscodeServiceTest {
 
     @Mock
     private StorageEngineRepository storageEngineRepository;
-
-    @Mock
-    private AListClient alistClient;
 
     @Mock
     private AppProperties appProperties;
