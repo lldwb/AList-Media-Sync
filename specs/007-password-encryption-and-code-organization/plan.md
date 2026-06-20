@@ -9,7 +9,7 @@
 本功能包含 3 个独立变更：
 
 1. **密码加密简化（P1）**：简化 `PasswordEncryptionPostProcessor`，移除 `{bcrypt}` 前缀检测逻辑，始终执行加密。所有配置值视为明文，静默加密，不输出日志。简化 `AuthInterceptor`，移除明文回退逻辑。
-2. **原目录转码选项（P2）**：为转码任务创建接口添加 `sameDirectoryTranscode` 布尔选项。启用时 `targetFilePath` 可选，后端自动使用源文件所在目录作为目标路径。
+2. **原目录转码选项（P2）**：为转码任务创建接口添加 `sameDirectoryTranscode` 布尔选项。启用时 `targetFilePath` 可选，后端自动使用源文件所在目录作为目标路径。前端同步添加"原目录转码"复选框及配套交互。
 3. **代码目录重组（P2）**：将 64 个 `src/main` Java 文件和 16 个 `src/test` Java 文件按 5 个功能模块（common/storage/sync/transcode/webhook）重新组织包结构。
 
 ## 技术上下文
@@ -57,7 +57,7 @@ postProcessEnvironment(environment, application)  // 简化后流程
 - 保留：`{bcrypt}` 格式的 BCrypt.checkpw 验证
 - 补充防御性检查：如果密码到达时仍不是 `{bcrypt}` 格式（极端情况），记录 ERROR 并拒绝
 
-### 变更 2：原目录转码选项（3 个文件修改）
+### 变更 2：原目录转码选项（3 个后端文件 + 2 个前端文件修改）
 
 **影响的文件**：
 
@@ -66,6 +66,8 @@ postProcessEnvironment(environment, application)  // 简化后流程
 | `dto/transcode/TranscodeTaskCreateDTO.java` | 修改 | 新增 `sameDirectoryTranscode`（boolean，默认 false），`targetFilePath` 的 `@NotBlank` 改为条件校验 |
 | `service/TranscodeService.java` | 修改 | `createTask()` 方法签名新增 `sameDirectoryTranscode` 参数，启用时自动从 `sourceFilePath` 提取目录路径作为 `targetFilePath` |
 | `controller/TranscodeTaskController.java` | 修改 | `create()` 方法传递 `dto.getSameDirectoryTranscode()` 给 Service |
+| `src/main/frontend/src/types/api.ts` | 修改 | `TranscodeTaskCreateDTO` 接口新增 `sameDirectoryTranscode?: boolean` 字段 |
+| `src/main/frontend/src/components/forms/TranscodeTaskForm.tsx` | 修改 | 新增"原目录转码"复选框、条件校验目标路径、条件禁用目标路径输入框、自动填充源文件目录路径、提交时传递 `sameDirectoryTranscode` 字段 |
 
 **`createTask()` 逻辑新增**：
 ```java
@@ -289,6 +291,9 @@ src/test/java/top/lldwb/alistmediasync/
 3. 创建转码任务：`sameDirectoryTranscode=false`，不填 `targetFilePath` → 应返回校验错误
 4. 创建转码任务：`sameDirectoryTranscode=false`，填了 `targetFilePath` → 应按指定路径创建
 5. 源文件在根目录 `/test.flv`，勾选原目录转码 → 目标路径为 `/`
+6. 前端：勾选"原目录转码" → 目标路径输入框禁用、`*` 标记隐藏、自动填充源文件目录
+7. 前端：取消勾选 → 目标路径输入框恢复可编辑、`*` 标记恢复、校验恢复
+8. 前端编译：`npm run build` → 无编译错误，产物正确输出到 `src/main/resources/static/app/`
 
 ### 变更 3 验证（代码目录重组）
 

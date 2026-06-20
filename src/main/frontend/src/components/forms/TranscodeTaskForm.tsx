@@ -28,6 +28,7 @@ export function TranscodeTaskForm({ engines, onSubmit, onCancel, loading }: Tran
   const [targetFilePath, setTargetFilePath] = useState('');
   const [targetFormat, setTargetFormat] = useState<TargetFormat>('MP3');
   const [bitrate, setBitrate] = useState('128');
+  const [sameDir, setSameDir] = useState(false);
   const [errors, setErrors] = useState<FormErrors>({});
   const [submitError, setSubmitError] = useState<string | null>(null);
 
@@ -40,8 +41,11 @@ export function TranscodeTaskForm({ engines, onSubmit, onCancel, loading }: Tran
     const srcCheck = validatePath(sourceFilePath, '源文件路径');
     if (!srcCheck.valid) newErrors.sourceFilePath = srcCheck.error;
 
-    const tgtCheck = validatePath(targetFilePath, '目标文件路径');
-    if (!tgtCheck.valid) newErrors.targetFilePath = tgtCheck.error;
+    // 原目录转码时目标路径可选，不校验
+    if (!sameDir) {
+      const tgtCheck = validatePath(targetFilePath, '目标文件路径');
+      if (!tgtCheck.valid) newErrors.targetFilePath = tgtCheck.error;
+    }
 
     const bitCheck = validatePositiveInt(bitrate, '码率');
     if (!bitCheck.valid) newErrors.bitrate = bitCheck.error;
@@ -61,9 +65,10 @@ export function TranscodeTaskForm({ engines, onSubmit, onCancel, loading }: Tran
         sourceEngineId: sourceEngineId || undefined,
         targetEngineId,
         sourceFilePath: sourceFilePath.trim(),
-        targetFilePath: targetFilePath.trim(),
+        targetFilePath: sameDir ? '' : targetFilePath.trim(),
         targetFormat,
         bitrate: parseInt(bitrate, 10) * 1000, // kbps → bps
+        sameDirectoryTranscode: sameDir,
       });
     } catch (err) {
       setSubmitError(err instanceof Error ? err.message : '提交失败');
@@ -137,16 +142,38 @@ export function TranscodeTaskForm({ engines, onSubmit, onCancel, loading }: Tran
 
           <div>
             <label className="block text-sm font-medium text-gray-700 mb-1">
-              目标文件路径 <span className="text-red-500">*</span>
+              目标文件路径 {!sameDir && <span className="text-red-500">*</span>}
             </label>
             <DirectoryTreeSelector
               engineId={targetEngineId}
-              value={targetFilePath}
+              value={sameDir ? '' : targetFilePath}
               onChange={setTargetFilePath}
               placeholder="/media/recording.mp3"
-              disabled={!targetEngineId}
+              disabled={!targetEngineId || sameDir}
             />
             {errors.targetFilePath && <p className="mt-1 text-xs text-red-600">{errors.targetFilePath}</p>}
+          </div>
+
+          <div>
+            <label className="flex items-center gap-2 cursor-pointer select-none">
+              <input
+                type="checkbox"
+                checked={sameDir}
+                onChange={(e) => {
+                  setSameDir(e.target.checked);
+                  if (e.target.checked) {
+                    // 自动填充源文件所在目录作为目标路径
+                    const idx = sourceFilePath.lastIndexOf('/');
+                    setTargetFilePath(idx > 0 ? sourceFilePath.substring(0, idx) : '/');
+                    setErrors((prev) => ({ ...prev, targetFilePath: undefined }));
+                  }
+                }}
+                className="w-4 h-4 text-blue-600 border-gray-300 rounded focus:ring-blue-500"
+              />
+              <span className="text-sm text-gray-700">
+                原目录转码（输出至源文件所在目录）
+              </span>
+            </label>
           </div>
 
           <div className="grid grid-cols-2 gap-4">

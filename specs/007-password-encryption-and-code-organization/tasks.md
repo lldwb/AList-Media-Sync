@@ -135,8 +135,11 @@
 - [ ] T044 [US2] 在 `src/main/java/top/lldwb/alistmediasync/transcode/dto/transcode/TranscodeTaskCreateDTO.java` 中新增 `sameDirectoryTranscode` 字段（`boolean`，默认 `false`），将 `targetFilePath` 的 `@NotBlank` 移除（改为可选字段，校验逻辑移至 Service 层）
 - [ ] T045 [US2] 在 `src/main/java/top/lldwb/alistmediasync/transcode/service/TranscodeService.java` 的 `createTask()` 方法中新增原目录转码逻辑：当 `sameDirectoryTranscode=true` 时，调用已有的 `getDirPath(sourcePath)` 方法自动计算目标路径，忽略传入的 `targetPath` 参数；当 `sameDirectoryTranscode=false` 且 `targetPath` 为空时，抛出 `IllegalArgumentException`（"未启用原目录转码时，目标路径为必填"）
 - [ ] T046 [US2] 在 `src/main/java/top/lldwb/alistmediasync/transcode/controller/TranscodeTaskController.java` 的 `create()` 方法中传递 `dto.getSameDirectoryTranscode()` 给 `transcodeService.createTask()`，更新 `createTask()` 方法签名新增 `sameDirectoryTranscode` 参数
+- [ ] T046a [US2] 在 `src/main/frontend/src/types/api.ts` 的 `TranscodeTaskCreateDTO` 接口中新增 `sameDirectoryTranscode?: boolean` 可选字段
+- [ ] T046b [US2] 在 `src/main/frontend/src/components/forms/TranscodeTaskForm.tsx` 中实现原目录转码前端交互：新增 `sameDir` 状态变量（默认 `false`）、新增"原目录转码"复选框（勾选后禁用目标路径输入框、隐藏必填标记 `*`、自动填充源文件所在目录路径、清除目标路径校验错误）、修改 `validate()` 方法（原目录转码时跳过目标路径校验）、修改 `handleSubmit()` 方法（传递 `sameDirectoryTranscode` 字段，原目录转码时 `targetFilePath` 传空字符串）
+- [ ] T046c [US2] 执行 `npm run build` 编译前端，验证编译无错误，产物正确输出到 `src/main/resources/static/app/`
 
-**检查点**：原目录转码选项完成 — 勾选后无需手动填写目标路径，后端自动使用源文件目录
+**检查点**：原目录转码选项完成 — 勾选后无需手动填写目标路径，后端自动使用源文件目录。前端复选框交互正常，编译无错误。
 
 ---
 
@@ -146,9 +149,10 @@
 
 - [ ] T047 执行 `./mvnw clean test` 验证所有测试通过（含新增和修改的测试）
 - [ ] T048 启动应用，使用明文密码登录管理界面验证密码加密简化功能正常
-- [ ] T049 创建转码任务验证原目录转码选项功能正常（`sameDirectoryTranscode=true` 和 `false` 两种场景）
-- [ ] T050 检查代码目录结构符合 FR-010 定义，每个功能子包的类文件数量不超过 15 个（SC-005），验证 PasswordEncryptionPostProcessor.java 代码行数较重构前减少 ≥30%（SC-002）
-- [ ] T051 更新项目根目录 `README.md`：反映新的 5 模块包结构（common/storage/sync/transcode/webhook）、密码配置仅支持明文且每次启动随机盐值加密（`{bcrypt}` 预加密格式已废弃）、新增原目录转码选项（`sameDirectoryTranscode`）的使用说明（constitution 原则 IX）
+- [ ] T049 创建转码任务验证原目录转码选项功能正常（`sameDirectoryTranscode=true` 和 `false` 两种场景），并验证前端复选框交互（勾选后目标路径禁用、取消后恢复）
+- [ ] T050 执行 `npm run build` 编译前端，确认编译无错误，产物正确更新到 `src/main/resources/static/app/`
+- [ ] T051 检查代码目录结构符合 FR-010 定义，每个功能子包的类文件数量不超过 15 个（SC-005），验证 PasswordEncryptionPostProcessor.java 代码行数较重构前减少 ≥30%（SC-002）
+- [ ] T052 更新项目根目录 `README.md`：反映新的 5 模块包结构（common/storage/sync/transcode/webhook）、密码配置仅支持明文且每次启动随机盐值加密（`{bcrypt}` 预加密格式已废弃）、新增原目录转码选项（`sameDirectoryTranscode`）的使用说明（constitution 原则 IX）
 
 ---
 
