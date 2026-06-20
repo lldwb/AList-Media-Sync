@@ -88,9 +88,9 @@ src/main/java/top/lldwb/alistmediasync/
 │   ├── StorageEngine.java                   # 存储引擎实体（新增 type 字段）
 │   ├── SyncTask.java
 │   ├── TaskExecution.java
-│   ├── TranscodeTask.java                   # 转码任务实体（新增 7 状态）
+│   ├── TranscodeTask.java                   # 转码任务实体（新增 8 状态）
 │   ├── WebhookEvent.java
-│   └── WebhookRule.java                     # Webhook 规则实体（新增录制存储引擎关联）
+│   └── WebhookRule.java                     # Webhook 规则实体（新增录播存储引擎关联）
 ├── interceptor/
 │   └── AuthInterceptor.java
 ├── repository/

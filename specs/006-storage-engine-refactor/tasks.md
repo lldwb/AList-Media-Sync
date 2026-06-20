@@ -28,7 +28,7 @@
 
 - [ ] T001 在 src/main/java/top/lldwb/alistmediasync/entity/StorageEngine.java 中移除 username 字段，新增 engineType（EngineType 枚举：ALIST/LOCAL）和 localPath 字段，baseUrl 和 encryptedToken 改为 nullable
 - [ ] T002 [P] 在 src/main/java/top/lldwb/alistmediasync/entity/StorageEngine.java 中新增 EngineType 枚举（ALIST、LOCAL）和 EngineStatus 枚举（ONLINE、OFFLINE、ERROR）
-- [ ] T003 [P] 在 src/main/java/top/lldwb/alistmediasync/entity/TranscodeTask.java 中扩展 TranscodeStatus 为 7 状态模型（PENDING/DOWNLOADING/DOWNLOAD_FAILED/TRANSCODING/TRANSCODE_FAILED/UPLOADING/UPLOAD_FAILED/COMPLETED），移除 SCANNING，bitrate 改为 nullable，新增 tempSourcePath 字段
+- [ ] T003 [P] 在 src/main/java/top/lldwb/alistmediasync/entity/TranscodeTask.java 中扩展 TranscodeStatus 为 8 状态模型（PENDING/DOWNLOADING/DOWNLOAD_FAILED/TRANSCODING/TRANSCODE_FAILED/UPLOADING/UPLOAD_FAILED/COMPLETED），移除 SCANNING，bitrate 改为 nullable，新增 tempSourcePath 字段
 - [ ] T004 [P] 在 src/main/java/top/lldwb/alistmediasync/entity/WebhookRule.java 中新增 recordingEngine（ManyToOne 关联 StorageEngine）和 recordingPath 字段，targetPath 重命名为 targetFilePath
 - [ ] T005 [P] 在 src/main/java/top/lldwb/alistmediasync/dto/storage/ 中更新 StorageEngineCreateDTO、StorageEngineUpdateDTO、StorageEngineVO，移除 username，新增 engineType 和 localPath 字段
 - [ ] T006 [P] 在 src/main/java/top/lldwb/alistmediasync/dto/transcode/ 中更新 TranscodeTaskVO，bitrate 改为可选，新增 canRetry 字段，status 类型适配 7 状态枚举
@@ -87,27 +87,27 @@
 
 ## 阶段 4：用户故事 2 — 转码流程三步优化与任务过滤（优先级：P1）
 
-**目标**：转码采用"下载→转码→上传"三步模式，7 状态模型提升可恢复性，任务列表仅显示文件条目
+**目标**：转码采用"下载→转码→上传"三步模式，8 状态模型提升可恢复性，任务列表仅显示文件条目
 
 **独立测试**：创建转码任务观察三步流程执行和状态变化，验证失败重试从正确步骤继续，列表无目录条目
 
 ### 用户故事 2 的测试
 
 - [ ] T030 [P] [US2] 在 src/test/java/top/lldwb/alistmediasync/service/ 中编写 TranscodeService 状态转换单元测试（合法转换通过、非法转换抛异常、重试逻辑验证）
-- [ ] T031 [P] [US2] 在 src/test/java/top/lldwb/alistmediasync/service/ 中编写 TranscodeFileProcessor 三步流程单元测试（下载→转码→上传、各步骤失败场景、临时文件生命周期）
+- [ ] T031 [P] [US2] 在 src/test/java/top/lldwb/alistmediasync/service/ 中编写 TranscodeFileProcessor 三步流程单元测试（下载→转码→上传、各步骤失败场景、临时文件生命周期、下载失败时部分文件清理）
 
 ### 用户故事 2 的实现
 
-- [ ] T032 [US2] 在 src/main/java/top/lldwb/alistmediasync/service/TranscodeService.java 中实现 7 状态转换表（Set<Map.Entry<TranscodeStatus, TranscodeStatus>>），新增状态转换校验方法 validateTransition，非法转换抛 IllegalStateException
+- [ ] T032 [US2] 在 src/main/java/top/lldwb/alistmediasync/service/TranscodeService.java 中实现 8 状态转换表（Set<Map.Entry<TranscodeStatus, TranscodeStatus>>），新增状态转换校验方法 validateTransition，非法转换抛 IllegalStateException
 - [ ] T033 [US2] 在 src/main/java/top/lldwb/alistmediasync/service/TranscodeFileProcessor.java 中将 doProcess 拆分为三个独立步骤方法：downloadStep（下载源文件到临时目录）、transcodeStep（从临时源文件转码）、uploadStep（上传转码输出到目标引擎）
 - [ ] T034 [US2] 在 src/main/java/top/lldwb/alistmediasync/service/TranscodeService.java 中实现三步流程编排：PENDING→DOWNLOADING→TRANSCODING→UPLOADING→COMPLETED，每步失败进入对应失败状态，成功后清理临时文件
 - [ ] T035 [US2] 在 src/main/java/top/lldwb/alistmediasync/service/TranscodeService.java 中实现重试逻辑：DOWNLOAD_FAILED→DOWNLOADING（删除部分下载文件）、TRANSCODE_FAILED→TRANSCODING（保留源临时文件跳过下载）、UPLOAD_FAILED→UPLOADING（保留源+输出文件跳过前两步）
-- [ ] T036 [US2] 在 src/main/java/top/lldwb/alistmediasync/service/TranscodeFileProcessor.java 中优化 JAVE2 编解码参数：AudioAttributes/VideoAttributes 的 codec 设为 null，让 FFmpeg 自动选择编解码器；bitrate 为 null 时使用 AppProperties 配置的默认码率
+- [ ] T036 [US2] 在 src/main/java/top/lldwb/alistmediasync/service/TranscodeFileProcessor.java 中优化 JAVE2 编解码参数：AudioAttributes/VideoAttributes 的 codec 设为 null，让 FFmpeg 自动选择编解码器（避免硬编码编解码器导致的兼容性问题）；bitrate 为 null 时使用 AppProperties 配置的默认码率（128 kbps）
 - [ ] T037 [US2] 在 src/main/java/top/lldwb/alistmediasync/service/CleanupService.java 中扩展孤立临时文件清理：清理超过 24 小时的孤立临时文件（源文件和转码输出文件）
 - [ ] T038 [US2] 在 src/main/java/top/lldwb/alistmediasync/controller/TranscodeTaskController.java 中更新 POST /{id}/retry 端点支持从任意失败状态重试，GET / 列表查询过滤目录条目仅返回文件类型，响应新增 canRetry 字段
 - [ ] T039 [US2] 在 src/main/java/top/lldwb/alistmediasync/service/TranscodeService.java 中实现转码候选列表过滤：扫描结果仅返回文件类型条目，过滤目录项
-- [ ] T040 [US2] 在 src/main/frontend/src/pages/ 中更新转码任务页面：状态显示适配 7 状态模型（新增下载中/下载失败/转码失败/上传失败状态标签），重试按钮仅对失败状态显示，移除目录条目展示
-- [ ] T041 [US2] 在 src/main/frontend/src/types/ 中更新 TranscodeTask 相关 TypeScript 类型定义，适配 7 状态枚举和 canRetry 字段
+- [ ] T040 [US2] 在 src/main/frontend/src/pages/ 中更新转码任务页面：状态显示适配 8 状态模型（新增下载中/下载失败/转码失败/上传失败状态标签），重试按钮仅对失败状态显示，移除目录条目展示
+- [ ] T041 [US2] 在 src/main/frontend/src/types/ 中更新 TranscodeTask 相关 TypeScript 类型定义，适配 8 状态枚举和 canRetry 字段
 
 **检查点**：此时，用户故事 1 和 2 应都能独立工作 — 转码三步流程可执行，失败可重试，列表无目录
 
@@ -126,7 +126,7 @@
 
 ### 用户故事 3 的实现
 
-- [ ] T044 [US3] 在 src/main/java/top/lldwb/alistmediasync/service/WebhookRuleService.java 中更新创建/更新逻辑：action 为 TRANSCODE_ONLY 或 BOTH 时 recordingEngine 和 recordingPath 必填校验，targetPath 重命名为 targetFilePath
+- [ ] T044 [US3] 在 src/main/java/top/lldwb/alistmediasync/service/WebhookRuleService.java 中更新创建/更新逻辑：action 为 TRANSCODE_ONLY 或 BOTH 时 recordingEngineId 和 recordingPath 必填校验，targetPath 重命名为 targetFilePath
 - [ ] T045 [US3] 在 src/main/java/top/lldwb/alistmediasync/controller/WebhookRuleController.java 中更新 CRUD 端点适配新 DTO（recordingEngineId、recordingPath、targetFilePath）
 - [ ] T046 [US3] 在 src/main/java/top/lldwb/alistmediasync/controller/WebhookController.java 中新增 GET /api/webhooks/address 端点，返回录播姬 Webhook V2 完整 URL（优先使用 app.server-address 配置，未配置时使用请求 origin）
 - [ ] T047 [US3] 在 src/main/java/top/lldwb/alistmediasync/service/WebhookService.java 中适配 recordingEngine 关联，Webhook 触发转码时使用 recordingEngine 作为源引擎
@@ -143,6 +143,10 @@
 **目标**：树状目录浏览组件，实时加载子目录，选择路径自动回填输入框
 
 **独立测试**：在存储引擎配置或同步任务配置中打开路径选择器，浏览目录结构并选择路径
+
+### 用户故事 4 的测试
+
+- [ ] T051a [P] [US4] 在 src/test/java/top/lldwb/alistmediasync/service/engine/ 中编写 LocalStorageStrategy 边界场景单元测试（目录不存在返回错误、权限不足返回明确错误信息）
 
 ### 用户故事 4 的实现
 
@@ -162,6 +166,10 @@
 **目标**：图形化下拉选择器配置 Cron 表达式，预设快捷模式，中文描述和下次执行时间预览
 
 **独立测试**：创建/编辑同步任务使用图形化选择器配置 Cron，验证生成表达式与预期一致
+
+### 用户故事 5 的测试
+
+- [ ] T057a [P] [US5] 在 src/test/java/ 或 src/main/frontend/src/ 中编写 cron.ts 工具函数单元测试（buildCronExpression 各字段组合、无效组合处理、预设快捷模式生成）
 
 ### 用户故事 5 的实现
 
@@ -310,4 +318,4 @@
 - 每个任务或逻辑组后提交
 - 在任何检查点停止以独立验证故事
 - 避免：模糊的任务、同文件冲突、破坏独立性的跨故事依赖
-- 数据迁移注意：现有 StorageEngine 记录 engineType 默认 ALIST，现有 TranscodeStatus.SCANNING 映射为 DOWNLOADING，现有 FAILED 映射为 TRANSCODE_FAILED
+- 数据迁移注意：现有 StorageEngine 记录 engineType 默认 ALIST，现有 TranscodeStatus.SCANNING 映射为 DOWNLOADING，现有 FAILED 映射为 TRANSCODE_FAILED（8状态模型：PENDING/DOWNLOADING/DOWNLOAD_FAILED/TRANSCODING/TRANSCODE_FAILED/UPLOADING/UPLOAD_FAILED/COMPLETED）
