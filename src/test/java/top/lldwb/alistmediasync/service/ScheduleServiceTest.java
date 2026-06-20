@@ -94,7 +94,7 @@ class ScheduleServiceTest {
 
     @Test
     @DisplayName("启动恢复 — 标记中断并重新注册所有已启用任务")
-    void shouldRecoverTasksOnStartup() {
+    void shouldRecoverTasksOnStartup() throws Exception {
         when(taskExecutionRepository.markAllRunningAsInterrupted()).thenReturn(3);
         when(syncTaskRepository.findByEnabledTrue()).thenReturn(
             List.of(cronTask, intervalTask, manualTask));
@@ -103,8 +103,10 @@ class ScheduleServiceTest {
 
         verify(taskExecutionRepository).markAllRunningAsInterrupted();
         verify(syncTaskRepository).findByEnabledTrue();
-        // MANUAL 模式注册时直接 return，不会调用 syncService
-        verify(syncService, atLeast(2)).executeSyncTask(any());
+        // intervalTask 使用 scheduleAtFixedRate 会立即执行一次
+        // cronTask 使用 CronTrigger 不会立即执行（只在 cron 匹配时触发）
+        // 因此至少 1 次（intervalTask），可能 2 次（如果 cronTask 恰好在当下匹配）
+        verify(syncService, atLeast(1)).executeSyncTask(any());
     }
 
     @Test
