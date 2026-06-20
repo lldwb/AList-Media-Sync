@@ -7,11 +7,11 @@ import lombok.extern.slf4j.Slf4j;
 import org.springframework.scheduling.annotation.Async;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
-import top.lldwb.alistmediasync.client.AListClient;
 import top.lldwb.alistmediasync.entity.StorageEngine;
 import top.lldwb.alistmediasync.entity.SyncTask;
 import top.lldwb.alistmediasync.entity.TaskExecution;
 import top.lldwb.alistmediasync.repository.*;
+import top.lldwb.alistmediasync.service.engine.StorageEngineStrategy;
 
 import java.io.InputStream;
 import java.time.LocalDateTime;
@@ -36,6 +36,7 @@ import java.util.stream.Stream;
  *   <li>比对阶段：计算源-目标差异</li>
  *   <li>执行阶段：流式下载→上传，实时更新进度</li>
  * </ol>
+ * 通过 StorageEngineService 策略分发，支持 AList 和本地路径两种引擎。
  * </p>
  *
  * @author AList-Media-Sync
@@ -45,9 +46,8 @@ import java.util.stream.Stream;
 @RequiredArgsConstructor
 public class SyncService {
 
-    private final AListClient alistClient;
+    private final StorageEngineService storageEngineService;
     private final SyncTaskRepository syncTaskRepository;
-    private final StorageEngineRepository storageEngineRepository;
     private final TaskExecutionRepository taskExecutionRepository;
     private final TranscodeService transcodeService;
     private final JsonMapper objectMapper;
@@ -84,6 +84,8 @@ public class SyncService {
 
         StorageEngine sourceEngine = task.getSourceEngine();
         StorageEngine targetEngine = task.getTargetEngine();
+        StorageEngineStrategy sourceStrategy = storageEngineService.resolve(sourceEngine);
+        StorageEngineStrategy targetStrategy = storageEngineService.resolve(targetEngine);
 
         List<String> failedFiles = new ArrayList<>();
         int completedCount = 0;
@@ -94,14 +96,12 @@ public class SyncService {
 
             // 阶段 1：扫描源目录
             List<FileInfo> sourceFiles = scanDirectory(
-                sourceEngine.getBaseUrl(), sourceEngine.getEncryptedToken(),
-                task.getSourcePath(), task.getExcludePatterns());
+                sourceEngine, sourceStrategy, task.getSourcePath(), task.getExcludePatterns());
             log.info("扫描完成，发现 {} 个文件", sourceFiles.size());
 
             // 阶段 2：扫描目标目录并计算差异
             List<FileInfo> destFiles = scanDirectory(
-                targetEngine.getBaseUrl(), targetEngine.getEncryptedToken(),
-                task.getTargetPath(), null);
+                targetEngine, targetStrategy, task.getTargetPath(), null);
 
             // 构建目标文件名集合（快速查找）
             Set<String> destFileNames = new HashSet<>();
@@ -111,12 +111,10 @@ public class SyncService {
 
             List<FileInfo> toSync;
             if (task.getSyncMode() == SyncTask.SyncMode.NEW_ONLY) {
-                // 仅同步源有、目标无的文件
                 toSync = sourceFiles.stream()
                     .filter(f -> !destFileNames.contains(f.name))
                     .toList();
             } else {
-                // FULL 或 MOVE 模式：同步所有源文件
                 toSync = new ArrayList<>(sourceFiles);
             }
 
@@ -128,7 +126,7 @@ public class SyncService {
                     if (!sourceFileNames.contains(f.name)) {
                         try {
                             String destPath = concatPath(task.getTargetPath(), f.name);
-                            alistClient.deleteFile(targetEngine.getBaseUrl(), targetEngine.getEncryptedToken(), destPath);
+                            targetStrategy.deleteFile(targetEngine, destPath);
                             log.debug("已删除目标多余文件：{}", destPath);
                         } catch (Exception e) {
                             log.warn("删除目标文件失败：{}，原因：{}", f.name, e.getMessage());
@@ -162,9 +160,11 @@ public class SyncService {
 
                     // 流式下载→上传
                     if (file.size > 100 * 1024 * 1024) { // > 100MB 使用临时文件
-                        syncLargeFile(sourceEngine, targetEngine, sourceFilePath, targetFilePath, file);
+                        syncLargeFile(sourceEngine, sourceStrategy, targetEngine, targetStrategy,
+                            sourceFilePath, targetFilePath, file);
                     } else {
-                        syncSmallFile(sourceEngine, targetEngine, sourceFilePath, targetFilePath, file);
+                        syncSmallFile(sourceEngine, sourceStrategy, targetEngine, targetStrategy,
+                            sourceFilePath, targetFilePath, file);
                     }
 
                     completedCount++;
@@ -177,7 +177,7 @@ public class SyncService {
                     // MOVE 模式：删除源文件
                     if (task.getSyncMode() == SyncTask.SyncMode.MOVE) {
                         try {
-                            alistClient.deleteFile(sourceEngine.getBaseUrl(), sourceEngine.getEncryptedToken(), sourceFilePath);
+                            sourceStrategy.deleteFile(sourceEngine, sourceFilePath);
                         } catch (Exception e) {
                             log.warn("MOVE 模式删除源文件失败：{}", sourceFilePath);
                         }
@@ -226,28 +226,24 @@ public class SyncService {
     }
 
     /**
-     * 递归扫描目录（深度优先）
+     * 递归扫描目录（深度优先），通过策略模式适配不同引擎
      */
-    @SuppressWarnings("unchecked")
-    private List<FileInfo> scanDirectory(String baseUrl, String token, String path, String excludePatterns) {
+    private List<FileInfo> scanDirectory(StorageEngine engine, StorageEngineStrategy strategy,
+                                          String path, String excludePatterns) {
         List<FileInfo> result = new ArrayList<>();
         List<String> excludePatternList = parseExcludePatterns(excludePatterns);
-        scanDirectoryRecursive(baseUrl, token, path, result, excludePatternList, 1);
+        scanDirectoryRecursive(engine, strategy, path, result, excludePatternList, 1);
         return result;
     }
 
-    private void scanDirectoryRecursive(String baseUrl, String token, String path,
-                                         List<FileInfo> result, List<String> excludePatterns, int page) {
-        Map<String, Object> resp = alistClient.listFiles(baseUrl, token, path, page, 100);
-        if (resp == null || resp.get("data") == null) return;
+    private void scanDirectoryRecursive(StorageEngine engine, StorageEngineStrategy strategy,
+                                         String path, List<FileInfo> result,
+                                         List<String> excludePatterns, int page) {
+        var entries = strategy.listFiles(engine, path, page, 100);
+        if (entries.isEmpty()) return;
 
-        Map<String, Object> data = (Map<String, Object>) resp.get("data");
-        List<Map<String, Object>> files = (List<Map<String, Object>>) data.get("content");
-        if (files == null || files.isEmpty()) return;
-
-        for (Map<String, Object> f : files) {
-            boolean isDir = Boolean.TRUE.equals(f.get("is_dir"));
-            String name = (String) f.get("name");
+        for (var entry : entries) {
+            String name = entry.name();
             if (name == null) continue;
             String fullPath = concatPath(path, name);
 
@@ -257,46 +253,45 @@ public class SyncService {
                 continue;
             }
 
-            if (isDir) {
-                scanDirectoryRecursive(baseUrl, token, fullPath, result, excludePatterns, 1);
+            if (entry.isDirectory()) {
+                scanDirectoryRecursive(engine, strategy, fullPath, result, excludePatterns, 1);
             } else {
-                Number sizeNum = (Number) f.get("size");
-                long size = sizeNum != null ? sizeNum.longValue() : 0;
-                result.add(new FileInfo(name, fullPath, size));
+                result.add(new FileInfo(name, fullPath, entry.size()));
             }
         }
 
-        // 分页处理
-        Number total = (Number) data.get("total");
-        if (total != null && page * 100 < total.intValue()) {
-            scanDirectoryRecursive(baseUrl, token, path, result, excludePatterns, page + 1);
+        // 分页处理：如果返回数量等于 perPage，可能还有更多
+        if (entries.size() == 100) {
+            scanDirectoryRecursive(engine, strategy, path, result, excludePatterns, page + 1);
         }
     }
 
     /** 小文件流式同步（< 100MB） */
-    private void syncSmallFile(StorageEngine source, StorageEngine target,
+    private void syncSmallFile(StorageEngine sourceEngine, StorageEngineStrategy sourceStrategy,
+                                StorageEngine targetEngine, StorageEngineStrategy targetStrategy,
                                 String sourcePath, String targetPath, FileInfo file) {
-        InputStream inputStream = alistClient.downloadFile(source.getBaseUrl(), source.getEncryptedToken(), sourcePath);
+        InputStream inputStream = sourceStrategy.downloadFile(sourceEngine, sourcePath);
         if (inputStream == null) throw new RuntimeException("下载文件失败：" + sourcePath);
         try (inputStream) {
-            alistClient.uploadFile(target.getBaseUrl(), target.getEncryptedToken(), targetPath, inputStream, file.size);
+            targetStrategy.uploadFile(targetEngine, targetPath, inputStream, file.size);
         } catch (Exception e) {
             throw new RuntimeException("上传文件失败：" + targetPath, e);
         }
     }
 
     /** 大文件同步（> 100MB，暂存磁盘） */
-    private void syncLargeFile(StorageEngine source, StorageEngine target,
+    private void syncLargeFile(StorageEngine sourceEngine, StorageEngineStrategy sourceStrategy,
+                                StorageEngine targetEngine, StorageEngineStrategy targetStrategy,
                                 String sourcePath, String targetPath, FileInfo file) {
         java.nio.file.Path tempFile = null;
         try {
             tempFile = java.nio.file.Files.createTempFile("alist-sync-", ".tmp");
-            try (InputStream in = alistClient.downloadFile(source.getBaseUrl(), source.getEncryptedToken(), sourcePath)) {
+            try (InputStream in = sourceStrategy.downloadFile(sourceEngine, sourcePath)) {
                 if (in == null) throw new RuntimeException("下载文件失败：" + sourcePath);
                 java.nio.file.Files.copy(in, tempFile, java.nio.file.StandardCopyOption.REPLACE_EXISTING);
             }
             try (InputStream fileIn = java.nio.file.Files.newInputStream(tempFile)) {
-                alistClient.uploadFile(target.getBaseUrl(), target.getEncryptedToken(), targetPath, fileIn, file.size);
+                targetStrategy.uploadFile(targetEngine, targetPath, fileIn, file.size);
             }
         } catch (Exception e) {
             throw new RuntimeException("大文件同步失败：" + sourcePath, e);

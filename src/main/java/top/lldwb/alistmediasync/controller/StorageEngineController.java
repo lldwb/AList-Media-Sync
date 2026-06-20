@@ -7,7 +7,10 @@ import top.lldwb.alistmediasync.dto.ApiResult;
 import top.lldwb.alistmediasync.dto.storage.StorageEngineCreateDTO;
 import top.lldwb.alistmediasync.dto.storage.StorageEngineUpdateDTO;
 import top.lldwb.alistmediasync.dto.storage.StorageEngineVO;
+import top.lldwb.alistmediasync.dto.sync.DirectoryEntryVO;
+import top.lldwb.alistmediasync.entity.StorageEngine;
 import top.lldwb.alistmediasync.service.StorageEngineService;
+import top.lldwb.alistmediasync.service.engine.StorageEngineStrategy;
 
 import java.util.List;
 import java.util.Map;
@@ -15,7 +18,7 @@ import java.util.Map;
 /**
  * 存储引擎管理 API
  * <p>
- * 提供存储引擎的 CRUD 和连接测试功能。
+ * 提供存储引擎的 CRUD、连接测试和目录浏览功能。
  * </p>
  *
  * @author AList-Media-Sync
@@ -63,5 +66,21 @@ public class StorageEngineController {
     public ApiResult<Map<String, Object>> testConnection(@PathVariable Long id) {
         boolean success = service.testConnection(id);
         return ApiResult.success(Map.of("connected", success));
+    }
+
+    /**
+     * 获取存储引擎的子目录列表（树状目录浏览组件使用）
+     *
+     * @param id   存储引擎 ID
+     * @param path 目录路径（可选，不传时返回根目录）
+     * @return 子目录列表（仅目录，不含文件）
+     */
+    @GetMapping("/{id}/directories")
+    public ApiResult<List<DirectoryEntryVO>> listDirectories(
+        @PathVariable Long id,
+        @RequestParam(required = false, defaultValue = "/") String path) {
+        StorageEngine engine = service.getEntity(id);
+        StorageEngineStrategy strategy = service.resolve(engine);
+        return ApiResult.success(strategy.listDirectories(engine, path));
     }
 }

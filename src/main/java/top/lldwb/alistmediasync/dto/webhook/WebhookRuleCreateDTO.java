@@ -29,12 +29,19 @@ public class WebhookRuleCreateDTO {
     @NotNull(message = "执行操作不能为空")
     private WebhookRule.RuleAction action = WebhookRule.RuleAction.BOTH;
 
+    /** 录播存储引擎 ID（源端，TRANSCODE_ONLY/BOTH 时必填） */
+    @Min(value = 1, message = "录播存储引擎 ID 必须为正整数")
+    private Long recordingEngineId;
+
+    /** 录播文件路径（源端路径） */
+    private String recordingPath;
+
     /** 目标存储引擎 ID */
     @NotNull(message = "目标存储引擎不能为空")
     @Min(value = 1, message = "目标存储引擎 ID 必须为正整数")
     private Long targetEngineId;
 
-    /** 目标目录路径 */
-    @NotBlank(message = "目标目录路径不能为空")
-    private String targetPath;
+    /** 目标文件路径 */
+    @NotBlank(message = "目标文件路径不能为空")
+    private String targetFilePath;
 }

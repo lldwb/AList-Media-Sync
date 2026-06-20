@@ -14,6 +14,8 @@ import top.lldwb.alistmediasync.repository.WebhookEventRepository;
 import java.io.IOException;
 import java.nio.file.Files;
 import java.nio.file.Path;
+import java.time.Instant;
+import java.util.stream.Stream;
 
 /**
  * 清理服务
@@ -21,8 +23,8 @@ import java.nio.file.Path;
  * 负责：
  * <ul>
  *   <li>定时清理过期记录（每天凌晨 3 点）</li>
- *   <li>启动时清理残留临时文件</li>
- *   <li>手动清理接口</li>
+ *   <li>启动时清理残留临时文件（含孤立转码临时文件）</li>
+ *   <li>定时清理超过 24 小时的孤立临时文件</li>
  * </ul>
  * </p>
  *
@@ -36,6 +38,9 @@ public class CleanupService {
     private final TaskExecutionRepository taskExecutionRepository;
     private final WebhookEventRepository webhookEventRepository;
     private final AppProperties appProperties;
+
+    /** 孤立临时文件最大保存时间（24 小时） */
+    private static final long ORPHAN_FILE_MAX_AGE_MS = 24 * 60 * 60 * 1000L;
 
     /**
      * 定时清理过期记录
@@ -55,8 +60,51 @@ public class CleanupService {
     }
 
     /**
+     * 定时清理孤立临时文件（每 4 小时执行）
+     * 清理超过 24 小时的转码源文件和输出文件
+     */
+    @Scheduled(cron = "0 0 */4 * * ?")
+    public void cleanOrphanedTempFiles() {
+        String tempDirPath = appProperties.getTranscode().getTempDir();
+        Path tempDir = Path.of(tempDirPath);
+
+        if (!Files.exists(tempDir)) {
+            return;
+        }
+
+        long cutoffTime = System.currentTimeMillis() - ORPHAN_FILE_MAX_AGE_MS;
+        long deletedCount = 0;
+
+        try (Stream<Path> stream = Files.walk(tempDir)) {
+            deletedCount = stream
+                .filter(Files::isRegularFile)
+                .filter(path -> {
+                    try {
+                        return Files.getLastModifiedTime(path).toMillis() < cutoffTime;
+                    } catch (IOException e) {
+                        return false;
+                    }
+                })
+                .peek(path -> {
+                    try {
+                        Files.delete(path);
+                        log.debug("清理孤立临时文件：{}", path);
+                    } catch (IOException e) {
+                        log.warn("清理孤立临时文件失败：{}，原因：{}", path, e.getMessage());
+                    }
+                })
+                .count();
+        } catch (IOException e) {
+            log.error("扫描孤立临时文件目录失败：{}", e.getMessage());
+        }
+
+        if (deletedCount > 0) {
+            log.info("孤立临时文件清理完成，共清理 {} 个超过 24 小时的文件", deletedCount);
+        }
+    }
+
+    /**
      * 应用启动后清理残留临时文件
-     * 无条件删除临时目录中所有带配置后缀的文件。
      */
     @EventListener(ApplicationReadyEvent.class)
     public void startupCleanup() {
@@ -76,7 +124,9 @@ public class CleanupService {
             try (var stream = Files.walk(tempDir)) {
                 deletedCount = stream
                     .filter(Files::isRegularFile)
-                    .filter(path -> path.getFileName().toString().endsWith(suffix))
+                    .filter(path -> path.getFileName().toString().endsWith(suffix)
+                        || path.getFileName().toString().startsWith("src-")
+                        || path.getFileName().toString().startsWith("out-"))
                     .peek(path -> {
                         try {
                             Files.delete(path);
@@ -96,8 +146,6 @@ public class CleanupService {
 
     /**
      * 手动清理残留临时文件（供 Controller 调用）
-     *
-     * @return 清理的文件数
      */
     public long manualCleanup() {
         String tempDirPath = appProperties.getTranscode().getTempDir();
@@ -113,7 +161,9 @@ public class CleanupService {
         try (var stream = Files.walk(tempDir)) {
             deletedCount = stream
                 .filter(Files::isRegularFile)
-                .filter(path -> path.getFileName().toString().endsWith(suffix))
+                .filter(path -> path.getFileName().toString().endsWith(suffix)
+                    || path.getFileName().toString().startsWith("src-")
+                    || path.getFileName().toString().startsWith("out-"))
                 .peek(path -> {
                     try {
                         Files.delete(path);

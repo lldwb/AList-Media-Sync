@@ -15,7 +15,8 @@ import java.util.Map;
 /**
  * 转码任务管理 API
  * <p>
- * 提供转码任务的创建、查询、重试上传和临时文件清理接口。
+ * 提供转码任务的创建、查询、重试和临时文件清理接口。
+ * 支持 8 状态模型和三步流程（下载→转码→上传）。
  * </p>
  *
  * @author AList-Media-Sync
@@ -55,11 +56,18 @@ public class TranscodeTaskController {
         return ApiResult.success(transcodeService.getById(id));
     }
 
-    /** 手动重试上传 */
-    @PostMapping("/{id}/retry-upload")
-    public ApiResult<Map<String, Object>> retryUpload(@PathVariable Long id) {
-        boolean success = transcodeService.retryUpload(id);
-        return ApiResult.success(Map.of("taskId", id, "success", success));
+    /**
+     * 重试转码任务（支持从任意失败状态重试）
+     * <ul>
+     *   <li>DOWNLOAD_FAILED → 重新下载（删除部分下载文件）</li>
+     *   <li>TRANSCODE_FAILED → 重新转码（保留源临时文件）</li>
+     *   <li>UPLOAD_FAILED → 重新上传（保留源+输出临时文件）</li>
+     * </ul>
+     */
+    @PostMapping("/{id}/retry")
+    public ApiResult<Map<String, Object>> retry(@PathVariable Long id) {
+        transcodeService.retry(id);
+        return ApiResult.success(Map.of("taskId", id, "success", true));
     }
 
     /** 手动清理残留临时文件 */

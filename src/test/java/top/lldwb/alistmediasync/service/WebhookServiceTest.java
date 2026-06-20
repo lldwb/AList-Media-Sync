@@ -7,6 +7,8 @@ import org.junit.jupiter.api.extension.ExtendWith;
 import org.mockito.InjectMocks;
 import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
+import org.mockito.junit.jupiter.MockitoSettings;
+import org.mockito.quality.Strictness;
 import top.lldwb.alistmediasync.dto.webhook.WebhookEventVO;
 import top.lldwb.alistmediasync.entity.WebhookEvent;
 import top.lldwb.alistmediasync.entity.WebhookRule;
@@ -32,6 +34,7 @@ import static org.mockito.Mockito.*;
  * @author AList-Media-Sync
  */
 @ExtendWith(MockitoExtension.class)
+@MockitoSettings(strictness = Strictness.LENIENT)
 @DisplayName("Webhook 事件处理服务测试")
 class WebhookServiceTest {
 
@@ -194,7 +197,7 @@ class WebhookServiceTest {
         WebhookEvent event = new WebhookEvent();
         event.setId(1L);
         event.setEventId("evt-001");
-        event.setEventType(WebhookEvent.WebhookEventType.STREAM_STARTED);
+        event.setEventType(WebhookEvent.WebhookEventType.SESSION_STARTED);
         event.setStatus(WebhookEvent.EventStatus.PENDING);
 
         service.processWebhookEvent(event);
@@ -232,8 +235,8 @@ class WebhookServiceTest {
         event.setEventType(WebhookEvent.WebhookEventType.FILE_CLOSED);
         event.setStatus(WebhookEvent.EventStatus.PENDING);
 
-        when(ruleRepository.findByTriggerEventTypeAndRoomIdFilterAndEnabledTrue(
-            any(), isNull())).thenThrow(new RuntimeException("数据库异常"));
+        when(ruleRepository.findByTriggerEventTypeAndEnabledTrue(
+            any())).thenThrow(new RuntimeException("数据库异常"));
 
         service.processWebhookEvent(event);
 

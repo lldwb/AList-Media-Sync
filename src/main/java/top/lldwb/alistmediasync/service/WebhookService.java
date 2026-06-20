@@ -9,7 +9,6 @@ import org.springframework.data.domain.Sort;
 import org.springframework.scheduling.annotation.Async;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
-import top.lldwb.alistmediasync.client.AListClient;
 import top.lldwb.alistmediasync.dto.webhook.WebhookEventVO;
 import top.lldwb.alistmediasync.entity.*;
 import top.lldwb.alistmediasync.repository.*;
@@ -122,8 +121,8 @@ public class WebhookService {
             // 查询匹配的规则
             List<WebhookRule> rules;
             if (event.getRoomId() != null) {
-                rules = ruleRepository.findByTriggerEventTypeAndRoomIdFilterAndEnabledTrue(
-                    convertEventType(event.getEventType()), event.getRoomId());
+                rules = new java.util.ArrayList<>(ruleRepository.findByTriggerEventTypeAndRoomIdFilterAndEnabledTrue(
+                    convertEventType(event.getEventType()), event.getRoomId()));
                 // 同时匹配 roomIdFilter 为空的规则
                 var globalRules = ruleRepository.findByTriggerEventTypeAndRoomIdFilterAndEnabledTrue(
                     convertEventType(event.getEventType()), null);
@@ -169,42 +168,43 @@ public class WebhookService {
         execution = taskExecutionRepository.save(execution);
 
         try {
+            // 源引擎：优先使用 recordingEngine，否则使用 targetEngine
+            StorageEngine sourceEngine = rule.getRecordingEngine() != null
+                ? rule.getRecordingEngine() : rule.getTargetEngine();
+
             switch (rule.getAction()) {
                 case SYNC_ONLY -> {
-                    // 构建临时 SyncTask 执行同步
                     SyncTask tempTask = new SyncTask();
                     tempTask.setName("Webhook-" + rule.getName());
-                    tempTask.setSourceEngine(rule.getTargetEngine());
+                    tempTask.setSourceEngine(sourceEngine);
                     tempTask.setTargetEngine(rule.getTargetEngine());
                     tempTask.setSourcePath(event.getRelativePath());
-                    tempTask.setTargetPath(rule.getTargetPath());
+                    tempTask.setTargetPath(rule.getTargetFilePath());
                     tempTask.setSyncMode(SyncTask.SyncMode.NEW_ONLY);
                     tempTask.setTranscodeEnabled(false);
                     syncService.executeSyncTask(tempTask);
                 }
                 case TRANSCODE_ONLY -> {
-                    // 构建转码任务
                     if (event.getRelativePath() != null) {
                         TranscodeTask task = transcodeService.createTask(
-                            null,
+                            sourceEngine.getId(),
                             rule.getTargetEngine().getId(),
                             event.getRelativePath(),
-                            rule.getTargetPath() + "/" + event.getFileName(),
+                            rule.getTargetFilePath() + "/" + event.getFileName(),
                             TranscodeTask.TargetFormat.MP3,
-                            128000
+                            null // 使用系统默认码率
                         );
                         transcodeService.executeAsync(task);
                         execution.setTranscodeTask(task);
                     }
                 }
                 case BOTH -> {
-                    // 先同步再转码
                     SyncTask tempTask = new SyncTask();
                     tempTask.setName("Webhook-" + rule.getName());
-                    tempTask.setSourceEngine(rule.getTargetEngine());
+                    tempTask.setSourceEngine(sourceEngine);
                     tempTask.setTargetEngine(rule.getTargetEngine());
                     tempTask.setSourcePath(event.getRelativePath());
-                    tempTask.setTargetPath(rule.getTargetPath());
+                    tempTask.setTargetPath(rule.getTargetFilePath());
                     tempTask.setSyncMode(SyncTask.SyncMode.NEW_ONLY);
                     tempTask.setTranscodeEnabled(true);
                     tempTask.setTargetFormat(SyncTask.TargetFormat.MP3);
@@ -230,7 +230,9 @@ public class WebhookService {
     private WebhookEvent.WebhookEventType parseEventType(String type) {
         if (type == null) return WebhookEvent.WebhookEventType.OTHER;
         try {
-            return WebhookEvent.WebhookEventType.valueOf(type.toUpperCase());
+            // 支持 PascalCase（如 FileClosed）和 UPPER_SNAKE_CASE（如 FILE_CLOSED）
+            String normalized = type.replaceAll("([a-z])([A-Z])", "$1_$2").toUpperCase();
+            return WebhookEvent.WebhookEventType.valueOf(normalized);
         } catch (IllegalArgumentException e) {
             return WebhookEvent.WebhookEventType.OTHER;
         }

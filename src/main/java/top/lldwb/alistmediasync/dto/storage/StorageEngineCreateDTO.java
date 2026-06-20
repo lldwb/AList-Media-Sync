@@ -15,15 +15,16 @@ public class StorageEngineCreateDTO {
     @NotBlank(message = "存储引擎名称不能为空")
     private String name;
 
-    /** AList 服务器基础 URL */
-    @NotBlank(message = "服务器地址不能为空")
+    /** 引擎类型（ALIST / LOCAL），创建后不可更改 */
+    @NotBlank(message = "引擎类型不能为空")
+    private String engineType;
+
+    /** AList 服务器基础 URL（仅 ALIST 类型必填） */
     private String baseUrl;
 
-    /** 登录用户名 */
-    @NotBlank(message = "用户名不能为空")
-    private String username;
-
-    /** API 令牌（明文，存储时 AES 加密） */
-    @NotBlank(message = "API 令牌不能为空")
+    /** API 令牌（明文，存储时 AES 加密，仅 ALIST 类型必填） */
     private String token;
+
+    /** 本地文件系统目录路径（仅 LOCAL 类型必填） */
+    private String localPath;
 }

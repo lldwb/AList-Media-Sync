@@ -54,7 +54,7 @@ class WebhookRuleServiceTest {
         createDTO.setTriggerEventType(WebhookRule.WebhookEventType.FILE_CLOSED);
         createDTO.setAction(WebhookRule.RuleAction.SYNC_ONLY);
         createDTO.setTargetEngineId(1L);
-        createDTO.setTargetPath("/target/path");
+        createDTO.setTargetFilePath("/target/path");
 
         mockEngine = new StorageEngine();
         mockEngine.setId(1L);
@@ -66,7 +66,7 @@ class WebhookRuleServiceTest {
         mockRule.setTriggerEventType(WebhookRule.WebhookEventType.FILE_CLOSED);
         mockRule.setAction(WebhookRule.RuleAction.SYNC_ONLY);
         mockRule.setTargetEngine(mockEngine);
-        mockRule.setTargetPath("/target/path");
+        mockRule.setTargetFilePath("/target/path");
         mockRule.setEnabled(true);
     }
 
@@ -142,6 +142,7 @@ class WebhookRuleServiceTest {
 
         WebhookRuleCreateDTO partialDTO = new WebhookRuleCreateDTO();
         partialDTO.setName("仅更新名称");
+        partialDTO.setAction(WebhookRule.RuleAction.SYNC_ONLY);
         partialDTO.setTargetEngineId(1L); // 必填，但 update 中可为 null
         // 其他字段为 null
 

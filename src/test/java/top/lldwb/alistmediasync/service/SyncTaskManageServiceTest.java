@@ -206,7 +206,7 @@ class SyncTaskManageServiceTest {
         task2.setName("任务2");
         task2.setSourceEngine(mockSourceEngine);
         task2.setTargetEngine(mockTargetEngine);
-        task2.setSyncMode(SyncTask.SyncMode.FULL_SYNC);
+        task2.setSyncMode(SyncTask.SyncMode.FULL);
         task2.setEnabled(true);
 
         when(repository.findAll()).thenReturn(List.of(mockTask, task2));

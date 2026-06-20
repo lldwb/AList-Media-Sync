@@ -98,13 +98,13 @@ class DashboardServiceTest {
 
         DashboardStatsVO result = service.getStats();
 
-        assertEquals(2L, result.activeSyncTasks());
-        assertEquals(3L, result.pendingTranscodeTasks());
-        assertEquals(145L, result.todayProcessedFiles());
+        assertEquals(2L, result.getActiveSyncTasks());
+        assertEquals(3L, result.getPendingTranscodeTasks());
+        assertEquals(145L, result.getTodayProcessedFiles());
         // 145/150 ≈ 96.7%
-        assertTrue(result.last24hSuccessRate() >= 96.0 && result.last24hSuccessRate() <= 97.0);
-        assertEquals(5L, result.totalEngines());
-        assertEquals(4L, result.totalWebhookRules());
+        assertTrue(result.getLast24hSuccessRate() >= 96.0 && result.getLast24hSuccessRate() <= 97.0);
+        assertEquals(5L, result.getTotalEngines());
+        assertEquals(4L, result.getTotalWebhookRules());
     }
 
     // ================================================================
@@ -116,12 +116,12 @@ class DashboardServiceTest {
     void shouldReturnDefaultsWhenIdle() {
         DashboardStatsVO result = service.getStats();
 
-        assertEquals(0L, result.activeSyncTasks());
-        assertEquals(0L, result.pendingTranscodeTasks());
-        assertEquals(0L, result.todayProcessedFiles());
-        assertEquals(100.0, result.last24hSuccessRate(), "无执行记录时应显示 100%");
-        assertEquals(0L, result.totalEngines());
-        assertEquals(0L, result.totalWebhookRules());
+        assertEquals(0L, result.getActiveSyncTasks());
+        assertEquals(0L, result.getPendingTranscodeTasks());
+        assertEquals(0L, result.getTodayProcessedFiles());
+        assertEquals(100.0, result.getLast24hSuccessRate(), "无执行记录时应显示 100%");
+        assertEquals(0L, result.getTotalEngines());
+        assertEquals(0L, result.getTotalWebhookRules());
     }
 
     // ================================================================
@@ -138,8 +138,8 @@ class DashboardServiceTest {
 
         DashboardStatsVO result = service.getStats();
 
-        assertEquals(100.0, result.last24hSuccessRate());
-        assertEquals(200L, result.todayProcessedFiles());
+        assertEquals(100.0, result.getLast24hSuccessRate());
+        assertEquals(200L, result.getTodayProcessedFiles());
     }
 
     @Test
@@ -152,7 +152,7 @@ class DashboardServiceTest {
 
         DashboardStatsVO result = service.getStats();
 
-        assertEquals(0.0, result.last24hSuccessRate());
+        assertEquals(0.0, result.getLast24hSuccessRate());
     }
 
     @Test
@@ -160,7 +160,7 @@ class DashboardServiceTest {
     void shouldAggregateAllPendingTranscodeStatuses() {
         when(transcodeTaskRepository.findByStatus(TranscodeTask.TranscodeStatus.PENDING))
             .thenReturn(List.of(new TranscodeTask()));
-        when(transcodeTaskRepository.findByStatus(TranscodeTask.TranscodeStatus.SCANNING))
+        when(transcodeTaskRepository.findByStatus(TranscodeTask.TranscodeStatus.DOWNLOADING))
             .thenReturn(List.of(new TranscodeTask(), new TranscodeTask()));
         when(transcodeTaskRepository.findByStatus(TranscodeTask.TranscodeStatus.TRANSCODING))
             .thenReturn(List.of(new TranscodeTask()));
@@ -170,7 +170,7 @@ class DashboardServiceTest {
         DashboardStatsVO result = service.getStats();
 
         // 1 + 2 + 1 + 3 = 7
-        assertEquals(7L, result.pendingTranscodeTasks());
+        assertEquals(7L, result.getPendingTranscodeTasks());
     }
 
     @Test
@@ -187,8 +187,8 @@ class DashboardServiceTest {
 
         DashboardStatsVO result = service.getStats();
 
-        assertEquals(0L, result.todayProcessedFiles());
-        assertEquals(100.0, result.last24hSuccessRate()); // totalFiles=0 走默认值
+        assertEquals(0L, result.getTodayProcessedFiles());
+        assertEquals(100.0, result.getLast24hSuccessRate()); // totalFiles=0 走默认值
     }
 
     // ================================================================

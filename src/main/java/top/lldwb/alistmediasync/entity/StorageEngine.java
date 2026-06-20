@@ -9,7 +9,7 @@ import java.time.LocalDateTime;
 /**
  * 存储引擎实体
  * <p>
- * 代表一个 AList 服务器实例的连接信息。
+ * 支持多种存储后端（AList 远程存储 / 本地文件系统），通过策略模式动态切换。
  * Token 使用 AES-256-GCM 加密存储。
  * </p>
  *
@@ -30,20 +30,25 @@ public class StorageEngine {
     @Column(nullable = false, length = 100)
     private String name;
 
-    /** AList 服务器基础 URL（如 https://alist.example.com） */
-    @Column(nullable = false, length = 500)
+    /** 引擎类型：ALIST / LOCAL，创建后不可更改 */
+    @Column(nullable = false, length = 20)
+    @Enumerated(EnumType.STRING)
+    private EngineType engineType = EngineType.ALIST;
+
+    /** AList 服务器基础 URL（仅 ALIST 类型，如 https://alist.example.com） */
+    @Column(length = 500)
     private String baseUrl;
 
-    /** AList 登录用户名 */
-    @Column(nullable = false, length = 100)
-    private String username;
-
     /**
-     * AList API 令牌（AES-256-GCM 加密存储）
+     * AList API 令牌（仅 ALIST 类型，AES-256-GCM 加密存储）
      */
-    @Column(nullable = false, length = 1000)
+    @Column(length = 1000)
     @Convert(converter = CryptoConverter.class)
     private String encryptedToken;
+
+    /** 本地文件系统目录路径（仅 LOCAL 类型） */
+    @Column(length = 1000)
+    private String localPath;
 
     /** 引擎状态：ONLINE / OFFLINE / ERROR */
     @Column(nullable = false, length = 20)
@@ -71,6 +76,11 @@ public class StorageEngine {
     @PreUpdate
     protected void onUpdate() {
         updatedAt = LocalDateTime.now();
+    }
+
+    /** 存储引擎类型枚举 */
+    public enum EngineType {
+        ALIST, LOCAL
     }
 
     /** 存储引擎状态枚举 */

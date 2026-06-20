@@ -15,8 +15,9 @@ public class StorageEngineVO {
 
     private Long id;
     private String name;
+    private String engineType;
     private String baseUrl;
-    private String username;
+    private String localPath;
     private String status;
     private LocalDateTime createdAt;
     private LocalDateTime updatedAt;
@@ -26,8 +27,9 @@ public class StorageEngineVO {
         StorageEngineVO vo = new StorageEngineVO();
         vo.setId(entity.getId());
         vo.setName(entity.getName());
+        vo.setEngineType(entity.getEngineType().name());
         vo.setBaseUrl(entity.getBaseUrl());
-        vo.setUsername(entity.getUsername());
+        vo.setLocalPath(entity.getLocalPath());
         vo.setStatus(entity.getStatus().name());
         vo.setCreatedAt(entity.getCreatedAt());
         vo.setUpdatedAt(entity.getUpdatedAt());
