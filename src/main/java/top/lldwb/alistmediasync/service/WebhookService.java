@@ -4,10 +4,13 @@ import tools.jackson.core.JacksonException;
 import tools.jackson.databind.json.JsonMapper;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
+import org.springframework.data.domain.PageRequest;
+import org.springframework.data.domain.Sort;
 import org.springframework.scheduling.annotation.Async;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 import top.lldwb.alistmediasync.client.AListClient;
+import top.lldwb.alistmediasync.dto.webhook.WebhookEventVO;
 import top.lldwb.alistmediasync.entity.*;
 import top.lldwb.alistmediasync.repository.*;
 
@@ -263,5 +266,25 @@ public class WebhookService {
             try { return Long.parseLong(val.toString()); } catch (NumberFormatException ignored) {}
         }
         return null;
+    }
+
+    // ================================================================
+    // 查询方法（供 Controller 调用）
+    // ================================================================
+
+    /**
+     * 分页查询 Webhook 事件列表（按创建时间倒序）
+     *
+     * @param page 页码（从 1 开始）
+     * @param size 每页条数
+     * @return 事件视图对象列表
+     */
+    public List<WebhookEventVO> listEvents(int page, int size) {
+        int pageIndex = Math.max(0, page - 1);
+        PageRequest pageRequest = PageRequest.of(pageIndex, size, Sort.by(Sort.Direction.DESC, "createdAt"));
+        return eventRepository.findAll(pageRequest)
+            .stream()
+            .map(WebhookEventVO::from)
+            .toList();
     }
 }

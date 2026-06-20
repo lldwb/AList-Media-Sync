@@ -7,6 +7,7 @@ import org.springframework.transaction.annotation.Transactional;
 import top.lldwb.alistmediasync.dto.sync.SyncTaskCreateDTO;
 import top.lldwb.alistmediasync.dto.sync.SyncTaskUpdateDTO;
 import top.lldwb.alistmediasync.dto.sync.SyncTaskVO;
+import top.lldwb.alistmediasync.dto.sync.TaskExecutionVO;
 import top.lldwb.alistmediasync.entity.SyncTask;
 import top.lldwb.alistmediasync.entity.TaskExecution;
 import top.lldwb.alistmediasync.repository.SyncTaskRepository;
@@ -151,7 +152,7 @@ public class SyncTaskManageService {
      * 检查同一任务是否有运行中的执行记录
      */
     @Transactional
-    public TaskExecution executeManually(Long id) {
+    public void executeManually(Long id) {
         SyncTask entity = repository.findById(id)
             .orElseThrow(() -> new NoSuchElementException("同步任务不存在：id=" + id));
 
@@ -163,8 +164,7 @@ public class SyncTaskManageService {
         }
 
         log.info("手动触发同步任务：{}", entity.getName());
-        // 委托给 SyncService 异步执行
-        return null; // SyncService.executeSyncTask 会创建 TaskExecution
+        // SyncService.executeSyncTask 会创建 TaskExecution
     }
 
     /**
@@ -173,5 +173,18 @@ public class SyncTaskManageService {
     public SyncTask getEntity(Long id) {
         return repository.findById(id)
             .orElseThrow(() -> new NoSuchElementException("同步任务不存在：id=" + id));
+    }
+
+    /**
+     * 查询同步任务的执行历史
+     *
+     * @param syncTaskId 同步任务 ID
+     * @return 执行历史列表（按开始时间倒序）
+     */
+    public List<TaskExecutionVO> getExecutions(Long syncTaskId) {
+        return taskExecutionRepository.findBySyncTaskIdOrderByStartTimeDesc(syncTaskId)
+            .stream()
+            .map(TaskExecutionVO::from)
+            .toList();
     }
 }
