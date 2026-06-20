@@ -74,4 +74,6 @@ EXPOSE 8080/tcp
 
 # 容器入口点：Spring Boot 可执行 JAR
 # JAVA_OPTS 环境变量可注入 JVM 参数（如 -Xms128m -Xmx256m）
+# DOCKER_CONTAINER=true 标记容器环境，供 ServerAddressLogger 检测使用
+ENV DOCKER_CONTAINER=true
 ENTRYPOINT ["sh", "-c", "java $JAVA_OPTS -jar /app/app.jar"]

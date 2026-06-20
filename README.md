@@ -2,7 +2,77 @@
 
 基于 Spring Boot 4.1.0 + Java 21 的 AList 网盘媒体同步服务。
 
-## 快速开始（Docker 部署）
+## 快速开始（一体化启动包）
+
+一体化启动包是自包含的独立部署方案，内置 JRE 和所有依赖，解压后零配置即可运行。**无需安装 Java、Maven 或 Node.js。**
+
+### 前置条件
+
+- 操作系统：Windows 10/11（x86-64）或 Linux（x86-64, kernel 5.x+）
+- 磁盘空间：至少 400MB 可用空间
+- 网络端口：默认端口 8080（可配置）
+
+### 安装与启动
+
+```bash
+# 1. 下载对应平台的启动包
+#    Windows: alist-media-sync-{version}-windows-x64.zip
+#    Linux:   alist-media-sync-{version}-linux-x64.tar.gz
+
+# 2. 解压启动包
+#    Windows：直接右键解压
+#    Linux：
+tar -xzf alist-media-sync-{version}-linux-x64.tar.gz
+cd alist-media-sync-{version}
+
+# 3. 配置 AList 连接信息
+#    编辑 config/application.yaml，修改以下必填项：
+#      alist.base-url: https://your-alist.example.com
+#      alist.token: your-api-token
+
+# 4. 启动服务
+#    Windows：双击 start.bat 或在命令提示符中运行
+#    Linux：
+./start.sh
+#    或
+sh start.sh
+
+# 5. 访问管理界面
+#    打开浏览器访问 http://localhost:8080/app/
+#    默认用户名：admin  密码：admin123
+```
+
+### 配置说明
+
+| 配置项 | 默认值 | 说明 |
+|--------|--------|------|
+| `server.port` | `8080` | 服务监听端口 |
+| `app.data-dir` | `./data` | 数据目录（H2 数据库、PID 文件） |
+| `app.auth.username` | `admin` | 管理后台用户名 |
+| `app.auth.password` | `{bcrypt}...` | 登录密码（支持明文和 BCrypt 格式，明文自动加密到内存） |
+| `alist.base-url` | — | AList 服务器地址（必填） |
+| `alist.token` | — | AList API 认证令牌（必填） |
+
+### 常见问题
+
+**Q：启动脚本报"未检测到 Java 运行环境"**
+A：启动包已内置 JRE。此错误表示 runtime/ 目录在解压过程中丢失，请重新下载启动包。
+
+**Q：启动后提示"端口已被占用"**
+A：修改 `config/application.yaml` 中的 `server.port` 配置项，或终止占用端口的进程后重试。
+
+**Q：修改了密码配置但登录仍然使用旧密码**
+A：重启服务后新密码生效。密码为明文时每次启动自动加密到内存；为 `{bcrypt}` 格式时直接使用。
+
+**Q：可以同时运行多个实例吗？**
+A：可以，但每个实例需要独立的数据目录（通过 `DATA_DIR` 环境变量指定）。启动脚本检测到同一数据目录已有实例运行时会给出提示。
+
+**Q：数据文件存储在哪里？**
+A：默认存储在启动包目录下的 `data/` 子目录。可通过环境变量 `DATA_DIR` 修改。
+
+---
+
+## Docker 部署
 
 ### 前置条件
 
