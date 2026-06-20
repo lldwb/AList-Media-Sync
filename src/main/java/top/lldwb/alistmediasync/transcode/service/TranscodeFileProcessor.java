@@ -5,9 +5,10 @@ import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.scheduling.annotation.Async;
 import org.springframework.stereotype.Service;
-import top.lldwb.alistmediasync.common.client.AListClient;
 import top.lldwb.alistmediasync.common.config.AppProperties;
 import top.lldwb.alistmediasync.storage.entity.StorageEngine;
+import top.lldwb.alistmediasync.storage.service.StorageEngineService;
+import top.lldwb.alistmediasync.storage.service.engine.StorageEngineStrategy;
 import top.lldwb.alistmediasync.sync.entity.SyncTask;
 import top.lldwb.alistmediasync.sync.entity.TaskExecution;
 import top.lldwb.alistmediasync.transcode.entity.TranscodeTask;
@@ -46,7 +47,7 @@ import java.util.concurrent.Semaphore;
 public class TranscodeFileProcessor {
 
     private final TranscodeTaskRepository repository;
-    private final AListClient alistClient;
+    private final StorageEngineService storageEngineService;
     private final AppProperties appProperties;
 
     /** 并发转码信号量（由配置 maxConcurrentTranscode 控制上限） */
@@ -217,17 +218,9 @@ public class TranscodeFileProcessor {
             throw new IllegalStateException(
                 "源存储引擎未设置，无法下载文件：" + candidate.fullPath());
         }
-        if (sourceEngine.getBaseUrl() == null || sourceEngine.getBaseUrl().isBlank()) {
-            throw new IllegalStateException(
-                "源存储引擎 baseUrl 未配置：engineId=" + sourceEngine.getId());
-        }
-        if (sourceEngine.getEncryptedToken() == null || sourceEngine.getEncryptedToken().isBlank()) {
-            throw new IllegalStateException(
-                "源存储引擎 token 未配置：engineId=" + sourceEngine.getId());
-        }
-        try (InputStream in = alistClient.downloadFile(
-                sourceEngine.getBaseUrl(), sourceEngine.getEncryptedToken(),
-                candidate.fullPath())) {
+
+        StorageEngineStrategy sourceStrategy = storageEngineService.resolve(sourceEngine);
+        try (InputStream in = sourceStrategy.downloadFile(sourceEngine, candidate.fullPath())) {
             if (in == null) throw new IOException("下载源文件失败：" + candidate.fullPath());
             Files.copy(in, sourceTempFile, java.nio.file.StandardCopyOption.REPLACE_EXISTING);
         }
@@ -248,10 +241,9 @@ public class TranscodeFileProcessor {
             ? candidate.targetPath().replace(candidate.name(), targetFileName)
             : concatDirAndName(getDirPath(candidate.targetPath()), targetFileName);
 
+        StorageEngineStrategy targetStrategy = storageEngineService.resolve(targetEngine);
         try (InputStream fileIn = Files.newInputStream(finalFile)) {
-            alistClient.uploadFile(targetEngine.getBaseUrl(),
-                targetEngine.getEncryptedToken(),
-                remotePath, fileIn, Files.size(finalFile));
+            targetStrategy.uploadFile(targetEngine, remotePath, fileIn, Files.size(finalFile));
         }
 
         log.info("转码文件已上传：{} -> {}", finalFile, remotePath);

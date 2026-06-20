@@ -7,9 +7,9 @@ import org.junit.jupiter.api.extension.ExtendWith;
 import org.mockito.InjectMocks;
 import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
-import top.lldwb.alistmediasync.common.client.AListClient;
 import top.lldwb.alistmediasync.common.config.AppProperties;
 import top.lldwb.alistmediasync.storage.entity.StorageEngine;
+import top.lldwb.alistmediasync.storage.service.StorageEngineService;
 import top.lldwb.alistmediasync.sync.entity.SyncTask;
 import top.lldwb.alistmediasync.sync.entity.TaskExecution;
 import top.lldwb.alistmediasync.transcode.entity.TranscodeTask;
@@ -41,7 +41,7 @@ class TranscodeFileProcessorTest {
     private TranscodeTaskRepository repository;
 
     @Mock
-    private AListClient alistClient;
+    private StorageEngineService storageEngineService;
 
     @Mock
     private AppProperties appProperties;
