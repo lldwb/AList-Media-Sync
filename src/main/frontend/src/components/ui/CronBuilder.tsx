@@ -132,11 +132,6 @@ export function CronBuilder({ value, onChange }: CronBuilderProps) {
   const [manualExpr, setManualExpr] = useState(value);
   const [fields, setFields] = useState<CronFields>(parseToFields(value));
 
-  // 内置预设 → 图形化同步
-  const isPreset = useMemo(() => {
-    return CRON_PRESETS.some((p) => p.value === value);
-  }, [value]);
-
   // 实时解析预览
   const preview = useMemo(() => parseCron(value), [value]);
 

@@ -53,25 +53,17 @@ export function SyncTaskForm({ engines, initialValues, onSubmit, onCancel, loadi
 
   const [errors, setErrors] = useState<FormErrors>({});
   const [submitError, setSubmitError] = useState<string | null>(null);
-  const [cronPreview, setCronPreview] = useState<string | null>(null);
-  const [cronNextTime, setCronNextTime] = useState<string | null>(null);
 
   const isEdit = !!initialValues;
 
   // 实时 cron 预览
   useEffect(() => {
     if (scheduleType !== 'CRON' || !cronExpression.trim()) {
-      setCronPreview(null);
-      setCronNextTime(null);
       return;
     }
     const result = parseCron(cronExpression);
     if (result.valid) {
-      setCronPreview(result.description ?? null);
-      setCronNextTime(result.nextExecution?.toLocaleString('zh-CN') ?? null);
-    } else {
-      setCronPreview(null);
-      setCronNextTime(null);
+      // 预览结果供未来 UI 展示使用
     }
   }, [cronExpression, scheduleType]);
 
