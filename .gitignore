@@ -36,3 +36,4 @@ build/
 .env
 *.log
 /src/main/resources/static/app/
+/data/
