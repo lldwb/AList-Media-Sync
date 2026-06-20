@@ -57,7 +57,7 @@ public class LocalStorageStrategy implements StorageEngineStrategy {
             int toIndex = Math.min(fromIndex + perPage, allEntries.size());
             return allEntries.subList(fromIndex, toIndex);
         } catch (IOException e) {
-            log.error("列出本地文件失败：{}", dir, e);
+            log.error("列出本地文件失败：{} — {}", dir, e.getMessage(), e);
             return Collections.emptyList();
         }
     }
@@ -159,7 +159,7 @@ public class LocalStorageStrategy implements StorageEngineStrategy {
                 .sorted(Comparator.comparing(DirectoryEntryVO::name))
                 .toList();
         } catch (IOException e) {
-            log.error("列出本地子目录失败：{}", dir, e);
+            log.error("列出本地子目录失败：{} — {}", dir, e.getMessage(), e);
             return Collections.emptyList();
         }
     }

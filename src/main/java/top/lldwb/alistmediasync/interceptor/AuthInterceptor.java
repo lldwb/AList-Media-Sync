@@ -56,6 +56,7 @@ public class AuthInterceptor implements HandlerInterceptor {
         // 从 Authorization 请求头提取凭据
         String authHeader = request.getHeader("Authorization");
         if (authHeader == null || !authHeader.startsWith("Basic ")) {
+            log.debug("请求缺少认证信息：{} {}", request.getMethod(), request.getRequestURI());
             sendUnauthorized(response, "缺少认证信息，请提供 Basic 认证凭据");
             return false;
         }
@@ -66,6 +67,7 @@ public class AuthInterceptor implements HandlerInterceptor {
             String credentials = new String(decodedBytes, StandardCharsets.UTF_8);
             String[] parts = credentials.split(":", 2);
             if (parts.length != 2) {
+                log.warn("认证凭据格式无效：{} {}", request.getMethod(), request.getRequestURI());
                 sendUnauthorized(response, "认证格式无效，请使用 username:password 格式");
                 return false;
             }
@@ -75,6 +77,7 @@ public class AuthInterceptor implements HandlerInterceptor {
 
             // 验证用户名
             if (!appProperties.getAuth().getUsername().equals(username)) {
+                log.warn("认证失败，用户名错误：{}（请求路径：{}）", username, request.getRequestURI());
                 sendUnauthorized(response, "用户名或密码错误");
                 return false;
             }
@@ -84,6 +87,7 @@ public class AuthInterceptor implements HandlerInterceptor {
             if (!storedPassword.startsWith("{bcrypt}")) {
                 // 明文比较（仅开发环境回退）
                 if (!storedPassword.equals(password)) {
+                    log.warn("认证失败，密码错误（用户名：{}，请求路径：{}）", username, request.getRequestURI());
                     sendUnauthorized(response, "用户名或密码错误");
                     return false;
                 }
@@ -92,6 +96,7 @@ public class AuthInterceptor implements HandlerInterceptor {
                 String bcryptHash = storedPassword.substring(8);
                 // 使用 Spring Security Crypto 的 BCrypt 比较（不引入 Security 依赖，仅用 crypto）
                 if (!org.springframework.security.crypto.bcrypt.BCrypt.checkpw(password, bcryptHash)) {
+                    log.warn("认证失败，密码错误（用户名：{}，请求路径：{}）", username, request.getRequestURI());
                     sendUnauthorized(response, "用户名或密码错误");
                     return false;
                 }
@@ -99,6 +104,7 @@ public class AuthInterceptor implements HandlerInterceptor {
 
             return true;
         } catch (IllegalArgumentException e) {
+            log.warn("认证凭据 Base64 解码失败：{}", e.getMessage());
             sendUnauthorized(response, "认证凭据格式无效");
             return false;
         }

@@ -65,7 +65,7 @@ public class PasswordEncryptionPostProcessor implements EnvironmentPostProcessor
                 return;
             }
             // 哈希格式无效，继续走加密流程
-            log.warn("检测到无效的 BCrypt 哈希格式，将重新加密: {}", password);
+            log.warn("检测到无效的 BCrypt 哈希格式，将重新加密：{}", password);
         }
 
         // 3. 明文密码 — BCrypt 加密
@@ -104,7 +104,7 @@ public class PasswordEncryptionPostProcessor implements EnvironmentPostProcessor
             if (BCRYPT_HASH_PATTERN.matcher(hash).matches()) {
                 return plainPassword;
             }
-            log.warn("检测到无效的 BCrypt 哈希格式，将重新加密: {}", plainPassword);
+            log.warn("检测到无效的 BCrypt 哈希格式，将重新加密：{}", plainPassword);
         }
 
         String hash = ENCODER.encode(plainPassword);

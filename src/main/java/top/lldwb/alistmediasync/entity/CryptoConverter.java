@@ -2,8 +2,7 @@ package top.lldwb.alistmediasync.entity;
 
 import jakarta.persistence.AttributeConverter;
 import jakarta.persistence.Converter;
-import org.slf4j.Logger;
-import org.slf4j.LoggerFactory;
+import lombok.extern.slf4j.Slf4j;
 
 import javax.crypto.Cipher;
 import javax.crypto.KeyGenerator;
@@ -29,10 +28,9 @@ import java.util.Base64;
  *
  * @author AList-Media-Sync
  */
+@Slf4j
 @Converter
 public class CryptoConverter implements AttributeConverter<String, String> {
-
-    private static final Logger log = LoggerFactory.getLogger(CryptoConverter.class);
 
     private static final String ALGORITHM = "AES/GCM/NoPadding";
     private static final int GCM_IV_LENGTH = 12; // 96 位 IV
@@ -59,14 +57,11 @@ public class CryptoConverter implements AttributeConverter<String, String> {
         }
 
         // 默认生成随机密钥
-        // 警告：重启后之前加密的数据将无法解密！生产环境必须设置 alist.crypto.key
-        log.warn("============================================================");
-        log.warn("  [安全警告] 未设置 alist.crypto.key 系统属性！");
-        log.warn("  已生成随机 AES-256 密钥，应用重启后所有加密数据将无法解密。");
-        log.warn("  生产环境请使用以下方式设置密钥：");
-        log.warn("    - JVM 参数: -Dalist.crypto.key=<Base64 编码的 32 字节密钥>");
-        log.warn("    - 生成密钥: openssl rand -base64 32");
-        log.warn("============================================================");
+        // 安全提示：重启后之前加密的数据将无法解密，生产环境必须设置 alist.crypto.key
+        log.info("未设置 alist.crypto.key 系统属性，已生成随机 AES-256 密钥。"
+            + "生产环境请通过 JVM 参数设置：-Dalist.crypto.key=<Base64 编码的 32 字节密钥>"
+            + "（生成命令：openssl rand -base64 32）。"
+            + "应用重启后所有加密数据将无法解密。");
         try {
             KeyGenerator keyGen = KeyGenerator.getInstance("AES");
             keyGen.init(256);
@@ -121,9 +116,7 @@ public class CryptoConverter implements AttributeConverter<String, String> {
             byte[] decrypted = cipher.doFinal(encrypted);
             return new String(decrypted, StandardCharsets.UTF_8);
         } catch (javax.crypto.AEADBadTagException e) {
-            log.error("解密失败：密钥不匹配或密文已损坏。"
-                + "如果应用重启后出现此错误，请检查 alist.crypto.key 系统属性是否已设置且与加密时一致。"
-                + "如果密钥丢失，需要重新创建存储引擎并设置正确的 Token。");
+            log.error("解密失败：密钥不匹配或密文已损坏 — 请检查 alist.crypto.key 是否已设置且与加密时一致", e);
             throw new RuntimeException("解密字段失败：密钥不匹配或密文被篡改", e);
         } catch (Exception e) {
             throw new RuntimeException("解密字段失败", e);

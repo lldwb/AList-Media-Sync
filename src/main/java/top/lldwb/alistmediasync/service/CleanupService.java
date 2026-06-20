@@ -95,7 +95,7 @@ public class CleanupService {
                 })
                 .count();
         } catch (IOException e) {
-            log.error("扫描孤立临时文件目录失败：{}", e.getMessage());
+            log.error("扫描孤立临时文件目录失败：{}", e.getMessage(), e);
         }
 
         if (deletedCount > 0) {
@@ -139,7 +139,7 @@ public class CleanupService {
 
             log.info("启动时清理残留临时文件完成，共清理 {} 个文件", deletedCount);
         } catch (IOException e) {
-            log.error("临时文件目录访问失败：{}，原因：{}", tempDir, e.getMessage());
+            log.error("临时文件目录访问失败：{}，原因：{}", tempDir, e.getMessage(), e);
             throw new RuntimeException("无法创建或访问临时文件目录：" + tempDir, e);
         }
     }
@@ -174,7 +174,7 @@ public class CleanupService {
                 })
                 .count();
         } catch (IOException e) {
-            log.error("手动清理时扫描目录失败：{}", e.getMessage());
+            log.error("手动清理时扫描目录失败：{}", e.getMessage(), e);
             throw new RuntimeException("清理临时文件失败：" + e.getMessage(), e);
         }
 

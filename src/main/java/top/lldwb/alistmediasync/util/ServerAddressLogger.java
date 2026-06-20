@@ -136,7 +136,7 @@ public class ServerAddressLogger {
                 }
             }
         } catch (Exception e) {
-            log.warn("枚举网络接口时发生异常：{}", e.getMessage());
+            log.warn("枚举网络接口时发生异常：{}，将仅显示回环地址", e.getMessage());
         }
 
         return urlsWithName;
