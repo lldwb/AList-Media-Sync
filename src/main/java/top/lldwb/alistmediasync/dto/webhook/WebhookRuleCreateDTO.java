@@ -36,12 +36,10 @@ public class WebhookRuleCreateDTO {
     /** 录播文件路径（源端路径） */
     private String recordingPath;
 
-    /** 目标存储引擎 ID */
-    @NotNull(message = "目标存储引擎不能为空")
+    /** 目标存储引擎 ID（SYNC_ONLY / BOTH 时必填） */
     @Min(value = 1, message = "目标存储引擎 ID 必须为正整数")
     private Long targetEngineId;
 
-    /** 目标文件路径 */
-    @NotBlank(message = "目标文件路径不能为空")
+    /** 目标文件路径（SYNC_ONLY / BOTH 时必填） */
     private String targetFilePath;
 }

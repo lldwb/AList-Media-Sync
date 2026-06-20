@@ -3,6 +3,7 @@
 // ===================================================================
 import { useState, type FormEvent } from 'react';
 import type { StorageEngineVO, TranscodeTaskCreateDTO, TargetFormat } from '@/types/api';
+import { DirectoryTreeSelector } from '@/components/ui/DirectoryTreeSelector';
 import { validatePath, validatePositiveInt } from '@/utils/validate';
 
 interface TranscodeTaskFormProps {
@@ -124,14 +125,12 @@ export function TranscodeTaskForm({ engines, onSubmit, onCancel, loading }: Tran
             <label className="block text-sm font-medium text-gray-700 mb-1">
               源文件路径 <span className="text-red-500">*</span>
             </label>
-            <input
-              type="text"
+            <DirectoryTreeSelector
+              engineId={sourceEngineId}
               value={sourceFilePath}
-              onChange={(e) => setSourceFilePath(e.target.value)}
-              className={`block w-full rounded-md border px-3 py-2 text-sm focus:outline-none focus:ring-1 ${
-                errors.sourceFilePath ? 'border-red-400' : 'border-gray-300 focus:border-blue-500 focus:ring-blue-500'
-              }`}
-              placeholder="例如：/media/recording.flv"
+              onChange={setSourceFilePath}
+              placeholder="/media/recording.flv"
+              disabled={!sourceEngineId}
             />
             {errors.sourceFilePath && <p className="mt-1 text-xs text-red-600">{errors.sourceFilePath}</p>}
           </div>
@@ -140,14 +139,12 @@ export function TranscodeTaskForm({ engines, onSubmit, onCancel, loading }: Tran
             <label className="block text-sm font-medium text-gray-700 mb-1">
               目标文件路径 <span className="text-red-500">*</span>
             </label>
-            <input
-              type="text"
+            <DirectoryTreeSelector
+              engineId={targetEngineId}
               value={targetFilePath}
-              onChange={(e) => setTargetFilePath(e.target.value)}
-              className={`block w-full rounded-md border px-3 py-2 text-sm focus:outline-none focus:ring-1 ${
-                errors.targetFilePath ? 'border-red-400' : 'border-gray-300 focus:border-blue-500 focus:ring-blue-500'
-              }`}
-              placeholder="例如：/media/recording.mp3"
+              onChange={setTargetFilePath}
+              placeholder="/media/recording.mp3"
+              disabled={!targetEngineId}
             />
             {errors.targetFilePath && <p className="mt-1 text-xs text-red-600">{errors.targetFilePath}</p>}
           </div>

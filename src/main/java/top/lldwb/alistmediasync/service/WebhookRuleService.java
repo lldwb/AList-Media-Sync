@@ -34,15 +34,17 @@ public class WebhookRuleService {
 
     @Transactional
     public WebhookRuleVO create(WebhookRuleCreateDTO dto) {
-        if (dto.getTargetEngineId() == null || dto.getTargetEngineId() < 1) {
-            throw new IllegalArgumentException("targetEngineId 必须为正整数");
-        }
-        StorageEngine targetEngine = storageEngineRepository.findById(dto.getTargetEngineId())
-            .orElseThrow(() -> new NoSuchElementException(
-                "目标存储引擎不存在：id=" + dto.getTargetEngineId()));
-
+        // 校验：SYNC_ONLY / BOTH 时 targetEngineId 和 targetFilePath 必填
+        validateTargetEngine(dto);
         // 校验：TRANSCODE_ONLY / BOTH 时 recordingEngineId 和 recordingPath 必填
         validateRecordingEngine(dto);
+
+        StorageEngine targetEngine = null;
+        if (dto.getTargetEngineId() != null && dto.getTargetEngineId() > 0) {
+            targetEngine = storageEngineRepository.findById(dto.getTargetEngineId())
+                .orElseThrow(() -> new NoSuchElementException(
+                    "目标存储引擎不存在：id=" + dto.getTargetEngineId()));
+        }
 
         WebhookRule entity = new WebhookRule();
         entity.setName(dto.getName());
@@ -78,8 +80,9 @@ public class WebhookRuleService {
         if (dto.getRoomIdFilter() != null) entity.setRoomIdFilter(dto.getRoomIdFilter());
         if (dto.getAction() != null) {
             entity.setAction(dto.getAction());
-            // 操作变更后重新校验 recordingEngine
+            // 操作变更后重新校验必填字段
             validateRecordingEngineForEntity(dto, dto.getAction());
+            validateTargetEngineForEntity(dto, dto.getAction());
         }
         if (dto.getTargetEngineId() != null) {
             entity.setTargetEngine(storageEngineRepository.getReferenceById(dto.getTargetEngineId()));
@@ -140,6 +143,23 @@ public class WebhookRuleService {
     // ================================================================
 
     /**
+     * 校验 targetEngine 必填关系
+     */
+    private void validateTargetEngine(WebhookRuleCreateDTO dto) {
+        RuleAction action = dto.getAction();
+        if (action == RuleAction.SYNC_ONLY || action == RuleAction.BOTH) {
+            if (dto.getTargetEngineId() == null || dto.getTargetEngineId() < 1) {
+                throw new IllegalArgumentException(
+                    "操作为" + action + "时，目标存储引擎（targetEngineId）为必填项");
+            }
+            if (dto.getTargetFilePath() == null || dto.getTargetFilePath().isBlank()) {
+                throw new IllegalArgumentException(
+                    "操作为" + action + "时，目标文件路径（targetFilePath）为必填项");
+            }
+        }
+    }
+
+    /**
      * 校验 recordingEngine 必填关系
      */
     private void validateRecordingEngine(WebhookRuleCreateDTO dto) {
@@ -163,6 +183,16 @@ public class WebhookRuleService {
             if (recordingEngineId == null || recordingEngineId < 1) {
                 throw new IllegalArgumentException(
                     "操作变更为" + action + "时，录播存储引擎（recordingEngineId）为必填项");
+            }
+        }
+    }
+
+    /** 更新时的 targetEngine 校验 */
+    private void validateTargetEngineForEntity(WebhookRuleCreateDTO dto, RuleAction action) {
+        if (action == RuleAction.SYNC_ONLY || action == RuleAction.BOTH) {
+            if (dto.getTargetEngineId() == null || dto.getTargetEngineId() < 1) {
+                throw new IllegalArgumentException(
+                    "操作变更为" + action + "时，目标存储引擎（targetEngineId）为必填项");
             }
         }
     }

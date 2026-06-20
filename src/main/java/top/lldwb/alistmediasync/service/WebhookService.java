@@ -185,12 +185,12 @@ public class WebhookService {
                     syncService.executeSyncTask(tempTask);
                 }
                 case TRANSCODE_ONLY -> {
-                    if (event.getRelativePath() != null) {
+                    if (event.getRelativePath() != null && rule.getRecordingEngine() != null) {
                         TranscodeTask task = transcodeService.createTask(
                             sourceEngine.getId(),
-                            rule.getTargetEngine().getId(),
+                            sourceEngine.getId(), // 纯转码不跨引擎，源即目标
                             event.getRelativePath(),
-                            rule.getTargetFilePath() + "/" + event.getFileName(),
+                            rule.getRecordingPath() + "/" + event.getFileName(),
                             TranscodeTask.TargetFormat.MP3,
                             null // 使用系统默认码率
                         );
