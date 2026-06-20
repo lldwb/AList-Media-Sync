@@ -28,6 +28,12 @@
     </scm>
     <properties>
         <java.version>21</java.version>
+        <!-- 前端构建开关：-Dskip.frontend=true 跳过前端构建 -->
+        <skip.frontend>false</skip.frontend>
+        <!-- JRE 本地路径：-Djre.local.path=/path/to/jre 使用本地 JRE 跳过下载 -->
+        <jre.local.path></jre.local.path>
+        <!-- 临时工作目录 -->
+        <bootstrap.tmp.dir>${project.build.directory}/bootstrap-tmp</bootstrap.tmp.dir>
     </properties>
     <dependencies>
         <dependency>
@@ -128,6 +134,8 @@
                             <artifactId>lombok</artifactId>
                         </exclude>
                     </excludes>
+                    <executable>true</executable>
+                    <layout>JAR</layout>
                 </configuration>
             </plugin>
             <plugin>
@@ -168,5 +176,138 @@
             </plugin>
         </plugins>
     </build>
+
+    <!-- ============================================================
+         Profiles
+         ============================================================ -->
+
+    <profiles>
+        <!--
+            bootstrap Profile：一体化启动包打包
+            激活：./mvnw package -P bootstrap
+            参见 specs/005-standalone-bootstrap/contracts/build-packaging.md
+        -->
+        <profile>
+            <id>bootstrap</id>
+            <build>
+                <plugins>
+                    <!-- 前端构建集成：检查 Node.js，执行 npm run build -->
+                    <plugin>
+                        <groupId>org.codehaus.mojo</groupId>
+                        <artifactId>exec-maven-plugin</artifactId>
+                        <version>3.2.0</version>
+                        <executions>
+                            <!-- validate 阶段：检查 Node.js 可用性 -->
+                            <execution>
+                                <id>check-nodejs</id>
+                                <phase>validate</phase>
+                                <goals>
+                                    <goal>exec</goal>
+                                </goals>
+                                <configuration>
+                                    <executable>node</executable>
+                                    <arguments>
+                                        <argument>--version</argument>
+                                    </arguments>
+                                    <skip>${skip.frontend}</skip>
+                                </configuration>
+                            </execution>
+
+                            <!-- compile 阶段：执行 npm run build -->
+                            <execution>
+                                <id>build-frontend</id>
+                                <phase>compile</phase>
+                                <goals>
+                                    <goal>exec</goal>
+                                </goals>
+                                <configuration>
+                                    <executable>npm</executable>
+                                    <workingDirectory>${project.basedir}/src/main/frontend</workingDirectory>
+                                    <arguments>
+                                        <argument>run</argument>
+                                        <argument>build</argument>
+                                    </arguments>
+                                    <skip>${skip.frontend}</skip>
+                                </configuration>
+                            </execution>
+
+                            <!-- package 阶段：下载 JRE -->
+                            <execution>
+                                <id>download-jre</id>
+                                <phase>package</phase>
+                                <goals>
+                                    <goal>exec</goal>
+                                </goals>
+                                <configuration>
+                                    <executable>${project.basedir}/scripts/download-jre.sh</executable>
+                                    <arguments>
+                                        <argument>${project.build.directory}/runtime</argument>
+                                    </arguments>
+                                    <skip>${jre.local.path.not.empty}</skip>
+                                </configuration>
+                            </execution>
+
+                            <!-- verify 阶段：完整性校验 -->
+                            <execution>
+                                <id>verify-package</id>
+                                <phase>verify</phase>
+                                <goals>
+                                    <goal>exec</goal>
+                                </goals>
+                                <configuration>
+                                    <executable>${project.basedir}/scripts/verify-build.sh</executable>
+                                    <arguments>
+                                        <argument>${project.build.directory}</argument>
+                                        <argument>${project.version}</argument>
+                                    </arguments>
+                                </configuration>
+                            </execution>
+                        </executions>
+                    </plugin>
+
+                    <!-- Maven Assembly Plugin：组装启动包 -->
+                    <plugin>
+                        <groupId>org.apache.maven.plugins</groupId>
+                        <artifactId>maven-assembly-plugin</artifactId>
+                        <version>3.6.0</version>
+                        <configuration>
+                            <descriptors>
+                                <descriptor>assembly/bootstrap.xml</descriptor>
+                            </descriptors>
+                            <appendAssemblyId>false</appendAssemblyId>
+                            <tarLongFileMode>posix</tarLongFileMode>
+                        </configuration>
+                        <executions>
+                            <execution>
+                                <id>make-assembly</id>
+                                <phase>package</phase>
+                                <goals>
+                                    <goal>single</goal>
+                                </goals>
+                            </execution>
+                        </executions>
+                    </plugin>
+
+                    <!-- maven-clean-plugin：清理 bootstrap 临时文件 -->
+                    <plugin>
+                        <groupId>org.apache.maven.plugins</groupId>
+                        <artifactId>maven-clean-plugin</artifactId>
+                        <configuration>
+                            <filesets>
+                                <fileset>
+                                    <directory>${bootstrap.tmp.dir}</directory>
+                                    <followSymlinks>false</followSymlinks>
+                                </fileset>
+                                <fileset>
+                                    <directory>${project.build.directory}/runtime</directory>
+                                    <followSymlinks>false</followSymlinks>
+                                </fileset>
+                            </filesets>
+                        </configuration>
+                    </plugin>
+                </plugins>
+            </build>
+        </profile>
+    </profiles>
 
 </project>

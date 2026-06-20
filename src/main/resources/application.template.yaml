@@ -1,21 +1,23 @@
 # ============================================================
-# AList-Media-Sync 应用配置
+# AList-Media-Sync 配置模板
 # ============================================================
-# 本文件定义应用的默认配置。
-# 所有配置项均可通过环境变量覆盖（Spring Boot Relaxed Binding）。
-# 详见 README.md 中的"环境变量说明"章节。
+# 使用说明：
+#   1. 将此文件复制为 application.yaml
+#   2. 根据实际环境修改配置项
+#   3. 详细说明请参阅 README.md
 # ============================================================
 
 server:
   port: ${SERVER_PORT:8080}            # HTTP 服务端口（环境变量 SERVER_PORT）
-  shutdown: graceful                   # 优雅关闭：收到 SIGTERM 后等待进行中的请求完成
+  shutdown: graceful                   # 优雅关闭
 
 spring:
   application:
     name: AList-Media-Sync
   lifecycle:
-    timeout-per-shutdown-phase: 12s    # 优雅关闭超时（略小于 Docker Compose stop_grace_period: 35s）
+    timeout-per-shutdown-phase: 12s
   datasource:
+    # 数据目录默认 ./data（启动包场景），可通过 DATA_DIR 环境变量覆盖
     url: jdbc:h2:file:${app.data-dir}/alist_media_sync;DB_CLOSE_ON_EXIT=FALSE;AUTO_RECONNECT=TRUE
     driver-class-name: org.h2.Driver
     username: sa
@@ -26,9 +28,9 @@ spring:
       path: /h2-console
   jpa:
     hibernate:
-      ddl-auto: update                 # 自动更新表结构（生产环境建议 validate）
+      ddl-auto: update                 # 自动更新表结构
     show-sql: false
-    open-in-view: false                # 禁用 OSIV 避免懒加载问题
+    open-in-view: false
   threads:
     virtual:
       enabled: true                    # 启用 Java 21 虚拟线程
@@ -38,18 +40,20 @@ management:
   endpoints:
     web:
       exposure:
-        include: health                # 仅暴露 health 端点
+        include: health
   endpoint:
     health:
-      show-details: always             # 始终显示健康检查详情
+      show-details: always
 
-# 日志级别（环境变量 LOGGING_LEVEL，默认 INFO）
+# 日志级别
 logging:
   level:
     root: ${LOGGING_LEVEL:INFO}
     top.lldwb.alistmediasync: ${LOGGING_LEVEL:INFO}
 
+# ============================================================
 # AList 连接配置（必填，由环境变量注入）
+# ============================================================
 alist:
   base-url: ${ALIST_BASE_URL:}         # AList 服务器地址（如 https://alist.example.com）
   token: ${ALIST_TOKEN:}               # AList API 认证令牌
@@ -59,16 +63,15 @@ alist:
 # ============================================================
 app:
   # 数据库文件存储目录（环境变量 DATA_DIR，默认 ./data）
-  # 启动包场景使用相对路径 ./data（相对于启动包根目录）
-  # Docker 场景使用 /app/data
+  # 启动包场景使用相对路径 ./data，Docker 场景使用 /app/data
   data-dir: ${DATA_DIR:./data}
-
-  # 应用名称和版本（启动横幅输出使用）
-  name: AList-Media-Sync
-  version: 0.0.1-SNAPSHOT
 
   # 历史记录保留天数（超过此天数的 TaskExecution 和 WebhookEvent 将被清理）
   retention-days: 30
+
+  # 应用名称和版本（由启动横幅输出使用）
+  name: AList-Media-Sync
+  version: 0.0.1-SNAPSHOT
 
   # ----------------------------------------
   # 管理后台认证配置
@@ -81,38 +84,22 @@ app:
     #   1. 明文密码（如 "admin123"）—— 每次启动时自动加密为 BCrypt 格式并保存在内存中
     #      加密值绝不写回此文件，配置文件始终保持用户填入的原始值
     #   2. BCrypt 哈希值（以 "{bcrypt}" 前缀标识）—— 跳过加密，直接用于认证
+    #      生成方法：使用 BCrypt 在线工具或 Spring Security Crypto
     # 环境变量覆盖：APP_AUTH_PASSWORD
-    # 若密码为空或未设置，管理后台将无法登录，但服务仍正常启动
     password: "{bcrypt}$2a$10$AtWuyDKJC0K5FXjtF/vhZ.HEk2ZoLWMpyzlsOc3ac4wxY7D5Y2Yke"
 
   # ----------------------------------------
   # 转码配置
   # ----------------------------------------
   transcode:
-    # 临时文件后缀（默认 .tmp）
-    # 若不以点号开头，系统自动补充；合法字符：字母、数字、点号、下划线、连字符
-    # 可通过环境变量 TRANSCODE_TEMP_SUFFIX 覆盖
     temp-suffix: ${TRANSCODE_TEMP_SUFFIX:.tmp}
-
-    # 临时文件存储目录
-    # Docker 场景下建议挂载独立卷，将 temp-dir 指向卷挂载路径
-    # 可通过环境变量 TRANSCODE_TEMP_DIR 覆盖
     temp-dir: ${TRANSCODE_TEMP_DIR:${java.io.tmpdir}/alist-media-sync/transcode}
-
-    # 最大并发转码任务数（默认 32）
-    # Docker 容器内 Runtime.availableProcessors() 可能返回宿主机核心数，
-    # 因此使用静态默认值作为保守上限，可通过环境变量覆盖
-    # 可通过环境变量 TRANSCODE_MAX_CONCURRENT 覆盖
     max-concurrent-transcode: ${TRANSCODE_MAX_CONCURRENT:32}
-
-    # 临时文件后缀最大长度（超过截断并警告）
     max-suffix-length: 50
 
   # ----------------------------------------
   # 线程池配置
   # ----------------------------------------
   pool:
-    # 转码线程池核心线程数
     core-size: 8
-    # 转码线程池最大线程数（与 max-concurrent-transcode 联动）
     max-size: 32
