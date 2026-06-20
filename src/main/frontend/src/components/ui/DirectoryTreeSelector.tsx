@@ -10,7 +10,7 @@ interface TreeNode {
   path: string;
   name: string;
   hasChildren: boolean;
-  children: TreeNode[] | null; // null = 未加载
+  children: string[] | null; // null = 未加载，string[] = 子节点路径列表
   loading: boolean;
 }
 
@@ -137,11 +137,10 @@ export function DirectoryTreeSelector({
       if (node.children === null) {
         loadChildren(path);
       } else {
-        // 折叠
+        // 折叠：将 children 设为 null
         const newNodes = new Map(tree.nodes);
         newNodes.set(path, { ...node, children: null });
-        // 需要用 useReducer 但简化处理
-        loadChildren(path); // re-load for collapse toggle
+        dispatch({ type: 'LOAD_CHILDREN', path, entries: [] }); // 通过 reducer 更新
       }
     },
     [tree.nodes, loadChildren]
