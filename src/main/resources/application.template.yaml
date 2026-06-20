@@ -60,6 +60,9 @@ logging:
 alist:
   base-url: ${ALIST_BASE_URL:}         # AList 服务器地址（如 https://alist.example.com）
   token: ${ALIST_TOKEN:}               # AList API 认证令牌
+  # AES-256 加密密钥 — 由 CryptoKeyEnvironmentPostProcessor 从环境变量 ALIST_CRYPTO_KEY 读取
+  # 生成方法：openssl rand -base64 32
+  # ⚠️ 生产环境必须设置，否则每次重启生成随机密钥导致已加密数据无法解密
 
 # ============================================================
 # 自定义应用配置（app.* 命名空间）
