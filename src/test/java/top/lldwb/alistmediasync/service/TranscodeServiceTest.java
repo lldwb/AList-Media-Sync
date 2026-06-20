@@ -73,6 +73,7 @@ class TranscodeServiceTest {
         when(appProperties.getTranscode()).thenReturn(transcodeConfig);
         when(transcodeConfig.getTempSuffix()).thenReturn(".tmp");
         when(transcodeConfig.getTempDir()).thenReturn(System.getProperty("java.io.tmpdir"));
+        when(transcodeConfig.getDefaultBitrate()).thenReturn(128000);
 
         targetEngine = new StorageEngine();
         targetEngine.setId(2L);

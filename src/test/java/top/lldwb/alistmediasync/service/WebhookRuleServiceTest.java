@@ -143,8 +143,8 @@ class WebhookRuleServiceTest {
         WebhookRuleCreateDTO partialDTO = new WebhookRuleCreateDTO();
         partialDTO.setName("仅更新名称");
         partialDTO.setAction(WebhookRule.RuleAction.SYNC_ONLY);
-        partialDTO.setTargetEngineId(1L); // 必填，但 update 中可为 null
-        // 其他字段为 null
+        // 其他字段为 null（包括 targetEngineId、triggerEventType 等）
+        // update 中仅非 null 字段被更新，targetEngineId 为 null 时不更新 targetEngine
 
         WebhookRuleVO result = service.update(1L, partialDTO);
 

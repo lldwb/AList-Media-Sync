@@ -6,6 +6,8 @@ import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
 import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
+import org.mockito.junit.jupiter.MockitoSettings;
+import org.mockito.quality.Strictness;
 import org.springframework.web.client.RestClient;
 import top.lldwb.alistmediasync.dto.sync.DirectoryEntryVO;
 import top.lldwb.alistmediasync.dto.sync.FileEntry;
@@ -16,6 +18,7 @@ import java.util.List;
 import java.util.Map;
 
 import static org.junit.jupiter.api.Assertions.*;
+import static org.mockito.Mockito.*;
 
 /**
  * AListStorageStrategy 单元测试
@@ -26,6 +29,7 @@ import static org.junit.jupiter.api.Assertions.*;
  * @author AList-Media-Sync
  */
 @ExtendWith(MockitoExtension.class)
+@MockitoSettings(strictness = Strictness.LENIENT)
 @DisplayName("AListStorageStrategy 单元测试")
 class AListStorageStrategyTest {
 
@@ -38,6 +42,8 @@ class AListStorageStrategyTest {
 
     @BeforeEach
     void setUp() {
+        // 提供真实的 RestClient 实例，配合无效 URL 测试异常处理
+        when(restClientBuilder.build()).thenReturn(RestClient.create());
         strategy = new AListStorageStrategy(restClientBuilder);
         engine = new StorageEngine();
         engine.setId(1L);

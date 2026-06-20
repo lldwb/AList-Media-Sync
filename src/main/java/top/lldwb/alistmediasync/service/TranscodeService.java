@@ -95,7 +95,7 @@ public class TranscodeService {
         task.setSourceFilePath(sourcePath);
         task.setTargetFilePath(targetPath);
         task.setTargetFormat(targetFormat);
-        task.setBitrate(bitrate); // null 时使用系统默认码率
+        task.setBitrate(bitrate != null ? bitrate : appProperties.getTranscode().getDefaultBitrate()); // null 时使用系统默认码率
         task.setStatus(TranscodeStatus.PENDING);
         task = repository.save(task);
         log.info("转码任务已创建：{} -> {} (格式: {})", sourcePath, targetPath, targetFormat);

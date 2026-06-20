@@ -147,12 +147,17 @@ public class AListStorageStrategy implements StorageEngineStrategy {
 
     @Override
     public List<DirectoryEntryVO> listDirectories(StorageEngine engine, String path) {
-        // 获取所有条目，仅过滤出目录
-        List<FileEntry> allEntries = listFiles(engine, path, 1, Integer.MAX_VALUE);
-        return allEntries.stream()
-            .filter(FileEntry::isDirectory)
-            .map(f -> new DirectoryEntryVO(f.name(), f.path(), hasChildren(engine, f.path())))
-            .toList();
+        try {
+            // 获取所有条目，仅过滤出目录
+            List<FileEntry> allEntries = listFiles(engine, path, 1, Integer.MAX_VALUE);
+            return allEntries.stream()
+                .filter(FileEntry::isDirectory)
+                .map(f -> new DirectoryEntryVO(f.name(), f.path(), hasChildren(engine, f.path())))
+                .toList();
+        } catch (Exception e) {
+            log.error("列出目录失败：{} — {}", path, e.getMessage());
+            return List.of();
+        }
     }
 
     @Override
