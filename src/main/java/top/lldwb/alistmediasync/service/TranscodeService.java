@@ -7,6 +7,7 @@ import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 import top.lldwb.alistmediasync.client.AListClient;
 import top.lldwb.alistmediasync.config.AppProperties;
+import top.lldwb.alistmediasync.dto.transcode.TranscodeTaskVO;
 import top.lldwb.alistmediasync.entity.*;
 import top.lldwb.alistmediasync.repository.*;
 import top.lldwb.alistmediasync.util.*;
@@ -362,4 +363,31 @@ public class TranscodeService {
     // ================================================================
     // 内部类（已提取为独立文件：TranscodeCandidate.java / TranscodeResult.java）
     // ================================================================
+
+    // ================================================================
+    // 查询方法（供 Controller 调用）
+    // ================================================================
+
+    /**
+     * 查询所有转码任务
+     *
+     * @return 转码任务视图对象列表
+     */
+    public List<TranscodeTaskVO> listAll() {
+        return repository.findAll().stream()
+            .map(TranscodeTaskVO::from)
+            .toList();
+    }
+
+    /**
+     * 查询单个转码任务（含实时进度）
+     *
+     * @param id 转码任务 ID
+     * @return 转码任务视图对象
+     */
+    public TranscodeTaskVO getById(Long id) {
+        return repository.findById(id)
+            .map(TranscodeTaskVO::from)
+            .orElseThrow(() -> new NoSuchElementException("转码任务不存在：id=" + id));
+    }
 }

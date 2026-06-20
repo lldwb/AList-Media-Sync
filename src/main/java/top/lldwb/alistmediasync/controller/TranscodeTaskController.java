@@ -6,8 +6,6 @@ import org.springframework.web.bind.annotation.*;
 import top.lldwb.alistmediasync.dto.ApiResult;
 import top.lldwb.alistmediasync.dto.transcode.TranscodeTaskCreateDTO;
 import top.lldwb.alistmediasync.dto.transcode.TranscodeTaskVO;
-import top.lldwb.alistmediasync.entity.TranscodeTask;
-import top.lldwb.alistmediasync.repository.TranscodeTaskRepository;
 import top.lldwb.alistmediasync.service.CleanupService;
 import top.lldwb.alistmediasync.service.TranscodeService;
 
@@ -28,13 +26,12 @@ import java.util.Map;
 public class TranscodeTaskController {
 
     private final TranscodeService transcodeService;
-    private final TranscodeTaskRepository repository;
     private final CleanupService cleanupService;
 
     /** 创建独立转码任务 */
     @PostMapping
     public ApiResult<TranscodeTaskVO> create(@Valid @RequestBody TranscodeTaskCreateDTO dto) {
-        TranscodeTask task = transcodeService.createTask(
+        var task = transcodeService.createTask(
             dto.getSourceEngineId(),
             dto.getTargetEngineId(),
             dto.getSourceFilePath(),
@@ -49,18 +46,13 @@ public class TranscodeTaskController {
     /** 查询所有转码任务 */
     @GetMapping
     public ApiResult<List<TranscodeTaskVO>> listAll() {
-        List<TranscodeTaskVO> vos = repository.findAll().stream()
-            .map(TranscodeTaskVO::from)
-            .toList();
-        return ApiResult.success(vos);
+        return ApiResult.success(transcodeService.listAll());
     }
 
     /** 查询单个转码任务（含实时进度） */
     @GetMapping("/{id}")
     public ApiResult<TranscodeTaskVO> getById(@PathVariable Long id) {
-        TranscodeTask task = repository.findById(id)
-            .orElseThrow(() -> new java.util.NoSuchElementException("转码任务不存在：id=" + id));
-        return ApiResult.success(TranscodeTaskVO.from(task));
+        return ApiResult.success(transcodeService.getById(id));
     }
 
     /** 手动重试上传 */

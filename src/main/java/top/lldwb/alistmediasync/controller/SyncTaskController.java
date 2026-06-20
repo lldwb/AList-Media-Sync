@@ -7,10 +7,9 @@ import top.lldwb.alistmediasync.dto.ApiResult;
 import top.lldwb.alistmediasync.dto.sync.SyncTaskCreateDTO;
 import top.lldwb.alistmediasync.dto.sync.SyncTaskUpdateDTO;
 import top.lldwb.alistmediasync.dto.sync.SyncTaskVO;
+import top.lldwb.alistmediasync.dto.sync.TaskExecutionVO;
 import top.lldwb.alistmediasync.service.SyncService;
 import top.lldwb.alistmediasync.service.SyncTaskManageService;
-import top.lldwb.alistmediasync.entity.TaskExecution;
-import top.lldwb.alistmediasync.repository.TaskExecutionRepository;
 
 import java.util.List;
 import java.util.Map;
@@ -30,7 +29,6 @@ public class SyncTaskController {
 
     private final SyncTaskManageService manageService;
     private final SyncService syncService;
-    private final TaskExecutionRepository taskExecutionRepository;
 
     /** 创建同步任务 */
     @PostMapping
@@ -86,7 +84,7 @@ public class SyncTaskController {
 
     /** 查询同步任务的执行历史 */
     @GetMapping("/{id}/executions")
-    public ApiResult<List<TaskExecution>> getExecutions(@PathVariable Long id) {
-        return ApiResult.success(taskExecutionRepository.findBySyncTaskIdOrderByStartTimeDesc(id));
+    public ApiResult<List<TaskExecutionVO>> getExecutions(@PathVariable Long id) {
+        return ApiResult.success(manageService.getExecutions(id));
     }
 }

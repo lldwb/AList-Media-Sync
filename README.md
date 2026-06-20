@@ -50,6 +50,9 @@ sh start.sh
 | `app.data-dir` | `./data` | 数据目录（H2 数据库、PID 文件） |
 | `app.auth.username` | `admin` | 管理后台用户名 |
 | `app.auth.password` | `{bcrypt}...` | 登录密码（支持明文和 BCrypt 格式，明文自动加密到内存） |
+| `app.transcode.temp-suffix` | `.tmp` | 转码临时文件后缀（可自定义，如 `.lldwb`） |
+| `app.transcode.temp-dir` | 系统临时目录 | 转码临时文件存储目录 |
+| `app.transcode.max-concurrent-transcode` | `32` | 最大并发转码任务数 |
 | `alist.base-url` | — | AList 服务器地址（必填） |
 | `alist.token` | — | AList API 认证令牌（必填） |
 

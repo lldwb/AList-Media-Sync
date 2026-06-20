@@ -1,12 +1,10 @@
 package top.lldwb.alistmediasync.controller;
 
 import lombok.RequiredArgsConstructor;
-import org.springframework.data.domain.PageRequest;
-import org.springframework.data.domain.Sort;
 import org.springframework.web.bind.annotation.*;
 import top.lldwb.alistmediasync.dto.ApiResult;
 import top.lldwb.alistmediasync.dto.webhook.WebhookEventVO;
-import top.lldwb.alistmediasync.repository.WebhookEventRepository;
+import top.lldwb.alistmediasync.service.WebhookService;
 
 import java.util.List;
 
@@ -24,7 +22,7 @@ import java.util.List;
 @RequiredArgsConstructor
 public class WebhookEventController {
 
-    private final WebhookEventRepository repository;
+    private final WebhookService webhookService;
 
     /**
      * 分页查询 Webhook 事件列表（按创建时间倒序）
@@ -38,15 +36,6 @@ public class WebhookEventController {
         @RequestParam(defaultValue = "1") int page,
         @RequestParam(defaultValue = "20") int size
     ) {
-        // 页码从 1 开始，Spring PageRequest 从 0 开始
-        int pageIndex = Math.max(0, page - 1);
-        PageRequest pageRequest = PageRequest.of(pageIndex, size, Sort.by(Sort.Direction.DESC, "createdAt"));
-
-        List<WebhookEventVO> vos = repository.findAll(pageRequest)
-            .stream()
-            .map(WebhookEventVO::from)
-            .toList();
-
-        return ApiResult.success(vos);
+        return ApiResult.success(webhookService.listEvents(page, size));
     }
 }
