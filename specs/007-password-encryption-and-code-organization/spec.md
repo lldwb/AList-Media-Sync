@@ -98,9 +98,12 @@
 #### 原目录转码选项
 
 - **FR-006**：创建转码任务时，必须提供"原目录转码"选项（布尔值，默认 `false`）。
-- **FR-007**：当"原目录转码"选项启用时，系统必须自动将目标路径设置为源文件所在目录路径，目标路径输入框变为禁用状态。
+- **FR-007**：当"原目录转码"选项启用时，系统必须自动将目标路径设置为源文件所在目录路径。前端目标路径输入框变为禁用状态（灰色），并自动填充源文件所在目录路径；目标路径的红色必填标记 `*` 隐藏。当选项取消勾选时，目标路径输入框恢复可编辑状态，必填标记恢复显示。
 - **FR-008**：当"原目录转码"选项启用时，后端必须自动使用源文件所在目录作为目标路径，无需前端填充 `targetFilePath`。当"原目录转码"选项未启用时，`targetFilePath` 为必填字段。`targetFilePath` 字段从必填改为可选，`sameDirectoryTranscode=true` 时可为空，后端自动计算。
 - **FR-009**：`TranscodeTaskCreateDTO` 必须新增 `sameDirectoryTranscode`（原目录转码）布尔字段。
+- **FR-020**：前端 `api.ts` 中的 `TranscodeTaskCreateDTO` 接口必须新增 `sameDirectoryTranscode?: boolean` 可选字段，与后端 DTO 字段对齐。
+- **FR-021**：前端 `TranscodeTaskForm.tsx` 转码任务创建表单必须新增"原目录转码"复选框，默认不勾选。勾选后：目标路径输入框禁用（灰色）、目标路径必填标记 `*` 隐藏、自动将源文件所在目录路径填充到目标路径输入框、清除目标路径的校验错误。取消勾选后：恢复目标路径输入框可编辑、恢复必填标记、恢复目标路径校验。
+- **FR-022**：前端表单提交时，`sameDirectoryTranscode=true` 时 `targetFilePath` 传空字符串（后端自动计算），`sameDirectoryTranscode=false` 时 `targetFilePath` 传用户输入值。
 
 #### 代码目录重组
 
@@ -146,7 +149,7 @@
 - **A2**：原目录转码选项仅适用于独立转码任务创建，不改变同步后置转码和 Webhook 触发转码的行为（这两种场景已有各自的目标路径配置机制）。
 - **A3**：代码目录重组不涉及任何业务逻辑变更，仅移动文件位置和更新包声明/import 语句。
 - **A4**：Spring Boot 的自动配置（`@SpringBootApplication`、`@EntityScan`、`@EnableJpaRepositories`）默认扫描启动类所在包及其子包，因此代码目录重组后组件扫描不受影响。
-- **A5**：前端代码（Vue/TypeScript）不受本次变更影响，API 接口保持不变。
+- **A5**：前端代码（React/TypeScript）需要同步更新——类型定义 `api.ts` 需新增 `sameDirectoryTranscode` 字段，转码任务表单 `TranscodeTaskForm.tsx` 需新增"原目录转码"复选框及配套交互逻辑。API 接口请求/响应格式（JSON 结构）不变。
 - **A6**：`BCryptPasswordEncoder` 的默认构造函数每次生成不同的随机盐值，满足"每次启动盐值随机"的需求。
 
 ## 与其他规格的关系
@@ -164,6 +167,9 @@
 ### 对 004-web-management-frontend 的依赖
 
 - 前端转码任务创建表单需要新增"原目录转码"复选框，勾选后禁用目标路径输入框并自动填充源文件目录路径。
+- 前端类型定义 `api.ts` 的 `TranscodeTaskCreateDTO` 接口需新增 `sameDirectoryTranscode?: boolean` 字段。
+- 前端表单校验逻辑需调整：原目录转码时目标路径为可选，未勾选时目标路径为必填。
+- 前端提交时需将 `sameDirectoryTranscode` 字段透传给后端 API。
 
 ### 对 006-storage-engine-refactor 的关系
 
