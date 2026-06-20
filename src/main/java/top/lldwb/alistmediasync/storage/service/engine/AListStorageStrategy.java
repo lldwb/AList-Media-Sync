@@ -21,7 +21,7 @@ import java.util.*;
  * AList 存储引擎策略实现
  * <p>
  * 通过 HTTP 调用 AList REST API 实现文件操作。
- * 内部使用 Spring RestClient，与原有 AListClient 逻辑等价。
+ * 内部使用 Spring RestClient 直接调用 AList API。
  * </p>
  *
  * @author AList-Media-Sync
