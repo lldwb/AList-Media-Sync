@@ -86,7 +86,7 @@ app:
     #   2. BCrypt 哈希值（以 "{bcrypt}" 前缀标识）—— 跳过加密，直接用于认证
     # 环境变量覆盖：APP_AUTH_PASSWORD
     # 若密码为空或未设置，管理后台将无法登录，但服务仍正常启动
-    password: "{bcrypt}$2a$10$AtWuyDKJC0K5FXjtF/vhZ.HEk2ZoLWMpyzlsOc3ac4wxY7D5Y2Yke"
+    password: "admin123"
 
   # ----------------------------------------
   # 转码配置
