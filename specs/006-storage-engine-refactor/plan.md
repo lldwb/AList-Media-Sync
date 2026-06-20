@@ -6,7 +6,7 @@
 
 ## 摘要
 
-本次重构的核心是将存储引擎从 AList 专属实现抽象为策略模式，支持 AList 远程存储和本地文件系统两种引擎类型。同时优化转码流程为三步模式（下载→转码→上传），采用 7 状态模型提升可恢复性。配套改进包括：Webhook 规则路径显示优化、树状目录浏览组件、Cron 图形化配置、文案统一替换。
+本次重构的核心是将存储引擎从 AList 专属实现抽象为策略模式，支持 AList 远程存储和本地文件系统两种引擎类型。同时优化转码流程为三步模式（下载→转码→上传），采用 8 状态模型提升可恢复性。配套改进包括：Webhook 规则路径显示优化、树状目录浏览组件、Cron 图形化配置、文案统一替换。
 
 ## 技术上下文
 
@@ -35,7 +35,7 @@
 | 章程原则 | 合规状态 | 说明 |
 |---------|---------|------|
 | I. 分层架构 | ✅ 通过 | 策略模式在 Service 层实现（`service/engine/` 包），Controller 仅调 Service，Repository 使用 JPA 接口 |
-| II. 数据完整性 | ✅ 通过 | StorageEngine/TranscodeTask/WebhookRule 均有 @Version 乐观锁；转码 7 状态中间状态持久化到数据库；@Transactional 管理写操作 |
+| II. 数据完整性 | ✅ 通过 | StorageEngine/TranscodeTask/WebhookRule 均有 @Version 乐观锁；转码 8 状态中间状态持久化到数据库；@Transactional 管理写操作 |
 | III. RESTful API | ✅ 通过 | 新增目录浏览端点 `GET /api/storage-engines/{id}/directories` 遵循 RESTful 风格；所有变更使用 DTO 封装；ApiResult 统一响应 |
 | IV. 中文优先 | ✅ 通过 | 所有代码注释、文档、提交信息使用简体中文 |
 | V. 测试不可省略 | ✅ 通过 | 设计中已规划：策略模式接口和实现类需同步编写单元测试（Mock 依赖）；转码状态转换表需测试覆盖；Controller 需 @WebMvcTest |

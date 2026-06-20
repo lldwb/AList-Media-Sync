@@ -31,7 +31,7 @@
 - [ ] T003 [P] 在 src/main/java/top/lldwb/alistmediasync/entity/TranscodeTask.java 中扩展 TranscodeStatus 为 8 状态模型（PENDING/DOWNLOADING/DOWNLOAD_FAILED/TRANSCODING/TRANSCODE_FAILED/UPLOADING/UPLOAD_FAILED/COMPLETED），移除 SCANNING，bitrate 改为 nullable，新增 tempSourcePath 字段
 - [ ] T004 [P] 在 src/main/java/top/lldwb/alistmediasync/entity/WebhookRule.java 中新增 recordingEngine（ManyToOne 关联 StorageEngine）和 recordingPath 字段，targetPath 重命名为 targetFilePath
 - [ ] T005 [P] 在 src/main/java/top/lldwb/alistmediasync/dto/storage/ 中更新 StorageEngineCreateDTO、StorageEngineUpdateDTO、StorageEngineVO，移除 username，新增 engineType 和 localPath 字段
-- [ ] T006 [P] 在 src/main/java/top/lldwb/alistmediasync/dto/transcode/ 中更新 TranscodeTaskVO，bitrate 改为可选，新增 canRetry 字段，status 类型适配 7 状态枚举
+- [ ] T006 [P] 在 src/main/java/top/lldwb/alistmediasync/dto/transcode/ 中更新 TranscodeTaskVO，bitrate 改为可选，新增 canRetry 字段，status 类型适配 8 状态枚举
 - [ ] T007 [P] 在 src/main/java/top/lldwb/alistmediasync/dto/webhook/ 中更新 WebhookRuleCreateDTO 和 WebhookRuleVO，新增 recordingEngineId/recordingEngineName/recordingPath，targetPath 重命名为 targetFilePath
 - [ ] T008 [P] 在 src/main/java/top/lldwb/alistmediasync/dto/sync/ 中新增 DirectoryEntryVO record（name、path、hasChildren）和 FileEntry record（name、path、isDirectory、size、modifiedTime）
 - [ ] T009 [P] 在 src/main/java/top/lldwb/alistmediasync/config/AppProperties.java 中新增 transcode.default-bitrate 配置项（默认 128 kbps）和 server-address 配置项
@@ -271,7 +271,7 @@
 ```bash
 # US1 后端和 US2 后端可并行：
 任务 US1："实现 StorageEngineService 创建/更新逻辑"
-任务 US2："实现 TranscodeService 7 状态转换表"
+任务 US2："实现 TranscodeService 8 状态转换表"
 ```
 
 ---
