@@ -218,8 +218,8 @@ export interface WebhookRuleCreateDTO {
   action: RuleAction;
   recordingEngineId?: number;
   recordingPath?: string;
-  targetEngineId: number;
-  targetFilePath: string; // 原 targetPath
+  targetEngineId?: number;
+  targetFilePath?: string; // 原 targetPath
 }
 
 /* ---- Webhook 事件 ---- */

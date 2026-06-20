@@ -24,7 +24,8 @@ type TreeAction =
   | { type: 'LOAD_CHILDREN'; path: string; entries: DirectoryEntryVO[] }
   | { type: 'LOAD_ROOT'; entries: DirectoryEntryVO[] }
   | { type: 'START_LOADING'; path: string }
-  | { type: 'START_ROOT_LOADING' };
+  | { type: 'START_ROOT_LOADING' }
+  | { type: 'TOGGLE_COLLAPSE'; path: string };
 
 function treeReducer(state: TreeState, action: TreeAction): TreeState {
   const newNodes = new Map(state.nodes);
@@ -74,6 +75,13 @@ function treeReducer(state: TreeState, action: TreeAction): TreeState {
       return { ...state, nodes: newNodes };
     }
 
+    case 'TOGGLE_COLLAPSE': {
+      const node = newNodes.get(action.path);
+      if (!node) return state;
+      newNodes.set(action.path, { ...node, children: null });
+      return { ...state, nodes: newNodes };
+    }
+
     default:
       return state;
   }
@@ -84,6 +92,8 @@ interface DirectoryTreeSelectorProps {
   value?: string;
   onChange: (path: string) => void;
   placeholder?: string;
+  /** 禁用浏览按钮（如引擎未选择时） */
+  disabled?: boolean;
 }
 
 export function DirectoryTreeSelector({
@@ -91,6 +101,7 @@ export function DirectoryTreeSelector({
   value,
   onChange,
   placeholder = '点击浏览选择路径',
+  disabled = false,
 }: DirectoryTreeSelectorProps) {
   const [open, setOpen] = useState(false);
   const [tree, dispatch] = useReducer(treeReducer, {
@@ -137,10 +148,7 @@ export function DirectoryTreeSelector({
       if (node.children === null) {
         loadChildren(path);
       } else {
-        // 折叠：将 children 设为 null
-        const newNodes = new Map(tree.nodes);
-        newNodes.set(path, { ...node, children: null });
-        dispatch({ type: 'LOAD_CHILDREN', path, entries: [] }); // 通过 reducer 更新
+        dispatch({ type: 'TOGGLE_COLLAPSE', path });
       }
     },
     [tree.nodes, loadChildren]
@@ -223,8 +231,13 @@ export function DirectoryTreeSelector({
         <button
           type="button"
           onClick={openTree}
-          className="shrink-0 rounded-md border border-gray-300 px-3 py-2 text-sm text-gray-600 hover:bg-gray-100"
-          title="浏览目录"
+          disabled={disabled}
+          className={`shrink-0 rounded-md border px-3 py-2 text-sm ${
+            disabled
+              ? 'border-gray-200 text-gray-300 cursor-not-allowed bg-gray-50'
+              : 'border-gray-300 text-gray-600 hover:bg-gray-100'
+          }`}
+          title={disabled ? '请先选择存储引擎' : '浏览目录'}
         >
           <svg className="h-4 w-4" fill="none" viewBox="0 0 24 24" strokeWidth={1.5} stroke="currentColor">
             <path strokeLinecap="round" strokeLinejoin="round" d="M2.25 12.75V12A2.25 2.25 0 014.5 9.75h15A2.25 2.25 0 0121.75 12v.75m-8.69-6.44l-2.12-2.12a1.5 1.5 0 00-1.061-.44H4.5A2.25 2.25 0 002.25 6v12a2.25 2.25 0 002.25 2.25h15A2.25 2.25 0 0021.75 18V9a2.25 2.25 0 00-2.25-2.25h-5.379a1.5 1.5 0 01-1.06-.44z" />

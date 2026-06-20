@@ -12,6 +12,7 @@ import type {
 } from '@/types/api';
 import { parseCron } from '@/utils/cron';
 import { CronBuilder } from '@/components/ui/CronBuilder';
+import { DirectoryTreeSelector } from '@/components/ui/DirectoryTreeSelector';
 import { validateRequired, validatePath, validatePositiveInt } from '@/utils/validate';
 import type { ValidationResult } from '@/utils/validate';
 
@@ -209,14 +210,12 @@ export function SyncTaskForm({ engines, initialValues, onSubmit, onCancel, loadi
               <label className="block text-sm font-medium text-gray-700 mb-1">
                 源目录路径 <span className="text-red-500">*</span>
               </label>
-              <input
-                type="text"
+              <DirectoryTreeSelector
+                engineId={sourceEngineId}
                 value={sourcePath}
-                onChange={(e) => setSourcePath(e.target.value)}
-                className={`block w-full rounded-md border px-3 py-2 text-sm focus:outline-none focus:ring-1 ${
-                  errors.sourcePath ? 'border-red-400' : 'border-gray-300 focus:border-blue-500 focus:ring-blue-500'
-                }`}
-                placeholder="例如：/media/videos"
+                onChange={setSourcePath}
+                placeholder="/media/videos"
+                disabled={!sourceEngineId}
               />
               {errors.sourcePath && <p className="mt-1 text-xs text-red-600">{errors.sourcePath}</p>}
             </div>
@@ -224,14 +223,12 @@ export function SyncTaskForm({ engines, initialValues, onSubmit, onCancel, loadi
               <label className="block text-sm font-medium text-gray-700 mb-1">
                 目标目录路径 <span className="text-red-500">*</span>
               </label>
-              <input
-                type="text"
+              <DirectoryTreeSelector
+                engineId={targetEngineId}
                 value={targetPath}
-                onChange={(e) => setTargetPath(e.target.value)}
-                className={`block w-full rounded-md border px-3 py-2 text-sm focus:outline-none focus:ring-1 ${
-                  errors.targetPath ? 'border-red-400' : 'border-gray-300 focus:border-blue-500 focus:ring-blue-500'
-                }`}
-                placeholder="例如：/sync/videos"
+                onChange={setTargetPath}
+                placeholder="/sync/videos"
+                disabled={!targetEngineId}
               />
               {errors.targetPath && <p className="mt-1 text-xs text-red-600">{errors.targetPath}</p>}
             </div>
