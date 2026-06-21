@@ -346,12 +346,13 @@ export type MessageType =
   | 'WEBHOOK_EVENT'
   | 'DASHBOARD_UPDATE';
 
-/** 通用 WebSocket 消息结构 */
-export interface WsMessage {
-  type: MessageType;
-  payload: WsPayload;
-  timestamp: string; // ISO 8601
-}
+/** 通用 WebSocket 消息结构（可辨识联合，switch on type 自动收窄 payload 类型） */
+export type WsMessage =
+  | { type: 'SYNC_PROGRESS'; payload: SyncProgressPayload; timestamp: string }
+  | { type: 'TRANSCODE_PROGRESS'; payload: TranscodeProgressPayload; timestamp: string }
+  | { type: 'TASK_EVENT'; payload: TaskEventPayload; timestamp: string }
+  | { type: 'WEBHOOK_EVENT'; payload: WebhookEventPayload; timestamp: string }
+  | { type: 'DASHBOARD_UPDATE'; payload: DashboardUpdatePayload; timestamp: string };
 
 /** WebSocket 消息联合载荷类型 */
 export type WsPayload =

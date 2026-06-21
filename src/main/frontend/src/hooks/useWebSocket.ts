@@ -3,7 +3,7 @@
 // 负责建立连接、消息分发、断线指数退避重连、页面卸载时断开
 // ===================================================================
 import { useEffect, useRef, useCallback, useState } from 'react';
-import type { WsMessage, WsPayload } from '@/types/api';
+import type { WsMessage } from '@/types/api';
 import { AUTH_CREDENTIALS_KEY } from '@/api/client';
 
 /** WebSocket 连接状态 */
