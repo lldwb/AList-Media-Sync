@@ -26,6 +26,8 @@ public class TranscodeTaskVO {
     private String status;
     /** 是否可重试（仅失败状态为 true） */
     private Boolean canRetry;
+    /** 已执行自动重试次数 */
+    private Integer retryCount;
     private String errorMessage;
     private LocalDateTime createdAt;
 
@@ -40,6 +42,7 @@ public class TranscodeTaskVO {
         vo.setProgressPercent(entity.getProgress() / 10); // 千分比 → 百分比
         vo.setStatus(entity.getStatus().name());
         vo.setCanRetry(isRetryable(entity.getStatus()));
+        vo.setRetryCount(entity.getRetryCount());
         vo.setErrorMessage(entity.getErrorMessage());
         vo.setCreatedAt(entity.getCreatedAt());
         return vo;

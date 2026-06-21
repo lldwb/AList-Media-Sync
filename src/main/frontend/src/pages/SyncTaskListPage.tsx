@@ -1,5 +1,5 @@
 // ===================================================================
-// 同步任务列表页 — US3
+// 同步任务列表页 — WebSocket 实时更新
 // ===================================================================
 import { useState, useEffect, useCallback } from 'react';
 import { api } from '@/api/client';
@@ -10,13 +10,14 @@ import { EmptyState } from '@/components/ui/EmptyState';
 import { ErrorBanner } from '@/components/ui/ErrorBanner';
 import { ConfirmDialog } from '@/components/ui/ConfirmDialog';
 import { SyncTaskForm } from '@/components/forms/SyncTaskForm';
-import { usePolling } from '@/hooks/usePolling';
+import { useWebSocket } from '@/hooks/useWebSocket';
 import { formatDateTime, formatSyncMode, formatScheduleType } from '@/utils/format';
 import type {
   StorageEngineVO,
   SyncTaskVO,
   SyncTaskCreateDTO,
   SyncTaskUpdateDTO,
+  WsMessage,
 } from '@/types/api';
 
 export function SyncTaskListPage() {
@@ -51,13 +52,27 @@ export function SyncTaskListPage() {
       .finally(() => setLoading(false));
   }, [fetchTasks]);
 
-  /* ---- 轮询：刷新运行中的任务进度 ---- */
-
-  usePolling<SyncTaskVO[]>(
-    () => fetchTasks().then(() => Promise.resolve(items)),
-    5000,
-    () => false,
-  );
+  // WebSocket 接收 SYNC_PROGRESS 和 TASK_EVENT 消息，增量更新本地状态
+  useWebSocket((message: WsMessage) => {
+    switch (message.type) {
+      case 'SYNC_PROGRESS':
+        // 同步进度更新：根据 taskId 查找并增量合并
+        setItems(prev =>
+          prev.map(t =>
+            t.id === message.payload.taskId ? { ...t, ...message.payload } : t
+          )
+        );
+        break;
+      case 'TASK_EVENT':
+        if (message.payload.taskType === 'SYNC') {
+          // 任务创建/删除时重新加载列表
+          if (message.payload.action === 'CREATED' || message.payload.action === 'DELETED') {
+            fetchTasks();
+          }
+        }
+        break;
+    }
+  });
 
   /* ---- 操作 ---- */
 

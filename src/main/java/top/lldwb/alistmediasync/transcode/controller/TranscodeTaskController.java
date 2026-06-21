@@ -2,11 +2,15 @@ package top.lldwb.alistmediasync.transcode.controller;
 
 import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
+import org.springframework.http.HttpStatus;
 import org.springframework.web.bind.annotation.*;
 import top.lldwb.alistmediasync.common.dto.ApiResult;
 import top.lldwb.alistmediasync.transcode.dto.transcode.TranscodeTaskCreateDTO;
 import top.lldwb.alistmediasync.transcode.dto.transcode.TranscodeTaskVO;
 import top.lldwb.alistmediasync.common.service.CleanupService;
+import top.lldwb.alistmediasync.common.service.WsSessionManager;
+import top.lldwb.alistmediasync.transcode.entity.TranscodeTask;
+import top.lldwb.alistmediasync.transcode.repository.TranscodeTaskRepository;
 import top.lldwb.alistmediasync.transcode.service.TranscodeService;
 
 import java.util.List;
@@ -28,20 +32,32 @@ public class TranscodeTaskController {
 
     private final TranscodeService transcodeService;
     private final CleanupService cleanupService;
+    private final WsSessionManager wsSessionManager;
+    private final TranscodeTaskRepository repository;
 
-    /** 创建独立转码任务（支持原目录转码选项） */
+    /** 创建独立转码任务（支持源目录转码选项） */
     @PostMapping
     public ApiResult<TranscodeTaskVO> create(@Valid @RequestBody TranscodeTaskCreateDTO dto) {
+        // 源目录转码时自动将 targetEngineId 赋值为 sourceEngineId
+        Long targetEngineId = dto.isSourceDirectoryTranscode()
+            ? dto.getSourceEngineId() : dto.getTargetEngineId();
+
         var task = transcodeService.createTask(
             dto.getSourceEngineId(),
-            dto.getTargetEngineId(),
+            targetEngineId,
             dto.getSourceFilePath(),
             dto.getTargetFilePath(),
             dto.getTargetFormat(),
             dto.getBitrate(),
-            dto.isSameDirectoryTranscode()
+            dto.isSourceDirectoryTranscode()
         );
         transcodeService.executeAsync(task);
+        // 推送 TASK_EVENT 消息
+        wsSessionManager.broadcast("TASK_EVENT", Map.of(
+            "action", "CREATED",
+            "taskType", "TRANSCODE",
+            "taskId", task.getId()
+        ));
         return ApiResult.success(TranscodeTaskVO.from(task));
     }
 
@@ -76,5 +92,66 @@ public class TranscodeTaskController {
     public ApiResult<Map<String, Object>> cleanupTemp() {
         long count = cleanupService.manualCleanup();
         return ApiResult.success(Map.of("deletedCount", count));
+    }
+
+    /** 删除所有失败状态的转码任务 */
+    @DeleteMapping("/failed")
+    public ApiResult<Map<String, Object>> deleteFailed() {
+        var failedStatuses = List.of(
+            TranscodeTask.TranscodeStatus.DOWNLOAD_FAILED,
+            TranscodeTask.TranscodeStatus.TRANSCODE_FAILED,
+            TranscodeTask.TranscodeStatus.UPLOAD_FAILED
+        );
+        long count = repository.countByStatusIn(failedStatuses);
+        if (count == 0) {
+            return ApiResult.success("没有可操作的失败任务", Map.of("deletedCount", 0));
+        }
+        int deleted = repository.deleteByStatusIn(failedStatuses);
+        wsSessionManager.broadcast("TASK_EVENT", Map.of(
+            "action", "BATCH_DELETED",
+            "taskType", "TRANSCODE",
+            "count", deleted,
+            "status", "FAILED"
+        ));
+        return ApiResult.success("已清理 " + deleted + " 个失败任务", Map.of("deletedCount", deleted));
+    }
+
+    /** 删除所有已完成状态的转码任务 */
+    @DeleteMapping("/completed")
+    public ApiResult<Map<String, Object>> deleteCompleted() {
+        var completedStatus = List.of(TranscodeTask.TranscodeStatus.COMPLETED);
+        long count = repository.countByStatusIn(completedStatus);
+        if (count == 0) {
+            return ApiResult.success("没有可清理的成功任务", Map.of("deletedCount", 0));
+        }
+        int deleted = repository.deleteByStatusIn(completedStatus);
+        wsSessionManager.broadcast("TASK_EVENT", Map.of(
+            "action", "BATCH_DELETED",
+            "taskType", "TRANSCODE",
+            "count", deleted,
+            "status", "COMPLETED"
+        ));
+        return ApiResult.success("已清理 " + deleted + " 个成功任务", Map.of("deletedCount", deleted));
+    }
+
+    /** 重试所有失败状态的转码任务（异步执行，立即返回 202） */
+    @PostMapping("/retry-all")
+    public ApiResult<Map<String, Object>> retryAll() {
+        var failedStatuses = List.of(
+            TranscodeTask.TranscodeStatus.DOWNLOAD_FAILED,
+            TranscodeTask.TranscodeStatus.TRANSCODE_FAILED,
+            TranscodeTask.TranscodeStatus.UPLOAD_FAILED
+        );
+        var failedTasks = repository.findByStatusIn(failedStatuses);
+        if (failedTasks.isEmpty()) {
+            return ApiResult.success("没有可操作的失败任务", Map.of("submittedCount", 0));
+        }
+        // 异步重试所有失败任务
+        for (var task : failedTasks) {
+            transcodeService.retry(task.getId());
+        }
+        return ApiResult.of(HttpStatus.ACCEPTED.value(),
+            "已提交 " + failedTasks.size() + " 个任务进行重试，结果将通过实时更新推送",
+            Map.of("submittedCount", failedTasks.size()));
     }
 }

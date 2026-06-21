@@ -1,12 +1,13 @@
 // ===================================================================
-// 仪表板页面 — 统计卡片 + 点击跳转（US6 基础占位）
+// 仪表板页面 — 统计卡片 + WebSocket 实时更新（保留 REST 初始加载）
 // ===================================================================
 import { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router';
 import { api } from '@/api/client';
 import { LoadingSpinner } from '@/components/ui/LoadingSpinner';
 import { ErrorBanner } from '@/components/ui/ErrorBanner';
-import type { DashboardStatsVO } from '@/types/api';
+import { useWebSocket } from '@/hooks/useWebSocket';
+import type { DashboardStatsVO, WsMessage } from '@/types/api';
 
 export function DashboardPage() {
   const navigate = useNavigate();
@@ -22,6 +23,13 @@ export function DashboardPage() {
       .finally(() => { if (!cancelled) setLoading(false); });
     return () => { cancelled = true; };
   }, []);
+
+  // WebSocket 接收 DASHBOARD_UPDATE 消息，实时更新统计数据（防抖 2 秒合并）
+  useWebSocket((message: WsMessage) => {
+    if (message.type === 'DASHBOARD_UPDATE') {
+      setStats(prev => prev ? { ...prev, ...message.payload } : null);
+    }
+  });
 
   if (loading) return <LoadingSpinner size="lg" />;
   if (error) return <ErrorBanner message={error} onRetry={() => window.location.reload()} />;

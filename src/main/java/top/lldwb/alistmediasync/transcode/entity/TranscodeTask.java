@@ -83,6 +83,10 @@ public class TranscodeTask {
     @Column(length = 2000)
     private String errorMessage;
 
+    /** 自动重试已执行次数（默认 0，每次自动重试递增） */
+    @Column(nullable = false)
+    private int retryCount = 0;
+
     /** 源存储引擎 ID（下载源文件） */
     private Long sourceEngineId;
 

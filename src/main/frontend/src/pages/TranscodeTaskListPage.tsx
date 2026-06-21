@@ -1,5 +1,5 @@
 // ===================================================================
-// 转码任务列表页 — 8 状态模型 + canRetry
+// 转码任务列表页 — 8 状态模型 + canRetry + WebSocket 实时更新
 // ===================================================================
 import { useState, useEffect, useCallback } from 'react';
 import { api } from '@/api/client';
@@ -9,19 +9,17 @@ import { LoadingSpinner } from '@/components/ui/LoadingSpinner';
 import { EmptyState } from '@/components/ui/EmptyState';
 import { ErrorBanner } from '@/components/ui/ErrorBanner';
 import { StatusBadge } from '@/components/ui/StatusBadge';
+import { ConfirmDialog } from '@/components/ui/ConfirmDialog';
 import { TranscodeTaskForm } from '@/components/forms/TranscodeTaskForm';
-import { usePolling } from '@/hooks/usePolling';
+import { useWebSocket } from '@/hooks/useWebSocket';
+import { deleteFailedTranscodeTasks, deleteCompletedTranscodeTasks, retryAllTranscodeTasks } from '@/api/client';
 import { formatDateTime, formatTranscodeStatus } from '@/utils/format';
 import type {
   StorageEngineVO,
   TranscodeTaskVO,
   TranscodeTaskCreateDTO,
+  WsMessage,
 } from '@/types/api';
-
-/** 活跃状态：需要持续轮询 */
-const ACTIVE_STATUSES = new Set([
-  'PENDING', 'DOWNLOADING', 'TRANSCODING', 'UPLOADING',
-]);
 
 export function TranscodeTaskListPage() {
   const [items, setItems] = useState<TranscodeTaskVO[]>([]);
@@ -32,6 +30,11 @@ export function TranscodeTaskListPage() {
   const [formLoading, setFormLoading] = useState(false);
   const [cleanupResult, setCleanupResult] = useState<string | null>(null);
   const [retryingId, setRetryingId] = useState<number | null>(null);
+
+  // 批量操作状态
+  const [batchAction, setBatchAction] = useState<'failed' | 'completed' | 'retry' | null>(null);
+  const [batchLoading, setBatchLoading] = useState(false);
+  const [batchResult, setBatchResult] = useState<string | null>(null);
 
   const fetchTasks = useCallback(async () => {
     const data = await api.get<TranscodeTaskVO[]>('/transcode-tasks');
@@ -49,13 +52,29 @@ export function TranscodeTaskListPage() {
       .finally(() => setLoading(false));
   }, [fetchTasks]);
 
-  // 活跃任务时每 5 秒轮询
-  usePolling(
-    fetchTasks,
-    5000,
-    (data: TranscodeTaskVO[]) =>
-      !data.some((t) => ACTIVE_STATUSES.has(t.status)),
-  );
+  // WebSocket 接收 TRANSCODE_PROGRESS 和 TASK_EVENT 消息，增量更新本地状态
+  useWebSocket((message: WsMessage) => {
+    switch (message.type) {
+      case 'TRANSCODE_PROGRESS':
+        setItems(prev =>
+          prev.map(t =>
+            t.id === message.payload.taskId ? { ...t, ...message.payload } : t
+          )
+        );
+        break;
+      case 'TASK_EVENT':
+        if (message.payload.taskType === 'TRANSCODE') {
+          // 任务删除/完成时重新加载列表
+          if (message.payload.action === 'DELETED' || message.payload.action === 'BATCH_DELETED') {
+            fetchTasks();
+          } else if (message.payload.action === 'CREATED') {
+            // 新任务创建，刷新列表以获取完整数据
+            fetchTasks();
+          }
+        }
+        break;
+    }
+  });
 
   /* ---- 操作 ---- */
 
@@ -89,6 +108,38 @@ export function TranscodeTaskListPage() {
       setTimeout(() => setCleanupResult(null), 5000);
     } catch (err) {
       alert(err instanceof Error ? err.message : '清理失败');
+    }
+  };
+
+  /* ---- 批量操作 ---- */
+
+  const handleBatchAction = async () => {
+    setBatchLoading(true);
+    try {
+      let result: { deletedCount?: number; submittedCount?: number };
+      let message: string;
+      switch (batchAction) {
+        case 'failed':
+          result = await deleteFailedTranscodeTasks();
+          message = `已清理 ${result.deletedCount} 个失败任务`;
+          break;
+        case 'completed':
+          result = await deleteCompletedTranscodeTasks();
+          message = `已清理 ${result.deletedCount} 个成功任务`;
+          break;
+        case 'retry':
+          result = await retryAllTranscodeTasks();
+          message = `已提交 ${result.submittedCount} 个任务进行重试`;
+          break;
+      }
+      setBatchResult(message);
+      setTimeout(() => setBatchResult(null), 5000);
+      setBatchAction(null);
+      await fetchTasks();
+    } catch (err) {
+      alert(err instanceof Error ? err.message : '操作失败');
+    } finally {
+      setBatchLoading(false);
     }
   };
 
@@ -158,7 +209,28 @@ export function TranscodeTaskListPage() {
     <div>
       <div className="flex items-center justify-between mb-6">
         <h2 className="text-2xl font-bold text-gray-900">转码任务</h2>
-        <div className="flex items-center gap-3">
+        <div className="flex items-center gap-2">
+          <button
+            type="button"
+            onClick={() => setBatchAction('failed')}
+            className="rounded-md border border-red-300 px-3 py-2 text-sm text-red-700 hover:bg-red-50"
+          >
+            清理失败任务
+          </button>
+          <button
+            type="button"
+            onClick={() => setBatchAction('completed')}
+            className="rounded-md border border-gray-300 px-3 py-2 text-sm text-gray-700 hover:bg-gray-50"
+          >
+            清理成功任务
+          </button>
+          <button
+            type="button"
+            onClick={() => setBatchAction('retry')}
+            className="rounded-md border border-blue-300 px-3 py-2 text-sm text-blue-700 hover:bg-blue-50"
+          >
+            重试所有失败文件
+          </button>
           <button
             type="button"
             onClick={handleCleanup}
@@ -179,6 +251,12 @@ export function TranscodeTaskListPage() {
       {cleanupResult && (
         <div className="mb-4 rounded-md bg-green-50 border border-green-200 px-4 py-3 text-sm text-green-700">
           {cleanupResult}
+        </div>
+      )}
+
+      {batchResult && (
+        <div className="mb-4 rounded-md bg-blue-50 border border-blue-200 px-4 py-3 text-sm text-blue-700">
+          {batchResult}
         </div>
       )}
 
@@ -208,6 +286,25 @@ export function TranscodeTaskListPage() {
           onSubmit={handleCreate}
           onCancel={() => setShowForm(false)}
           loading={formLoading}
+        />
+      )}
+
+      {/* 批量操作确认对话框 */}
+      {batchAction && (
+        <ConfirmDialog
+          title={
+            batchAction === 'failed' ? '清理失败任务' :
+            batchAction === 'completed' ? '清理成功任务' : '重试所有失败文件'
+          }
+          message={
+            batchAction === 'failed' ? '确定要清理所有失败任务吗？此操作不可撤销。' :
+            batchAction === 'completed' ? '确定要清理所有成功任务吗？此操作不可撤销。' :
+            '确定要重试所有失败文件吗？'
+          }
+          confirmLabel={batchLoading ? (batchAction === 'retry' ? '重试中...' : '清理中...') : '确定'}
+          disabled={batchLoading}
+          onConfirm={handleBatchAction}
+          onCancel={() => setBatchAction(null)}
         />
       )}
     </div>

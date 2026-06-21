@@ -89,21 +89,21 @@ public class TranscodeService {
     /**
      * 创建独立转码任务
      *
-     * @param sameDirectoryTranscode 原目录转码选项，true 时自动使用源文件目录作为目标路径
+     * @param sourceDirectoryTranscode 源目录转码选项，true 时自动使用源文件目录作为目标路径
      */
     @Transactional
     public TranscodeTask createTask(Long sourceEngineId, Long targetEngineId,
                                      String sourcePath, String targetPath,
                                      TranscodeTask.TargetFormat targetFormat, Integer bitrate,
-                                     boolean sameDirectoryTranscode) {
-        // 原目录转码：自动计算目标路径
-        if (sameDirectoryTranscode) {
+                                     boolean sourceDirectoryTranscode) {
+        // 源目录转码：自动计算目标路径（源文件所在的父目录）
+        if (sourceDirectoryTranscode) {
             targetPath = getDirPath(sourcePath);
             if (targetPath.isEmpty()) {
                 targetPath = "/";
             }
         } else if (targetPath == null || targetPath.isBlank()) {
-            throw new IllegalArgumentException("未启用原目录转码时，目标路径为必填");
+            throw new IllegalArgumentException("未启用源目录转码时，目标路径为必填");
         }
 
         TranscodeTask task = new TranscodeTask();

@@ -177,6 +177,33 @@ public class AListStorageStrategy implements StorageEngineStrategy {
         }
     }
 
+    @Override
+    public void copyFile(StorageEngine engine, String sourcePath, String targetPath) {
+        log.info("AList 同引擎复制：src={}, dst={}", sourcePath, targetPath);
+
+        // 解析源路径的目录和文件名
+        String srcDir = sourcePath.substring(0, sourcePath.lastIndexOf('/') + 1);
+        String fileName = sourcePath.substring(sourcePath.lastIndexOf('/') + 1);
+
+        // 移除目标路径开头的 "/"（若目标目录与 srcDir 相同）
+        String dstDir = targetPath;
+        if (dstDir.endsWith("/" + fileName)) {
+            dstDir = dstDir.substring(0, dstDir.length() - fileName.length() - 1);
+        }
+        if (dstDir.isEmpty()) {
+            dstDir = "/";
+        }
+
+        Map<String, Object> body = Map.of(
+            "src_dir", srcDir,
+            "dst_dir", dstDir,
+            "names", List.of(fileName)
+        );
+        ApiUtil.postVoid(
+            restClient, engine.getBaseUrl(), engine.getEncryptedToken(), "/api/fs/copy", body);
+        log.debug("AList 复制完成：{} -> {}", sourcePath, targetPath);
+    }
+
     // ==================== 私有辅助方法 ====================
 
     /**

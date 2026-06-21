@@ -9,6 +9,7 @@ import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 import top.lldwb.alistmediasync.storage.entity.StorageEngine;
 import top.lldwb.alistmediasync.storage.service.StorageEngineService;
+import top.lldwb.alistmediasync.common.service.WsSessionManager;
 import top.lldwb.alistmediasync.sync.entity.SyncTask;
 import top.lldwb.alistmediasync.sync.entity.TaskExecution;
 import top.lldwb.alistmediasync.sync.repository.SyncTaskRepository;
@@ -54,6 +55,7 @@ public class SyncService {
     private final TaskExecutionRepository taskExecutionRepository;
     private final TranscodeService transcodeService;
     private final JsonMapper objectMapper;
+    private final WsSessionManager wsSessionManager;
 
     /** 正在执行的任务执行记录缓存（用于进度查询） */
     private final Map<Long, TaskExecution> activeExecutions = new ConcurrentHashMap<>();
@@ -90,12 +92,15 @@ public class SyncService {
         StorageEngineStrategy sourceStrategy = storageEngineService.resolve(sourceEngine);
         StorageEngineStrategy targetStrategy = storageEngineService.resolve(targetEngine);
 
+        // 检测是否同引擎
+        boolean sameEngine = sourceEngine.getId().equals(targetEngine.getId());
+
         List<String> failedFiles = new ArrayList<>();
         int completedCount = 0;
 
         try {
-            log.info("同步任务开始执行：{} (模式: {}, {} -> {})",
-                task.getName(), task.getSyncMode(), task.getSourcePath(), task.getTargetPath());
+            log.info("同步任务开始执行：{} (模式: {}, {} -> {}, 同引擎: {})",
+                task.getName(), task.getSyncMode(), task.getSourcePath(), task.getTargetPath(), sameEngine);
 
             // 阶段 1：扫描源目录
             List<FileInfo> sourceFiles = scanDirectory(
@@ -103,7 +108,7 @@ public class SyncService {
             log.info("扫描完成，发现 {} 个文件", sourceFiles.size());
 
             // 阶段 2：扫描目标目录并计算差异
-            List<FileInfo> destFiles = scanDirectory(
+            List<FileInfo> destFiles = sameEngine ? sourceFiles : scanDirectory(
                 targetEngine, targetStrategy, task.getTargetPath(), null);
 
             // 构建目标文件名集合（快速查找）
@@ -161,8 +166,16 @@ public class SyncService {
                         }
                     }
 
-                    // 流式下载→上传
-                    if (file.size > 100 * 1024 * 1024) { // > 100MB 使用临时文件
+                    if (sameEngine) {
+                        // 同引擎：直接调用 copyFile 方法
+                        log.debug("同引擎复制：{} -> {}", sourceFilePath, targetFilePath);
+                        // 确保目标父目录存在
+                        String targetDir = getDirPath(targetFilePath);
+                        if (!targetDir.isEmpty()) {
+                            targetStrategy.createDirectory(targetEngine, targetDir);
+                        }
+                        targetStrategy.copyFile(targetEngine, sourceFilePath, targetFilePath);
+                    } else if (file.size > 100 * 1024 * 1024) { // > 100MB 使用临时文件
                         syncLargeFile(sourceEngine, sourceStrategy, targetEngine, targetStrategy,
                             sourceFilePath, targetFilePath, file);
                     } else {
@@ -176,6 +189,17 @@ public class SyncService {
                         execution.setFailureDetails(toJson(new ArrayList<>(failedFiles)));
                     }
                     taskExecutionRepository.save(execution);
+
+                    // WebSocket 推送 SYNC_PROGRESS 增量消息
+                    wsSessionManager.broadcast("SYNC_PROGRESS", Map.of(
+                        "taskId", task.getId(),
+                        "executionId", execution.getId(),
+                        "status", "RUNNING",
+                        "successFiles", completedCount,
+                        "failedFiles", failedFiles.size(),
+                        "totalFiles", toSync.size(),
+                        "progressPercent", toSync.size() > 0 ? (completedCount + failedFiles.size()) * 100 / toSync.size() : 0
+                    ));
 
                     // MOVE 模式：删除源文件
                     if (task.getSyncMode() == SyncTask.SyncMode.MOVE) {
@@ -211,6 +235,17 @@ public class SyncService {
 
             log.info("同步任务执行完毕：{} — {} 成功 / {} 失败",
                 task.getName(), execution.getSuccessFiles(), execution.getFailedFiles());
+
+            // WebSocket 推送最终 SYNC_PROGRESS 消息
+            wsSessionManager.broadcast("SYNC_PROGRESS", Map.of(
+                "taskId", task.getId(),
+                "executionId", execution.getId(),
+                "status", execution.getStatus().name(),
+                "successFiles", execution.getSuccessFiles(),
+                "failedFiles", execution.getFailedFiles(),
+                "totalFiles", execution.getTotalFiles(),
+                "progressPercent", 100
+            ));
 
             // 同步后置转码
             if (task.getTranscodeEnabled() && execution.getStatus() == TaskExecution.ExecutionStatus.SUCCESS) {

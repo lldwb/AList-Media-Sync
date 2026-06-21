@@ -1,8 +1,10 @@
 package top.lldwb.alistmediasync.storage.service;
 
 import lombok.extern.slf4j.Slf4j;
+import org.springframework.scheduling.annotation.Scheduled;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
+import top.lldwb.alistmediasync.common.config.AppProperties;
 import top.lldwb.alistmediasync.storage.dto.storage.StorageEngineCreateDTO;
 import top.lldwb.alistmediasync.storage.dto.storage.StorageEngineUpdateDTO;
 import top.lldwb.alistmediasync.storage.dto.storage.StorageEngineVO;
@@ -33,14 +35,17 @@ public class StorageEngineService {
 
     private final StorageEngineRepository repository;
     private final Map<String, StorageEngineStrategy> strategyMap;
+    private final AppProperties appProperties;
 
     /**
      * 构造器注入：Spring 自动收集所有 StorageEngineStrategy 实现，
      * 按 type() 方法构建分发 Map。
      */
     public StorageEngineService(StorageEngineRepository repository,
-                                 List<StorageEngineStrategy> strategies) {
+                                 List<StorageEngineStrategy> strategies,
+                                 AppProperties appProperties) {
         this.repository = repository;
+        this.appProperties = appProperties;
         this.strategyMap = strategies.stream()
             .collect(Collectors.toMap(StorageEngineStrategy::type, Function.identity()));
         log.info("已加载 {} 个存储引擎策略：{}", strategies.size(),
@@ -198,5 +203,48 @@ public class StorageEngineService {
                 }
             }
         }
+    }
+
+    /**
+     * 定时健康检查存储引擎状态
+     * <p>
+     * 每隔 {@code app.storage.health-check-interval} 秒对所有存储引擎执行连接测试，
+     * 自动更新 EngineStatus（ONLINE/OFFLINE/ERROR）。
+     * </p>
+     */
+    @Scheduled(fixedRateString = "#{T(java.util.concurrent.TimeUnit).SECONDS.toMillis("
+        + "@appProperties.storage.healthCheckInterval)}")
+    public void healthCheck() {
+        List<StorageEngine> engines = repository.findAll();
+        if (engines.isEmpty()) {
+            return;
+        }
+        log.debug("开始存储引擎定时健康检查，共 {} 个引擎", engines.size());
+        for (StorageEngine engine : engines) {
+            try {
+                StorageEngineStrategy strategy = strategyMap.get(engine.getEngineType().name());
+                if (strategy == null) {
+                    log.warn("未找到引擎类型对应的策略：{}", engine.getEngineType());
+                    continue;
+                }
+                boolean online = strategy.testConnection(engine);
+                StorageEngine.EngineStatus newStatus = online
+                    ? StorageEngine.EngineStatus.ONLINE
+                    : StorageEngine.EngineStatus.OFFLINE;
+                if (engine.getEngineStatus() != newStatus) {
+                    log.info("存储引擎状态变更：{} {} -> {}", engine.getName(),
+                        engine.getEngineStatus(), newStatus);
+                    engine.setEngineStatus(newStatus);
+                    repository.save(engine);
+                }
+            } catch (Exception e) {
+                log.warn("存储引擎健康检查异常：{} — {}", engine.getName(), e.getMessage());
+                if (engine.getEngineStatus() != StorageEngine.EngineStatus.ERROR) {
+                    engine.setEngineStatus(StorageEngine.EngineStatus.ERROR);
+                    repository.save(engine);
+                }
+            }
+        }
+        log.debug("存储引擎健康检查完成");
     }
 }

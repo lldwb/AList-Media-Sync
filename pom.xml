@@ -120,6 +120,12 @@
             <version>3.5.0</version>
             <scope>runtime</scope>
         </dependency>
+
+        <!-- WebSocket 支持：实时推送替代 HTTP 轮询 -->
+        <dependency>
+            <groupId>org.springframework.boot</groupId>
+            <artifactId>spring-boot-starter-websocket</artifactId>
+        </dependency>
     </dependencies>
 
     <build>

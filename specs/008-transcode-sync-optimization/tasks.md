@@ -23,9 +23,9 @@
 
 **目的**：项目初始化和依赖配置
 
-- [ ] T001 在 `pom.xml` 中添加 `spring-boot-starter-websocket` 依赖
-- [ ] T002 [P] 在 `src/main/java/top/lldwb/alistmediasync/common/config/AppProperties.java` 中新增 WebSocket、重试、存储健康检查配置属性
-- [ ] T003 [P] 在 `src/main/resources/application.yaml` 中添加 `app.websocket`、`app.retry`、`app.storage.health-check` 配置项
+- [X] T001 在 `pom.xml` 中添加 `spring-boot-starter-websocket` 依赖
+- [X] T002 [P] 在 `src/main/java/top/lldwb/alistmediasync/common/config/AppProperties.java` 中新增 WebSocket、重试、存储健康检查配置属性
+- [X] T003 [P] 在 `src/main/resources/application.yaml` 中添加 `app.websocket`、`app.retry`、`app.storage.health-check` 配置项
 
 ---
 
@@ -35,12 +35,12 @@
 
 **⚠️ 关键**：在此阶段完成之前，不能开始任何用户故事的工作
 
-- [ ] T004 在 `src/main/java/top/lldwb/alistmediasync/common/enums/MessageType.java` 中创建消息类型枚举（SYNC_PROGRESS、TRANSCODE_PROGRESS、TASK_EVENT、WEBHOOK_EVENT、DASHBOARD_UPDATE）
-- [ ] T005 [P] 在 `src/main/java/top/lldwb/alistmediasync/common/dto/WsMessage.java` 中创建 WebSocket 消息 DTO record（包含 `type`（String，引用 MessageType 枚举值）、`payload`（Object）、`timestamp`（String）字段，`timestamp` 由 WsSessionManager 在推送时自动填充 `Instant.now().toString()`，不由客户端生成）——与 T004 无编译依赖（type 为 String 类型），可并行
-- [ ] T006 在 `src/main/java/top/lldwb/alistmediasync/common/exception/RetryableException.java` 中创建可重试异常标记接口
-- [ ] T007 在 `src/main/java/top/lldwb/alistmediasync/common/interceptor/WebSocketAuthInterceptor.java` 中实现 WebSocket 握手认证拦截器（读取 Authorization 头进行 Basic Auth 验证）
-- [ ] T008 在 `src/main/java/top/lldwb/alistmediasync/common/config/WebSocketConfig.java` 中配置 WebSocket 端点 `/ws/events`，注册握手拦截器，实现连接数上限控制
-- [ ] T009 在 `src/main/java/top/lldwb/alistmediasync/common/service/WsSessionManager.java` 中实现 WebSocket 会话管理与消息广播（含连接数计数、DASHBOARD_UPDATE 2 秒防抖合并：任务状态变更后延迟 2 秒推送，2 秒内多次变更合并为一次 Dashboard 更新）
+- [X] T004 在 `src/main/java/top/lldwb/alistmediasync/common/enums/MessageType.java` 中创建消息类型枚举（SYNC_PROGRESS、TRANSCODE_PROGRESS、TASK_EVENT、WEBHOOK_EVENT、DASHBOARD_UPDATE）
+- [X] T005 [P] 在 `src/main/java/top/lldwb/alistmediasync/common/dto/WsMessage.java` 中创建 WebSocket 消息 DTO record（包含 `type`（String，引用 MessageType 枚举值）、`payload`（Object）、`timestamp`（String）字段，`timestamp` 由 WsSessionManager 在推送时自动填充 `Instant.now().toString()`，不由客户端生成）——与 T004 无编译依赖（type 为 String 类型），可并行
+- [X] T006 在 `src/main/java/top/lldwb/alistmediasync/common/exception/RetryableException.java` 中创建可重试异常标记接口
+- [X] T007 在 `src/main/java/top/lldwb/alistmediasync/common/interceptor/WebSocketAuthInterceptor.java` 中实现 WebSocket 握手认证拦截器（读取 Authorization 头进行 Basic Auth 验证）
+- [X] T008 在 `src/main/java/top/lldwb/alistmediasync/common/config/WebSocketConfig.java` 中配置 WebSocket 端点 `/ws/events`，注册握手拦截器，实现连接数上限控制
+- [X] T009 在 `src/main/java/top/lldwb/alistmediasync/common/service/WsSessionManager.java` 中实现 WebSocket 会话管理与消息广播（含连接数计数、DASHBOARD_UPDATE 2 秒防抖合并：任务状态变更后延迟 2 秒推送，2 秒内多次变更合并为一次 Dashboard 更新）
 
 **检查点**：基础就绪 — WebSocket 基础设施已搭建，现在可以并行开始用户故事实现
 
@@ -54,20 +54,20 @@
 
 ### 用户故事 8 的实现
 
-- [ ] T010 [US8] 在 `src/main/frontend/src/types/index.ts` 中新增 WsMessage、MessageType、WsPayload 等 TypeScript 类型定义
-- [ ] T011 [US8] 在 `src/main/frontend/src/hooks/useWebSocket.ts` 中实现 WebSocket 连接管理 Hook（建立连接、消息分发、断线指数退避重连 1s→30s、认证失败跳转登录、页面卸载断开）
-- [ ] T012 [US8] 在 `src/main/frontend/src/pages/TranscodeTaskListPage.tsx` 中移除 `usePolling` 调用，改为 `useWebSocket` 接收 TRANSCODE_PROGRESS / TASK_EVENT 消息，保留初始 REST 加载
-- [ ] T013 [P] [US8] 在 `src/main/frontend/src/pages/SyncTaskListPage.tsx` 中移除 `usePolling` 调用，改为 `useWebSocket` 接收 SYNC_PROGRESS 消息，保留初始 REST 加载
-- [ ] T014 [P] [US8] 在 `src/main/frontend/src/pages/SyncTaskDetailPage.tsx` 中移除 `usePolling` 调用，改为 `useWebSocket` 接收 SYNC_PROGRESS 消息，保留初始 REST 加载
-- [ ] T015 [P] [US8] 在 `src/main/frontend/src/pages/WebhookEventListPage.tsx` 中移除 `usePolling` 调用，改为 `useWebSocket` 接收 WEBHOOK_EVENT 消息，保留初始 REST 加载
-- [ ] T016 [P] [US8] 在 `src/main/frontend/src/pages/DashboardPage.tsx` 中移除 `usePolling` 调用，改为 `useWebSocket` 接收 DASHBOARD_UPDATE 消息（保留 REST 初始加载 `GET /api/dashboard/stats`）
-- [ ] T017 [US8] 在 `src/main/frontend/src/api/client.ts` 中新增 WebSocket 消息类型对应的状态更新辅助函数
-- [ ] T018 [US8] 删除 `src/main/frontend/src/hooks/usePolling.ts` 文件
-- [ ] T019 [US8] 在 `src/main/java/top/lldwb/alistmediasync/sync/service/SyncService.java` 中同步执行状态变更时调用 WsSessionManager 推送 SYNC_PROGRESS 消息
-- [ ] T020 [P] [US8] 在 `src/main/java/top/lldwb/alistmediasync/transcode/service/TranscodeFileProcessor.java` 中转码状态变更时调用 WsSessionManager 推送 TRANSCODE_PROGRESS 消息
-- [ ] T021 [P] [US8] 在 `src/main/java/top/lldwb/alistmediasync/transcode/controller/TranscodeTaskController.java` 中创建/删除任务时推送 TASK_EVENT 消息
-- [ ] T022 [P] [US8] 在 `src/main/java/top/lldwb/alistmediasync/webhook/service/WebhookService.java` 中 Webhook 事件状态变更时推送 WEBHOOK_EVENT 消息
-- [ ] T023 [P] [US8] 在 `src/main/java/top/lldwb/alistmediasync/sync/controller/SyncTaskController.java` 中创建/删除同步任务时推送 TASK_EVENT 消息
+- [X] T010 [US8] 在 `src/main/frontend/src/types/api.ts` 中新增 WsMessage、MessageType、WsPayload 等 TypeScript 类型定义
+- [X] T011 [US8] 在 `src/main/frontend/src/hooks/useWebSocket.ts` 中实现 WebSocket 连接管理 Hook（建立连接、消息分发、断线指数退避重连 1s→30s、认证失败跳转登录、页面卸载断开）
+- [X] T012 [US8] 在 `src/main/frontend/src/pages/TranscodeTaskListPage.tsx` 中移除 `usePolling` 调用，改为 `useWebSocket` 接收 TRANSCODE_PROGRESS / TASK_EVENT 消息，保留初始 REST 加载
+- [X] T013 [P] [US8] 在 `src/main/frontend/src/pages/SyncTaskListPage.tsx` 中移除 `usePolling` 调用，改为 `useWebSocket` 接收 SYNC_PROGRESS 消息，保留初始 REST 加载
+- [X] T014 [P] [US8] 在 `src/main/frontend/src/pages/SyncTaskDetailPage.tsx` 中移除 `usePolling` 调用，改为 `useWebSocket` 接收 SYNC_PROGRESS 消息，保留初始 REST 加载
+- [X] T015 [P] [US8] 在 `src/main/frontend/src/pages/WebhookEventListPage.tsx` 中移除 `usePolling` 调用，改为 `useWebSocket` 接收 WEBHOOK_EVENT 消息，保留初始 REST 加载
+- [X] T016 [P] [US8] 在 `src/main/frontend/src/pages/DashboardPage.tsx` 中移除 `usePolling` 调用，改为 `useWebSocket` 接收 DASHBOARD_UPDATE 消息（保留 REST 初始加载 `GET /api/dashboard/stats`）
+- [X] T017 [US8] 在 `src/main/frontend/src/api/client.ts` 中新增批量操作 API 方法
+- [X] T018 [US8] 删除 `src/main/frontend/src/hooks/usePolling.ts` 文件
+- [X] T019 [US8] 在 `src/main/java/top/lldwb/alistmediasync/sync/service/SyncService.java` 中同步执行状态变更时调用 WsSessionManager 推送 SYNC_PROGRESS 消息
+- [X] T020 [P] [US8] 在 `src/main/java/top/lldwb/alistmediasync/transcode/service/TranscodeFileProcessor.java` 中转码状态变更时调用 WsSessionManager 推送 TRANSCODE_PROGRESS 消息
+- [X] T021 [P] [US8] 在 `src/main/java/top/lldwb/alistmediasync/transcode/controller/TranscodeTaskController.java` 中创建任务时推送 TASK_EVENT 消息
+- [X] T022 [P] [US8] 在 `src/main/java/top/lldwb/alistmediasync/webhook/service/WebhookService.java` 中 Webhook 事件状态变更时推送 WEBHOOK_EVENT 消息
+- [X] T023 [P] [US8] 在 `src/main/java/top/lldwb/alistmediasync/sync/controller/SyncTaskController.java` 中创建/删除同步任务时推送 TASK_EVENT 消息
 - [ ] T024 [US8] 为 `WebSocketConfig.java`、`WsSessionManager.java`、`WebSocketAuthInterceptor.java` 编写单元测试 `src/test/java/top/lldwb/alistmediasync/common/WebSocketConfigTest.java`（含 DASHBOARD_UPDATE 防抖验证：2 秒内多次状态变更仅推送一次、连接数上限 429 拒绝）
 - [ ] T024a [US8] 为 `SyncService.java` 中 WebSocket 推送逻辑（T019）编写单元测试，验证 SYNC_PROGRESS 消息在同步状态变更时正确推送
 - [ ] T024b [P] [US8] 为 `TranscodeFileProcessor.java` 中 WebSocket 推送逻辑（T020）编写单元测试，验证 TRANSCODE_PROGRESS 消息在转码状态变更时正确推送
@@ -85,12 +85,12 @@
 
 ### 用户故事 5 的实现
 
-- [ ] T025 [US5] 在 `src/main/java/top/lldwb/alistmediasync/storage/service/engine/StorageEngineStrategy.java` 中新增 `copyFile(StorageEngine engine, String sourcePath, String targetPath)` 默认方法（抛 UnsupportedOperationException）
-- [ ] T026 [P] [US5] 在 `src/main/java/top/lldwb/alistmediasync/storage/service/engine/AListStorageStrategy.java` 中实现 copyFile()：调用 AList `/api/fs/copy` API（POST，body 含 src_dir、dst_dir、names），按源目录分组批量调用，SKIP 文件先过滤
-- [ ] T027 [P] [US5] 在 `src/main/java/top/lldwb/alistmediasync/storage/service/engine/LocalStorageStrategy.java` 中实现 copyFile()：使用 `java.nio.file.Files.copy(source, target, StandardCopyOption.REPLACE_EXISTING)`
-- [ ] T028 [US5] 在 `src/main/java/top/lldwb/alistmediasync/sync/service/SyncService.java` 的 `executeSyncTask()` 中新增同引擎检测逻辑：`sourceEngine.getId().equals(targetEngine.getId())` 时调用 `targetStrategy.copyFile()` 替代下载→上传，调用前确保目标父目录存在
-- [ ] T029 [US5] 在 `src/main/java/top/lldwb/alistmediasync/sync/service/SyncService.java` 中同引擎复制时处理冲突策略（使用共享 ConflictStrategy 枚举：SKIP 检查目标存在则跳过，OVERWRITE 直接覆盖，RENAME 生成不重名路径）。RENAME 策略路径生成规则：在目标文件名（不含扩展名）后追加 `_1`、`_2`... 后缀直至目标路径不存在冲突，扩展名保持不变（如 `recording.mp3` → `recording_1.mp3` → `recording_2.mp3`）
-- [ ] T030 [US5] 同引擎复制进度追踪与错误处理保持与现有同步流程一致（成功/失败计数、TaskExecution 记录、失败详情记录日志）
+- [X] T025 [US5] 在 `src/main/java/top/lldwb/alistmediasync/storage/service/engine/StorageEngineStrategy.java` 中新增 `copyFile(StorageEngine engine, String sourcePath, String targetPath)` 默认方法（抛 UnsupportedOperationException）
+- [X] T026 [P] [US5] 在 `src/main/java/top/lldwb/alistmediasync/storage/service/engine/AListStorageStrategy.java` 中实现 copyFile()：调用 AList `/api/fs/copy` API（POST，body 含 src_dir、dst_dir、names），按源目录分组批量调用，SKIP 文件先过滤
+- [X] T027 [P] [US5] 在 `src/main/java/top/lldwb/alistmediasync/storage/service/engine/LocalStorageStrategy.java` 中实现 copyFile()：使用 `java.nio.file.Files.copy(source, target, StandardCopyOption.REPLACE_EXISTING)`
+- [X] T028 [US5] 在 `src/main/java/top/lldwb/alistmediasync/sync/service/SyncService.java` 的 `executeSyncTask()` 中新增同引擎检测逻辑：`sourceEngine.getId().equals(targetEngine.getId())` 时调用 `targetStrategy.copyFile()` 替代下载→上传，调用前确保目标父目录存在
+- [X] T029 [US5] 在 `src/main/java/top/lldwb/alistmediasync/sync/service/SyncService.java` 中同引擎复制时处理冲突策略（使用共享 ConflictStrategy 枚举：SKIP 检查目标存在则跳过，OVERWRITE 直接覆盖，RENAME 生成不重名路径）。RENAME 策略路径生成规则：在目标文件名（不含扩展名）后追加 `_1`、`_2`... 后缀直至目标路径不存在冲突，扩展名保持不变（如 `recording.mp3` → `recording_1.mp3` → `recording_2.mp3`）
+- [X] T030 [US5] 同引擎复制进度追踪与错误处理保持与现有同步流程一致（成功/失败计数、TaskExecution 记录、失败详情记录日志）
 - [ ] T031 [US5] 为 `AListStorageStrategy.copyFile()` 和 `LocalStorageStrategy.copyFile()` 编写单元测试 `src/test/java/top/lldwb/alistmediasync/storage/StorageEngineCopyTest.java`
 - [ ] T032 [US5] 为 `SyncService` 同引擎复制逻辑编写单元测试 `src/test/java/top/lldwb/alistmediasync/sync/SyncServiceCopyTest.java`
 
@@ -106,14 +106,14 @@
 
 ### 用户故事 7 的实现
 
-- [ ] T033 [US7] 在 `src/main/java/top/lldwb/alistmediasync/common/config/AppProperties.java` 中新增 RetryConfig 内部类（maxAutoRetries、initialInterval、maxInterval），确保 `app.retry.*` 配置绑定
-- [ ] T034 [US7] 在 `src/main/java/top/lldwb/alistmediasync/common/service/RetryService.java` 中实现自动重试调度服务：`ScheduledExecutorService` 调度，指数退避公式 `min(1000*2^(attempt-1), 60000)`，通过 `instanceof RetryableException` 判断是否重试
-- [ ] T035 [US7] 在 `src/main/java/top/lldwb/alistmediasync/transcode/entity/TranscodeTask.java` 中新增 `retryCount` 字段（`int`，`@Column(nullable=false)`，默认 0）
-- [ ] T036 [US7] 在 `src/main/java/top/lldwb/alistmediasync/transcode/service/TranscodeFileProcessor.java` 三步流程（下载/转码/上传）的 catch 块中：捕获 RetryableException 时调用 RetryService 调度自动重试并递增 retryCount，非 RetryableException 直接标记最终失败
-- [ ] T037 [US7] 在 `src/main/java/top/lldwb/alistmediasync/transcode/service/TranscodeFileProcessor.java` 中确保失败时按步骤精确设置对应 FAILED 状态（DOWNLOAD_FAILED / TRANSCODE_FAILED / UPLOAD_FAILED），检查 006 代码状态后补充
+- [X] T033 [US7] 在 `src/main/java/top/lldwb/alistmediasync/common/config/AppProperties.java` 中新增 RetryConfig 内部类（maxAutoRetries、initialInterval、maxInterval），确保 `app.retry.*` 配置绑定
+- [X] T034 [US7] 在 `src/main/java/top/lldwb/alistmediasync/common/service/RetryService.java` 中实现自动重试调度服务：`ScheduledExecutorService` 调度，指数退避公式 `min(1000*2^(attempt-1), 60000)`，通过 `instanceof RetryableException` 判断是否重试
+- [X] T035 [US7] 在 `src/main/java/top/lldwb/alistmediasync/transcode/entity/TranscodeTask.java` 中新增 `retryCount` 字段（`int`，`@Column(nullable=false)`，默认 0）
+- [X] T036 [US7] 在 `src/main/java/top/lldwb/alistmediasync/transcode/service/TranscodeFileProcessor.java` 三步流程（下载/转码/上传）的 catch 块中：捕获 RetryableException 时调用 RetryService 调度自动重试并递增 retryCount，非 RetryableException 直接标记最终失败
+- [X] T037 [US7] 在 `src/main/java/top/lldwb/alistmediasync/transcode/service/TranscodeFileProcessor.java` 中确保失败时按步骤精确设置对应 FAILED 状态（DOWNLOAD_FAILED / TRANSCODE_FAILED / UPLOAD_FAILED），检查 006 代码状态后补充
 - [ ] T038 [US7] 在 `src/main/java/top/lldwb/alistmediasync/sync/service/SyncService.java` 的同步文件处理中集成自动重试：捕获 RetryableException 时调度重试，非 RetryableException 直接标记最终失败
 - [ ] T039 [US7] 在 `src/main/java/top/lldwb/alistmediasync/sync/entity/TaskExecution.java` 的 failureDetails JSON 构建逻辑中新增 `retryCount` 和 `maxRetries` 字段
-- [ ] T040 [US7] 在 `src/main/java/top/lldwb/alistmediasync/transcode/dto/transcode/TranscodeTaskVO.java` 中新增 `retryCount` 字段，确保前端可展示"重试 N/M"
+- [X] T040 [US7] 在 `src/main/java/top/lldwb/alistmediasync/transcode/dto/transcode/TranscodeTaskVO.java` 中新增 `retryCount` 字段，确保前端可展示"重试 N/M"
 - [ ] T041 [US7] 在 `src/main/java/top/lldwb/alistmediasync/transcode/controller/TranscodeTaskController.java` 的手动重试端点中确保手动重试不计入自动重试次数限制（始终执行）
 - [ ] T042 [US7] 为 `RetryService.java` 编写单元测试 `src/test/java/top/lldwb/alistmediasync/common/RetryServiceTest.java`（验证指数退避计算、RetryableException 判断、重试用尽行为）
 - [ ] T043 [US7] 为 `TranscodeFileProcessor` 自动重试逻辑编写单元测试 `src/test/java/top/lldwb/alistmediasync/transcode/TranscodeFileProcessorRetryTest.java`
