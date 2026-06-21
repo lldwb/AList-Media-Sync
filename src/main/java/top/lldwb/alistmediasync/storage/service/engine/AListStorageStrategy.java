@@ -16,7 +16,6 @@ import java.time.Instant;
 import java.time.LocalDateTime;
 import java.time.ZoneId;
 import java.util.*;
-import java.util.stream.Collectors;
 
 /**
  * AList 存储引擎策略实现
@@ -152,18 +151,19 @@ public class AListStorageStrategy implements StorageEngineStrategy {
     @Override
     public List<DirectoryEntryVO> listDirectories(StorageEngine engine, String path) {
         try {
-            // 获取所有条目，仅过滤出目录；使用合理分页大小防止 AList API 异常
+            // 获取当前路径下的所有条目，仅过滤出目录
             List<FileEntry> allEntries = listFiles(engine, path, 1, MAX_PER_PAGE);
-            return allEntries.stream()
+            List<FileEntry> directories = allEntries.stream()
                 .filter(FileEntry::isDirectory)
-                .collect(Collectors.toMap(
-                    FileEntry::path,
-                    f -> new DirectoryEntryVO(f.name(), f.path(), hasChildren(engine, f.path())),
-                    (existing, replacement) -> existing  // 路径重复时保留第一个
-                ))
-                .values()
-                .stream()
                 .toList();
+
+            // 使用 LinkedHashMap 保证插入顺序，按路径去重
+            Map<String, DirectoryEntryVO> resultMap = new LinkedHashMap<>();
+            for (FileEntry f : directories) {
+                resultMap.putIfAbsent(f.path(),
+                    new DirectoryEntryVO(f.name(), f.path(), hasChildren(engine, f.path())));
+            }
+            return List.copyOf(resultMap.values());
         } catch (Exception e) {
             log.error("列出目录失败：{} — {}", path, e.getMessage(), e);
             return List.of();
