@@ -131,6 +131,7 @@ public class TranscodeService {
      * 同步后置转码（由 SyncService 调用）
      */
     public void executePostSyncTranscode(SyncTask syncTask, TaskExecution syncExecution) {
+        log.info("同步后置转码开始：syncTask={}", syncTask.getName());
         TaskExecution execution = new TaskExecution();
         execution.setSyncTask(syncTask);
         execution.setTaskType(TaskExecution.TaskType.TRANSCODE);
@@ -145,6 +146,8 @@ public class TranscodeService {
 
         execution.setEndTime(java.time.LocalDateTime.now());
         taskExecutionRepository.save(execution);
+        log.info("同步后置转码完成：syncTask={}, 成功 {} / 失败 {}",
+            syncTask.getName(), execution.getSuccessFiles(), execution.getFailedFiles());
     }
 
     // ================================================================
@@ -168,6 +171,9 @@ public class TranscodeService {
         // 重新加载实体，确保拿到最新的 @Version 字段值，避免分离实体 merge 时乐观锁冲突
         TranscodeTask managedTask = repository.findById(task.getId())
             .orElseThrow(() -> new NoSuchElementException("转码任务不存在：id=" + task.getId()));
+
+        log.info("开始执行转码任务：id={}, sourcePath={}, targetFormat={}",
+            managedTask.getId(), managedTask.getSourceFilePath(), managedTask.getTargetFormat());
 
         StorageEngine sourceEngine = managedTask.getSourceEngineId() != null
             ? storageEngineService.getEntity(managedTask.getSourceEngineId())
@@ -327,6 +333,7 @@ public class TranscodeService {
                                       SyncTask.ConflictStrategy conflictStrategy,
                                       SyncTask syncTask, TaskExecution execution) {
 
+        log.info("后置转码开始：sourcePath={}, targetPath={}, format={}", sourcePath, targetPath, targetFormatStr);
         TranscodeTask.TargetFormat targetFormat = TranscodeTask.TargetFormat.valueOf(targetFormatStr);
         StorageEngineStrategy sourceStrategy = storageEngineService.resolve(sourceEngine);
         StorageEngineStrategy targetStrategy = storageEngineService.resolve(targetEngine);
@@ -384,6 +391,7 @@ public class TranscodeService {
         } else {
             execution.setStatus(TaskExecution.ExecutionStatus.SUCCESS);
         }
+        log.info("后置转码完成：sourcePath={}, 成功 {} / 失败 {}", sourcePath, successCount, failures.size());
     }
 
     // ================================================================
@@ -395,9 +403,11 @@ public class TranscodeService {
         StorageEngine targetEngine, StorageEngineStrategy targetStrategy,
         String sourcePath, String targetPath, SyncTask.ConflictStrategy conflictStrategy) {
 
+        log.debug("扫描源目录：sourcePath={}", sourcePath);
         List<TranscodeCandidate> candidates = new ArrayList<>();
         scanDirectoryRecursive(sourceEngine, sourceStrategy, targetEngine, targetStrategy,
             sourcePath, targetPath, conflictStrategy, candidates, 1, 10);
+        log.debug("源目录扫描完成：sourcePath={}, 发现 {} 个候选文件", sourcePath, candidates.size());
         return candidates;
     }
 
@@ -406,6 +416,8 @@ public class TranscodeService {
         StorageEngine targetEngine, StorageEngineStrategy targetStrategy,
         String sourceDir, String targetDir, SyncTask.ConflictStrategy conflictStrategy,
         List<TranscodeCandidate> candidates, int depth, int maxDepth) {
+
+        log.debug("递归扫描转码目录：sourceDir={}, depth={}", sourceDir, depth);
 
         if (depth > maxDepth) {
             log.warn("扫描深度已达上限 {}，停止递归：{}", maxDepth, sourceDir);

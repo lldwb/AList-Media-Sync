@@ -141,6 +141,8 @@ public class TranscodeFileProcessor {
                                        SyncTask syncTask,
                                        TaskExecution execution) {
 
+        log.debug("开始处理转码候选：name={}, format={}, size={}bytes", candidate.name(), candidate.format(), candidate.size());
+
         Path sourceTempFile = null;
         Path outputTempFile = null;
         TranscodeTask transcodeTask = null;
@@ -216,6 +218,7 @@ public class TranscodeFileProcessor {
      * 步骤 1：下载源文件到临时位置
      */
     private Path downloadStep(TranscodeCandidate candidate, TranscodeTask transcodeTask) throws IOException {
+        log.debug("下载源文件：path={}", candidate.fullPath());
         String format = candidate.format() != null ? candidate.format().toLowerCase() : "tmp";
         Path sourceTempFile = Files.createTempFile("alist-src-", "." + format);
 
@@ -230,6 +233,9 @@ public class TranscodeFileProcessor {
             if (in == null) throw new IOException("下载源文件失败：" + candidate.fullPath());
             Files.copy(in, sourceTempFile, java.nio.file.StandardCopyOption.REPLACE_EXISTING);
         }
+
+        long downloadedSize = Files.size(sourceTempFile);
+        log.debug("源文件下载完成：path={}, size={}bytes, tempFile={}", candidate.fullPath(), downloadedSize, sourceTempFile);
 
         // 注意：调用方在 save 后应使用返回的 managed entity，此处仅更新引用
         // downloadStep 不负责持久化（由 doProcess 统一管理）
@@ -261,9 +267,12 @@ public class TranscodeFileProcessor {
             ? candidate.targetPath().replace(candidate.name(), targetFileName)
             : concatDirAndName(getDirPath(candidate.targetPath()), targetFileName);
 
+        long fileSize = Files.size(finalFile);
+        log.debug("开始上传转码文件：localPath={}, remotePath={}, size={}bytes", finalFile, remotePath, fileSize);
+
         StorageEngineStrategy targetStrategy = storageEngineService.resolve(targetEngine);
         try (InputStream fileIn = Files.newInputStream(finalFile)) {
-            targetStrategy.uploadFile(targetEngine, remotePath, fileIn, Files.size(finalFile));
+            targetStrategy.uploadFile(targetEngine, remotePath, fileIn, fileSize);
         }
 
         log.info("转码文件已上传：{} -> {}", finalFile, remotePath);

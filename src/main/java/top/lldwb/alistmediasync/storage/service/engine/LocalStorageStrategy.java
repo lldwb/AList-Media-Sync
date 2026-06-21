@@ -21,6 +21,7 @@ import java.util.stream.Stream;
  * <p>
  * 使用 java.nio.file.Files 和 Path 操作本地文件系统。
  * localPath 必须指向已存在且可读写的目录。
+ * 遵循 constitution 原则 VII：所有本地目录操作记录输入路径和输出结果。
  * </p>
  *
  * @author AList-Media-Sync
@@ -37,6 +38,7 @@ public class LocalStorageStrategy implements StorageEngineStrategy {
     @Override
     public List<FileEntry> listFiles(StorageEngine engine, String path, int page, int perPage) {
         Path dir = resolvePath(engine, path);
+        log.debug("列出本地文件：引擎={}, path={}, page={}, perPage={}", engine.getName(), dir, page, perPage);
         if (!Files.exists(dir) || !Files.isDirectory(dir)) {
             log.warn("本地目录不存在或不是目录：{}", dir);
             return Collections.emptyList();
@@ -52,10 +54,13 @@ public class LocalStorageStrategy implements StorageEngineStrategy {
             // 简单分页
             int fromIndex = (page - 1) * perPage;
             if (fromIndex >= allEntries.size()) {
+                log.debug("列出本地文件完成：path={}, 总数={}, 返回空（分页越界）", dir, allEntries.size());
                 return Collections.emptyList();
             }
             int toIndex = Math.min(fromIndex + perPage, allEntries.size());
-            return allEntries.subList(fromIndex, toIndex);
+            List<FileEntry> result = allEntries.subList(fromIndex, toIndex);
+            log.debug("列出本地文件完成：path={}, 总数={}, 返回 {} 条", dir, allEntries.size(), result.size());
+            return result;
         } catch (IOException e) {
             log.error("列出本地文件失败：{} — {}", dir, e.getMessage(), e);
             return Collections.emptyList();
@@ -65,7 +70,9 @@ public class LocalStorageStrategy implements StorageEngineStrategy {
     @Override
     public FileEntry getFileInfo(StorageEngine engine, String path) {
         Path filePath = resolvePath(engine, path);
+        log.debug("获取本地文件信息：引擎={}, path={}", engine.getName(), filePath);
         if (!Files.exists(filePath)) {
+            log.debug("本地文件不存在：{}", filePath);
             return null;
         }
         return toFileEntry(filePath, engine.getLocalPath());
@@ -74,6 +81,7 @@ public class LocalStorageStrategy implements StorageEngineStrategy {
     @Override
     public InputStream downloadFile(StorageEngine engine, String path) {
         Path filePath = resolvePath(engine, path);
+        log.debug("读取本地文件：引擎={}, path={}", engine.getName(), filePath);
         try {
             return Files.newInputStream(filePath);
         } catch (IOException e) {
@@ -84,6 +92,7 @@ public class LocalStorageStrategy implements StorageEngineStrategy {
     @Override
     public void uploadFile(StorageEngine engine, String remotePath, InputStream inputStream, long fileSize) {
         Path targetPath = resolvePath(engine, remotePath);
+        log.info("写入本地文件：引擎={}, path={}, size={}bytes", engine.getName(), targetPath, fileSize);
         try {
             // 确保父目录存在
             Path parent = targetPath.getParent();
@@ -97,6 +106,7 @@ public class LocalStorageStrategy implements StorageEngineStrategy {
                     os.write(buffer, 0, bytesRead);
                 }
             }
+            log.debug("本地文件写入完成：{}", targetPath);
         } catch (IOException e) {
             throw new RuntimeException("写入本地文件失败：" + targetPath, e);
         }
@@ -105,6 +115,7 @@ public class LocalStorageStrategy implements StorageEngineStrategy {
     @Override
     public void createDirectory(StorageEngine engine, String path) {
         Path dirPath = resolvePath(engine, path);
+        log.info("创建本地目录：引擎={}, path={}", engine.getName(), dirPath);
         try {
             Files.createDirectories(dirPath);
         } catch (IOException e) {
@@ -115,6 +126,7 @@ public class LocalStorageStrategy implements StorageEngineStrategy {
     @Override
     public void deleteFile(StorageEngine engine, String path) {
         Path filePath = resolvePath(engine, path);
+        log.info("删除本地文件/目录：引擎={}, path={}", engine.getName(), filePath);
         try {
             if (Files.isDirectory(filePath)) {
                 // 递归删除目录
@@ -139,12 +151,13 @@ public class LocalStorageStrategy implements StorageEngineStrategy {
     @Override
     public List<DirectoryEntryVO> listDirectories(StorageEngine engine, String path) {
         Path dir = resolvePath(engine, path);
+        log.debug("列出本地子目录：引擎={}, path={}", engine.getName(), dir);
         if (!Files.exists(dir) || !Files.isDirectory(dir)) {
             log.warn("本地目录不存在或不是目录：{}", dir);
             return Collections.emptyList();
         }
         try (Stream<Path> stream = Files.list(dir)) {
-            return stream
+            List<DirectoryEntryVO> result = stream
                 .filter(Files::isDirectory)
                 .map(p -> {
                     String name = p.getFileName().toString();
@@ -158,6 +171,8 @@ public class LocalStorageStrategy implements StorageEngineStrategy {
                 })
                 .sorted(Comparator.comparing(DirectoryEntryVO::name))
                 .toList();
+            log.debug("列出本地子目录完成：path={}, 共 {} 个", dir, result.size());
+            return result;
         } catch (IOException e) {
             log.error("列出本地子目录失败：{} — {}", dir, e.getMessage(), e);
             return Collections.emptyList();
@@ -167,6 +182,7 @@ public class LocalStorageStrategy implements StorageEngineStrategy {
     @Override
     public boolean testConnection(StorageEngine engine) {
         Path dir = Path.of(engine.getLocalPath());
+        log.debug("测试本地连接：引擎={}, path={}", engine.getName(), dir);
         if (!Files.exists(dir)) {
             log.warn("本地路径不存在：{}", dir);
             return false;
@@ -183,6 +199,7 @@ public class LocalStorageStrategy implements StorageEngineStrategy {
             log.warn("本地目录不可写：{}", dir);
             return false;
         }
+        log.info("本地连接测试成功：{}", dir);
         return true;
     }
 
