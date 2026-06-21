@@ -35,7 +35,11 @@ function treeReducer(state: TreeState, action: TreeAction): TreeState {
       return { ...state, rootLoading: true };
 
     case 'LOAD_ROOT': {
-      const children = action.entries.map((e) => {
+      const seen = new Set<string>();
+      const children: string[] = [];
+      for (const e of action.entries) {
+        if (seen.has(e.path)) continue;
+        seen.add(e.path);
         const node: TreeNode = {
           path: e.path,
           name: e.name,
@@ -44,8 +48,8 @@ function treeReducer(state: TreeState, action: TreeAction): TreeState {
           loading: false,
         };
         newNodes.set(e.path, node);
-        return e.path;
-      });
+        children.push(e.path);
+      }
       return { nodes: newNodes, rootChildren: children, rootLoading: false };
     }
 
@@ -60,7 +64,11 @@ function treeReducer(state: TreeState, action: TreeAction): TreeState {
     case 'LOAD_CHILDREN': {
       const node = newNodes.get(action.path);
       if (!node) return state;
-      const children = action.entries.map((e) => {
+      const seen = new Set<string>();
+      const children: string[] = [];
+      for (const e of action.entries) {
+        if (seen.has(e.path)) continue;
+        seen.add(e.path);
         const child: TreeNode = {
           path: e.path,
           name: e.name,
@@ -69,8 +77,8 @@ function treeReducer(state: TreeState, action: TreeAction): TreeState {
           loading: false,
         };
         newNodes.set(e.path, child);
-        return e.path;
-      });
+        children.push(e.path);
+      }
       newNodes.set(action.path, { ...node, children, loading: false });
       return { ...state, nodes: newNodes };
     }
@@ -159,12 +167,25 @@ export function DirectoryTreeSelector({
     setOpen(false);
   };
 
-  const renderNode = (nodePath: string, depth: number = 0): React.ReactNode => {
+  const MAX_DEPTH = 50;
+  const renderNode = (nodePath: string, depth: number = 0, ancestors: Set<string> = new Set()): React.ReactNode => {
+    // 防止无限递归：深度限制 + 循环引用检测
+    if (depth > MAX_DEPTH) {
+      console.warn(`[DirectoryTreeSelector] 超过最大深度 ${MAX_DEPTH}，停止渲染: ${nodePath}`);
+      return null;
+    }
+    if (ancestors.has(nodePath)) {
+      console.warn(`[DirectoryTreeSelector] 检测到循环路径引用，跳过: ${nodePath}`);
+      return null;
+    }
+
     const node = tree.nodes.get(nodePath);
     if (!node) return null;
 
     const isExpanded = node.children !== null;
     const padLeft = depth * 20;
+    const nextAncestors = new Set(ancestors);
+    nextAncestors.add(nodePath);
 
     return (
       <div key={nodePath}>
@@ -209,7 +230,7 @@ export function DirectoryTreeSelector({
         </div>
 
         {/* 子目录 */}
-        {isExpanded && node.children && node.children.map((childPath) => renderNode(childPath, depth + 1))}
+        {isExpanded && node.children && node.children.map((childPath) => renderNode(childPath, depth + 1, nextAncestors))}
       </div>
     );
   };
