@@ -21,6 +21,8 @@ import java.util.*;
  * <p>
  * 通过 {@link AListApiClient} 统一封装 HTTP 调用 AList REST API，
  * 实现文件操作。所有 API 请求均经过统一的日志输出和异常处理。
+ * 遵循 constitution 原则 VII：写操作（上传/创建/删除）使用 INFO，
+ * 读操作（列出/获取/下载）使用 DEBUG。
  * </p>
  *
  * @author AList-Media-Sync
@@ -39,6 +41,7 @@ public class AListStorageStrategy implements StorageEngineStrategy {
 
     @Override
     public List<FileEntry> listFiles(StorageEngine engine, String path, int page, int perPage) {
+        log.debug("列出文件：引擎={}, path={}, page={}, perPage={}", engine.getName(), path, page, perPage);
         Map<String, Object> body = Map.of(
             "path", path,
             "password", "",
@@ -49,11 +52,14 @@ public class AListStorageStrategy implements StorageEngineStrategy {
         @SuppressWarnings("unchecked")
         Map<String, Object> result = apiClient.post(
             engine.getBaseUrl(), engine.getEncryptedToken(), "/api/fs/list", body);
-        return parseFileList(result);
+        List<FileEntry> entries = parseFileList(result);
+        log.debug("列出文件完成：path={}, 返回 {} 条", path, entries.size());
+        return entries;
     }
 
     @Override
     public FileEntry getFileInfo(StorageEngine engine, String path) {
+        log.debug("获取文件信息：引擎={}, path={}", engine.getName(), path);
         Map<String, Object> body = Map.of(
             "path", path,
             "password", "",
@@ -69,17 +75,23 @@ public class AListStorageStrategy implements StorageEngineStrategy {
 
     @Override
     public InputStream downloadFile(StorageEngine engine, String path) {
+        log.debug("下载文件：引擎={}, path={}", engine.getName(), path);
         Map<String, Object> body = Map.of(
             "path", path,
             "password", ""
         );
         byte[] fileBytes = apiClient.postForBytes(
             engine.getBaseUrl(), engine.getEncryptedToken(), "/api/fs/get", body);
-        return fileBytes != null ? new ByteArrayInputStream(fileBytes) : null;
+        if (fileBytes != null) {
+            log.debug("文件下载完成：path={}, size={}bytes", path, fileBytes.length);
+            return new ByteArrayInputStream(fileBytes);
+        }
+        return null;
     }
 
     @Override
     public void uploadFile(StorageEngine engine, String remotePath, InputStream inputStream, long fileSize) {
+        log.info("上传文件：引擎={}, remotePath={}, size={}bytes", engine.getName(), remotePath, fileSize);
         var parts = new LinkedMultiValueMap<String, Object>();
         parts.add("file", new org.springframework.core.io.InputStreamResource(inputStream) {
             @Override
@@ -94,10 +106,12 @@ public class AListStorageStrategy implements StorageEngineStrategy {
 
         apiClient.putMultipart(
             engine.getBaseUrl(), engine.getEncryptedToken(), "/api/fs/put", parts, extraHeaders);
+        log.debug("文件上传完成：{}", remotePath);
     }
 
     @Override
     public void createDirectory(StorageEngine engine, String path) {
+        log.info("创建目录：引擎={}, path={}", engine.getName(), path);
         Map<String, Object> body = Map.of("path", path);
         apiClient.postVoid(
             engine.getBaseUrl(), engine.getEncryptedToken(), "/api/fs/mkdir", body);
@@ -105,6 +119,7 @@ public class AListStorageStrategy implements StorageEngineStrategy {
 
     @Override
     public void deleteFile(StorageEngine engine, String path) {
+        log.info("删除文件：引擎={}, path={}", engine.getName(), path);
         Map<String, Object> body = Map.of(
             "names", List.of(path.substring(path.lastIndexOf('/') + 1)),
             "dir", path.substring(0, path.lastIndexOf('/') + 1)
@@ -118,6 +133,7 @@ public class AListStorageStrategy implements StorageEngineStrategy {
 
     @Override
     public List<DirectoryEntryVO> listDirectories(StorageEngine engine, String path) {
+        log.debug("列出目录：引擎={}, path={}", engine.getName(), path);
         try {
             // 分页获取当前路径下的所有条目，仅过滤出目录
             List<FileEntry> allEntries = fetchAllEntries(engine, path);
@@ -131,6 +147,7 @@ public class AListStorageStrategy implements StorageEngineStrategy {
                 resultMap.putIfAbsent(f.path(),
                     new DirectoryEntryVO(f.name(), f.path(), hasChildren(engine, f.path())));
             }
+            log.debug("列出目录完成：path={}, 共 {} 个目录", path, resultMap.size());
             return List.copyOf(resultMap.values());
         } catch (Exception e) {
             log.error("列出目录失败：{} — {}", path, e.getMessage(), e);
@@ -140,12 +157,17 @@ public class AListStorageStrategy implements StorageEngineStrategy {
 
     @Override
     public boolean testConnection(StorageEngine engine) {
+        log.debug("测试连接：引擎={}, baseUrl={}", engine.getName(), engine.getBaseUrl());
         try {
             @SuppressWarnings("unchecked")
             Map<String, Object> result = apiClient.get(
                 engine.getBaseUrl(), engine.getEncryptedToken(), "/api/me");
-            return result != null && result.get("code") instanceof Number
+            boolean success = result != null && result.get("code") instanceof Number
                 && ((Number) result.get("code")).intValue() == 200;
+            if (success) {
+                log.info("连接测试成功：{}", engine.getBaseUrl());
+            }
+            return success;
         } catch (Exception e) {
             log.warn("AList 连接测试失败：{} -> {}", engine.getBaseUrl(), e.getMessage());
             return false;
@@ -162,9 +184,11 @@ public class AListStorageStrategy implements StorageEngineStrategy {
      * </p>
      */
     private List<FileEntry> fetchAllEntries(StorageEngine engine, String path) {
+        log.debug("分页获取所有条目：引擎={}, path={}", engine.getName(), path);
         List<FileEntry> all = new ArrayList<>();
         int page = 1;
         while (true) {
+            log.debug("获取第 {} 页，已收集 {} 条", page, all.size());
             List<FileEntry> pageEntries = listFiles(engine, path, page, PAGE_SIZE);
             if (pageEntries.isEmpty()) {
                 break;
@@ -175,6 +199,7 @@ public class AListStorageStrategy implements StorageEngineStrategy {
             }
             page++;
         }
+        log.debug("分页获取完成：path={}, 共 {} 条", path, all.size());
         return all;
     }
 

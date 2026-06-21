@@ -233,15 +233,18 @@ public class SyncService {
      */
     private List<FileInfo> scanDirectory(StorageEngine engine, StorageEngineStrategy strategy,
                                           String path, String excludePatterns) {
+        log.debug("开始扫描目录：引擎={}, path={}", engine.getName(), path);
         List<FileInfo> result = new ArrayList<>();
         List<String> excludePatternList = parseExcludePatterns(excludePatterns);
         scanDirectoryRecursive(engine, strategy, path, result, excludePatternList, 1);
+        log.debug("目录扫描完成：path={}, 发现 {} 个文件", path, result.size());
         return result;
     }
 
     private void scanDirectoryRecursive(StorageEngine engine, StorageEngineStrategy strategy,
                                          String path, List<FileInfo> result,
                                          List<String> excludePatterns, int page) {
+        log.debug("递归扫描：引擎={}, path={}, page={}", engine.getName(), path, page);
         var entries = strategy.listFiles(engine, path, page, 100);
         if (entries.isEmpty()) return;
 
@@ -273,6 +276,8 @@ public class SyncService {
     private void syncSmallFile(StorageEngine sourceEngine, StorageEngineStrategy sourceStrategy,
                                 StorageEngine targetEngine, StorageEngineStrategy targetStrategy,
                                 String sourcePath, String targetPath, FileInfo file) {
+        long startTime = System.currentTimeMillis();
+        log.debug("小文件同步（流式）：{} -> {}, size={}bytes", sourcePath, targetPath, file.size);
         InputStream inputStream = sourceStrategy.downloadFile(sourceEngine, sourcePath);
         if (inputStream == null) throw new RuntimeException("下载文件失败：" + sourcePath);
         try (inputStream) {
@@ -280,12 +285,16 @@ public class SyncService {
         } catch (Exception e) {
             throw new RuntimeException("上传文件失败：" + targetPath, e);
         }
+        log.debug("小文件同步完成：{} -> {}, 耗时={}ms", sourcePath, targetPath,
+            System.currentTimeMillis() - startTime);
     }
 
     /** 大文件同步（> 100MB，暂存磁盘） */
     private void syncLargeFile(StorageEngine sourceEngine, StorageEngineStrategy sourceStrategy,
                                 StorageEngine targetEngine, StorageEngineStrategy targetStrategy,
                                 String sourcePath, String targetPath, FileInfo file) {
+        long startTime = System.currentTimeMillis();
+        log.info("大文件同步（磁盘）：{} -> {}, size={}MB", sourcePath, targetPath, file.size / 1048576);
         java.nio.file.Path tempFile = null;
         try {
             tempFile = java.nio.file.Files.createTempFile("alist-sync-", ".tmp");
@@ -296,6 +305,8 @@ public class SyncService {
             try (InputStream fileIn = java.nio.file.Files.newInputStream(tempFile)) {
                 targetStrategy.uploadFile(targetEngine, targetPath, fileIn, file.size);
             }
+            log.info("大文件同步完成：{} -> {}, 耗时={}ms", sourcePath, targetPath,
+                System.currentTimeMillis() - startTime);
         } catch (Exception e) {
             throw new RuntimeException("大文件同步失败：" + sourcePath, e);
         } finally {
