@@ -257,6 +257,8 @@
 
 ---
 
+> **注**：用户故事编号 6 已被有意跳过——原计划中独立的前端 WebSocket 迁移故事在规划阶段合并入用户故事 8（WebSocket 实时推送替代轮询），因为前端迁移与后端 WebSocket 基础设施不可分割。为保持编号稳定性，不重新编号后续故事。
+
 ### 用户故事 7 — 同步/转码失败自动重试（优先级：P2）
 
 作为系统管理员，当同步任务或转码任务因网络波动、API 临时不可用等瞬时故障导致失败时，我希望系统能够自动重试失败的操作，无需我手动介入。重试次数应在前端任务列表中可见，最大自动重试次数可通过配置文件调整。
@@ -318,7 +320,7 @@
 
 #### 转码模块：源目录转码 UX 优化
 
-- **FR-001**（已被 FR-005 合并）：前端复选框标签文案从"原目录转码"改为"源目录转码"，后端 DTO 字段名从 `sameDirectoryTranscode` 改为 `sourceDirectoryTranscode`。FR-002 负责隐藏字段行为。
+- **FR-001**（已废弃，合并至 FR-005）：~~前端复选框标签文案从"原目录转码"改为"源目录转码"，后端 DTO 字段名从 `sameDirectoryTranscode` 改为 `sourceDirectoryTranscode`。FR-002 负责隐藏字段行为。~~
 - **FR-002**：当用户勾选"源目录转码"复选框时，前端必须隐藏（而非仅禁用）"目标存储引擎"下拉选择框和"目标文件路径"输入框及其标签。当取消勾选时，这两个字段重新显示并恢复为必填状态。
 - **FR-003**：前端提交表单时，当 `sourceDirectoryTranscode=true`，必须不传 `targetEngineId` 字段（或传 null），`targetFilePath` 传空字符串。后端自动将 `targetEngineId` 赋值为 `sourceEngineId`。
 - **FR-004**：`TranscodeTaskCreateDTO.java` 中 `targetEngineId` 的 `@NotNull` 校验必须改为条件校验——当 `sourceDirectoryTranscode=true` 时可为空，当 `sourceDirectoryTranscode=false` 时仍为必填。可通过自定义校验注解或手动校验实现。
@@ -333,7 +335,7 @@
 
 #### 转码模块：列表仅显示文件
 
-- **FR-010**：转码任务列表页面（`TranscodeTaskListPage.tsx`）中，"源路径"列和"目标路径"列的显示格式必须统一为 `完整路径/文件名.扩展名`，不显示纯目录条目。此需求依赖后端数据——如果后端 `listAll()` 返回的每个 `TranscodeTaskVO` 始终对应一个文件（目录模式下每个文件独立一条记录），则前端无需额外处理。需要验证后端行为。
+- **FR-010**：转码任务列表页面（`TranscodeTaskListPage.tsx`）中，"源路径"列和"目标路径"列的显示格式必须统一为 `完整路径/文件名.扩展名`，不显示纯目录条目。**已确认**：后端 `TranscodeFileProcessor.process()` 为每个文件创建独立的 `TranscodeTask` 记录，`scanSourceDirectory()` 仅收集文件不收集目录——`listAll()` 返回的每条记录始终对应一个具体文件，前端无需额外过滤逻辑。
 - **FR-011**：后端 `TranscodeService.listAll()` 返回的结果必须确保每个 `TranscodeTaskVO` 映射到一个具体文件，目录转码任务中的每个候补文件都生成了独立的 `TranscodeTask` 记录（当前 `TranscodeFileProcessor.process()` 已为此行为）。如果存在任何不关联具体文件的 `TranscodeTask`（如目录级别的父任务），需要过滤掉。
 
 #### 转码模块：批量操作
@@ -343,7 +345,7 @@
 - **FR-014**：后端必须新增 `POST /api/transcode-tasks/retry-all` 端点，对所有状态为 `DOWNLOAD_FAILED`、`TRANSCODE_FAILED`、`UPLOAD_FAILED` 的转码任务执行重试操作。端点立即返回 202 Accepted（不等待重试完成），实际重试在后端异步执行。每个任务的重试结果通过 WebSocket `TRANSCODE_PROGRESS` 消息逐条推送，前端自动更新列表状态。
 - **FR-015**：`TranscodeTaskRepository` 必须新增按状态批量删除的查询方法 `deleteByStatusIn(List<TranscodeStatus> statuses)` 和按状态查询的 `findByStatusIn(List<TranscodeStatus> statuses)`。
 - **FR-016**：前端 `TranscodeTaskListPage.tsx` 必须在页面顶部操作栏添加三个按钮："清理失败任务"、"清理成功任务"、"重试所有失败文件"。每个按钮点击后弹出确认对话框，确认后按钮进入加载态（显示"清理中..."或"重试中..."）并禁用。对于清理操作，API 返回后展示简短结果提示（如"已清理 5 个失败任务"）并自动刷新列表。对于重试操作，API 返回 202 后提示"已提交 N 个任务进行重试"，后续通过 WebSocket 实时更新列表。
-- **FR-017**：前端 `api.ts` 中的 API 客户端必须新增对应的接口方法，端点映射如上。
+- **FR-017**：前端 `client.ts` 中的 API 客户端必须新增对应的接口方法，端点映射如上。
 
 #### 同步模块：同引擎复制
 
@@ -351,7 +353,7 @@
 - **FR-019**：`AListStorageStrategy` 必须实现 `copyFile` 方法，调用 AList 的 `/api/fs/copy` 接口（POST 请求，body 包含 `src_dir`、`dst_dir`、`names` 参数）。
 - **FR-020**：`LocalStorageStrategy` 必须实现 `copyFile` 方法，使用 `java.nio.file.Files.copy` 进行本地文件复制。
 - **FR-021**：`SyncService.executeSyncTask()` 方法必须在执行同步时检测源引擎和目标引擎是否为同一个引擎（`sourceEngine.getId().equals(targetEngine.getId())`）。如果是，对每个待同步文件统一调用 `targetStrategy.copyFile()` 而非下载→上传流程（不做文件大小分流）。必须在调用前确保目标父目录存在。
-- **FR-022**：同引擎复制时必须处理冲突策略。使用与转码共享的 `ConflictStrategy` 枚举（OVERWRITE/SKIP/RENAME）。对于 SKIP 策略，在复制前检查目标是否存在，若存在则跳过。对于 OVERWRITE 策略，直接覆盖。对于 RENAME 策略，生成不重名的目标路径后复制。
+- **FR-022**：同引擎复制时必须处理冲突策略。使用与转码共享的 `ConflictStrategy` 枚举（OVERWRITE/SKIP/RENAME）。对于 SKIP 策略，在复制前检查目标是否存在，若存在则跳过。对于 OVERWRITE 策略，直接覆盖。对于 RENAME 策略，生成不重名的目标路径后复制——路径生成规则：在目标文件名（不含扩展名）后追加 `_1`、`_2`... 后缀直至目标路径不存在冲突，扩展名保持不变（如 `recording.mp3` → `recording_1.mp3` → `recording_2.mp3`）。
 - **FR-023**：同引擎复制的进度追踪和错误处理必须与现有同步流程一致——成功/失败计数、`TaskExecution` 记录更新、失败详情记录。
 
 #### 同步/转码：自动重试
@@ -406,7 +408,7 @@
 - **SC-005**："清理失败任务"、"清理成功任务"、"重试所有失败文件"三个按钮在转码任务列表页面可见且可操作，每个按钮点击后弹出确认对话框。
 - **SC-006**：同引擎同步时，文件传输不经过本地磁盘（对于 AList，通过 `/api/fs/copy` 服务端复制；对于 LOCAL，通过系统级文件拷贝）。性能至少提升 50%（同引擎场景）。**验证方法**：使用 10 个 ≥10MB 的媒体文件在同引擎（AList→AList）和异引擎（AList→LOCAL）场景下分别测量同步耗时，同引擎耗时应 ≤ 异引擎耗时的 50%。通过 `SyncServiceCopyTest` 单元测试验证 copyFile 调用路径正确。
 - **SC-007**：前端任何列表页面打开后，30 秒内 HTTP 请求数减少 80% 以上（与改前 5 秒轮询对比，改后仅首次加载和用户主动操作产生 HTTP 请求）。**验证方法**：打开转码任务列表页面，在浏览器开发者工具 Network 面板中统计页面加载完成后 30 秒内的 XHR/Fetch 请求数。改前基线：6 次请求（5 秒轮询 × 6 次）；改后预期：≤1 次（仅首次 REST 加载）。通过 `WebSocketConfigTest` 验证连接建立和消息推送正常。
-- **SC-008**：WebSocket 连接断线后 5 秒内自动重连成功，前端无任何手动刷新操作即可恢复数据更新。
+- **SC-008**：WebSocket 连接断线后通过指数退避策略自动重连（初始间隔 1 秒，最大 30 秒），重连成功后前端无需任何手动刷新操作即可恢复数据更新。认证失败（401）时不重连，引导用户重新登录。
 - **SC-009**：配置 `app.retry.max-auto-retries=3` 后，瞬时网络故障导致的同步失败文件在 3 次自动重试内恢复成功率 ≥ 80%。**验证方法**：模拟 `NetworkTimeoutException`（断开网络 5 秒后恢复），通过 `SyncServiceRetryTest` 验证重试触发、retryCount 递增、重试成功后状态恢复 COMPLETED。
 - **SC-010**：每个失败文件的重试次数在前端任务执行详情中可见（格式："重试 2/3"），用户无需查阅日志即可了解重试状态。
 
@@ -456,5 +458,8 @@
 - 前端 `TranscodeTaskForm.tsx`：复选框标签改文案、勾选后隐藏字段。
 - 前端 `TranscodeTaskListPage.tsx`：新增批量操作按钮、移除轮询改为 WebSocket。
 - 前端 `SyncTaskListPage.tsx`：移除轮询改为 WebSocket。
+- 前端 `SyncTaskDetailPage.tsx`：移除轮询改为 WebSocket。
+- 前端 `WebhookEventListPage.tsx`：移除轮询改为 WebSocket。
+- 前端 `DashboardPage.tsx`：移除轮询改为 WebSocket（保留 REST 初始加载）。
 - 前端新增 `useWebSocket.ts` Hook。
-- 前端 `api.ts` 类型定义新增批量操作 API 方法和 WebSocket 消息类型。
+- 前端 `client.ts` 类型定义新增批量操作 API 方法和 WebSocket 消息类型。

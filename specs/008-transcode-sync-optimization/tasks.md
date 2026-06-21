@@ -36,11 +36,11 @@
 **⚠️ 关键**：在此阶段完成之前，不能开始任何用户故事的工作
 
 - [ ] T004 在 `src/main/java/top/lldwb/alistmediasync/common/enums/MessageType.java` 中创建消息类型枚举（SYNC_PROGRESS、TRANSCODE_PROGRESS、TASK_EVENT、WEBHOOK_EVENT、DASHBOARD_UPDATE）
-- [ ] T005 在 `src/main/java/top/lldwb/alistmediasync/common/dto/WsMessage.java` 中创建 WebSocket 消息 DTO record（包含 `type`、`payload`、`timestamp` 字段，`timestamp` 由 WsSessionManager 在推送时自动填充 `Instant.now().toString()`，不由客户端生成）
+- [ ] T005 [P] 在 `src/main/java/top/lldwb/alistmediasync/common/dto/WsMessage.java` 中创建 WebSocket 消息 DTO record（包含 `type`（String，引用 MessageType 枚举值）、`payload`（Object）、`timestamp`（String）字段，`timestamp` 由 WsSessionManager 在推送时自动填充 `Instant.now().toString()`，不由客户端生成）——与 T004 无编译依赖（type 为 String 类型），可并行
 - [ ] T006 在 `src/main/java/top/lldwb/alistmediasync/common/exception/RetryableException.java` 中创建可重试异常标记接口
 - [ ] T007 在 `src/main/java/top/lldwb/alistmediasync/common/interceptor/WebSocketAuthInterceptor.java` 中实现 WebSocket 握手认证拦截器（读取 Authorization 头进行 Basic Auth 验证）
 - [ ] T008 在 `src/main/java/top/lldwb/alistmediasync/common/config/WebSocketConfig.java` 中配置 WebSocket 端点 `/ws/events`，注册握手拦截器，实现连接数上限控制
-- [ ] T009 在 `src/main/java/top/lldwb/alistmediasync/common/service/WsSessionManager.java` 中实现 WebSocket 会话管理与消息广播（含连接数计数、DASHBOARD_UPDATE 2 秒防抖）
+- [ ] T009 在 `src/main/java/top/lldwb/alistmediasync/common/service/WsSessionManager.java` 中实现 WebSocket 会话管理与消息广播（含连接数计数、DASHBOARD_UPDATE 2 秒防抖合并：任务状态变更后延迟 2 秒推送，2 秒内多次变更合并为一次 Dashboard 更新）
 
 **检查点**：基础就绪 — WebSocket 基础设施已搭建，现在可以并行开始用户故事实现
 
@@ -68,7 +68,7 @@
 - [ ] T021 [P] [US8] 在 `src/main/java/top/lldwb/alistmediasync/transcode/controller/TranscodeTaskController.java` 中创建/删除任务时推送 TASK_EVENT 消息
 - [ ] T022 [P] [US8] 在 `src/main/java/top/lldwb/alistmediasync/webhook/service/WebhookService.java` 中 Webhook 事件状态变更时推送 WEBHOOK_EVENT 消息
 - [ ] T023 [P] [US8] 在 `src/main/java/top/lldwb/alistmediasync/sync/controller/SyncTaskController.java` 中创建/删除同步任务时推送 TASK_EVENT 消息
-- [ ] T024 [US8] 为 `WebSocketConfig.java`、`WsSessionManager.java`、`WebSocketAuthInterceptor.java` 编写单元测试 `src/test/java/top/lldwb/alistmediasync/common/WebSocketConfigTest.java`
+- [ ] T024 [US8] 为 `WebSocketConfig.java`、`WsSessionManager.java`、`WebSocketAuthInterceptor.java` 编写单元测试 `src/test/java/top/lldwb/alistmediasync/common/WebSocketConfigTest.java`（含 DASHBOARD_UPDATE 防抖验证：2 秒内多次状态变更仅推送一次、连接数上限 429 拒绝）
 - [ ] T024a [US8] 为 `SyncService.java` 中 WebSocket 推送逻辑（T019）编写单元测试，验证 SYNC_PROGRESS 消息在同步状态变更时正确推送
 - [ ] T024b [P] [US8] 为 `TranscodeFileProcessor.java` 中 WebSocket 推送逻辑（T020）编写单元测试，验证 TRANSCODE_PROGRESS 消息在转码状态变更时正确推送
 - [ ] T024c [P] [US8] 为 `WebhookService.java` 中 WebSocket 推送逻辑（T022）编写单元测试，验证 WEBHOOK_EVENT 消息在事件状态变更时正确推送
@@ -219,10 +219,16 @@
 - [ ] T072 [P] 在 `src/main/resources/application.template.yaml` 中同步新增的配置项（`app.websocket.*`、`app.retry.*`、`app.storage.health-check-interval`）
 - [ ] T073 [P] 在 `.env` 和 `docker-compose.yml` 中新增环境变量（`APP_WEBSOCKET_MAX_CONNECTIONS`、`APP_RETRY_MAX_AUTO_RETRIES`），移除 `ALIST_BASE_URL` 和 `ALIST_TOKEN`
 - [ ] T074 [P] 在 `src/main/java/top/lldwb/alistmediasync/common/service/CleanupService.java` 中将临时文件清理策略从"启动时无条件清理"改为"定时任务清理超过 24 小时的孤立任务和临时文件"（替代 002 FR-013 策略），同步临时文件由 SyncService 自管生命周期
+- [ ] T074a [P] 为 `CleanupService` 定时清理逻辑编写单元测试 `src/test/java/top/lldwb/alistmediasync/common/CleanupServiceTest.java`（验证超过 24 小时文件被清理、不足 24 小时文件保留、sync/ 子目录不纳入清理）
 - [ ] T075 [P] 在 `src/main/java/top/lldwb/alistmediasync/storage/service/StorageEngineService.java` 中新增定时健康检查（`@Scheduled`，间隔由 `app.storage.health-check-interval` 配置，默认 5 分钟），自动更新 EngineStatus
+- [ ] T075a [P] 为 `StorageEngineService` 定时健康检查编写单元测试 `src/test/java/top/lldwb/alistmediasync/storage/StorageEngineHealthCheckTest.java`（验证定时任务触发、ONLINE/OFFLINE/ERROR 状态自动切换）
 - [ ] T076 运行 quickstart.md 中的所有验证场景，确认功能端到端可用
 - [ ] T077 [P] 更新 `README.md`：新增 WebSocket 配置说明、自动重试配置、同引擎复制说明、新增 REST API 端点文档、新增环境变量表
-- [ ] T078 [P] 更新 `AGENTS.md` 中 common/、storage/、sync/、transcode/ 模块的 AGENTS.md 以反映新增类和方法
+- [ ] T078 [P] 更新模块 AGENTS.md 文件以反映新增类和方法：
+  - [ ] T078a `src/main/java/top/lldwb/alistmediasync/common/AGENTS.md`：新增 WebSocket 配置（WebSocketConfig）、会话管理（WsSessionManager）、消息 DTO（WsMessage）、消息类型枚举（MessageType）、认证拦截器（WebSocketAuthInterceptor）、可重试异常（RetryableException）、重试服务（RetryService）、清理服务变更（CleanupService）
+  - [ ] T078b `src/main/java/top/lldwb/alistmediasync/storage/AGENTS.md`：新增 StorageEngineStrategy.copyFile() 方法、AListStorageStrategy/LocalStorageStrategy 的 copyFile 实现、StorageEngineService 健康检查
+  - [ ] T078c `src/main/java/top/lldwb/alistmediasync/sync/AGENTS.md`：新增 SyncTask 实体字段（transcodeTargetFormat/transcodeBitrate）、SyncService 同引擎复制逻辑和自动重试集成、TaskExecution failureDetails JSON 扩展
+  - [ ] T078d `src/main/java/top/lldwb/alistmediasync/transcode/AGENTS.md`：新增 TranscodeTask.retryCount 字段、批量操作端点（DELETE /failed、DELETE /completed、POST /retry-all）、Repository 批量方法、TranscodeFileProcessor 精确状态设置和自动重试逻辑、DTO 字段重命名（sameDirectoryTranscode→sourceDirectoryTranscode）
 
 ---
 
@@ -264,11 +270,11 @@
 ### 并行机会
 
 - 阶段 1 中 T002/T003 可并行
-- 阶段 2 中 T004/T005/T006 可并行（不同文件，无依赖）
+- 阶段 2 中 T004/T005/T006 可并行（不同文件，无依赖；T005.type 为 String 类型，不依赖 T004 的 MessageType 枚举编译）
 - US8 中 T012-T016（各页面迁移）可并行，T019-T023（各 Service/Controller 推送逻辑）可并行
 - US5 中 T026/T027（两种策略实现）可并行
 - US3 和 US4 可并行（转码模块的不同关注点）
-- 阶段 11 中 T072/T073/T074/T075 可并行
+- 阶段 11 中 T072/T073/T074/T074a/T075/T075a 可并行
 
 ---
 
