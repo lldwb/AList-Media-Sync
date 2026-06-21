@@ -5,10 +5,11 @@
 以下规则约束 AI 在此项目中的行为，优先级高于任何默认行为：
 
 1. **直接执行，跳过冗余分析** — 收到任务后直接开始实现，不要先输出"我先了解代码库结构"或"让我分析需求"之类的开场白。CLAUDE.md 已包含足够的架构上下文，直接动手。
-2. **禁止凭空编写规格文档** — 除非用户明确要求编写 spec/plan/tasks，否则不要创建或修改 `specs/` 目录下的任何文件。功能设计通过代码和注释表达。
-3. **先读后改，精准定位** — 修改前先阅读目标文件，理解现有实现后再改。不要猜测代码内容。
-4. **最小化输出** — 完成任务后简要说明做了什么，不要长篇总结。代码本身就是最好的文档。
-5. **遵循现有模式** — 新增代码保持与同模块现有代码一致的风格、命名和注释密度。不要引入新的架构模式除非任务明确要求。
+2. **先读模块 AGENTS.md** — 修改某个模块前，先读取该模块目录下的 `AGENTS.md` 了解功能、作用和关联。模块索引见下方"模块 AGENTS.md 索引"章节。
+3. **禁止凭空编写规格文档** — 除非用户明确要求编写 spec/plan/tasks，否则不要创建或修改 `specs/` 目录下的任何文件。功能设计通过代码和注释表达。
+4. **先读后改，精准定位** — 修改前先阅读目标文件，理解现有实现后再改。不要猜测代码内容。
+5. **最小化输出** — 完成任务后简要说明做了什么，不要长篇总结。代码本身就是最好的文档。
+6. **遵循现有模式** — 新增代码保持与同模块现有代码一致的风格、命名和注释密度。不要引入新的架构模式除非任务明确要求。
 
 ---
 
@@ -321,6 +322,35 @@ docker run -d -p 8080:8080 -e ALIST_BASE_URL=... -e ALIST_TOKEN=... -v alist-dat
 5. **并发控制**：转码使用 `Semaphore` 限流，线程池核8/最大32，拒绝策略 `CallerRunsPolicy`
 6. **优雅关闭**：应用 12s 关闭超时 + Docker Compose 35s 停止宽限期
 7. **健康检查**：通过 `/actuator/health` 端点暴露（Docker Compose 使用 wget 探测）
+
+---
+
+## 模块 AGENTS.md 索引
+
+每个模块目录下有一份 `AGENTS.md`，描述该模块的功能、作用和模块间关联。修改某模块时先读其 AGENTS.md。
+
+### 后端模块
+
+| 模块 | AGENTS.md 路径 | 一句话说明 |
+|------|---------------|-----------|
+| common | `src/main/java/…/common/AGENTS.md` | 共享基础设施（配置、认证、加密、工具） |
+| storage | `src/main/java/…/storage/AGENTS.md` | 策略模式存储引擎（AList 远程 + 本地） |
+| sync | `src/main/java/…/sync/AGENTS.md` | 文件同步引擎（三模式+三阶段） |
+| transcode | `src/main/java/…/transcode/AGENTS.md` | 媒体转码引擎（三步流程+8状态） |
+| webhook | `src/main/java/…/webhook/AGENTS.md` | Webhook 事件接收+规则匹配 |
+
+### 前端模块
+
+| 模块 | AGENTS.md 路径 | 一句话说明 |
+|------|---------------|-----------|
+| api | `src/main/frontend/src/api/AGENTS.md` | HTTP 请求封装（fetch + Basic Auth） |
+| types | `src/main/frontend/src/types/AGENTS.md` | TypeScript 类型定义 |
+| auth | `src/main/frontend/src/auth/AGENTS.md` | 认证状态管理（Context + 超时） |
+| components | `src/main/frontend/src/components/AGENTS.md` | 可复用 UI 组件（布局/表单/基础） |
+| hooks | `src/main/frontend/src/hooks/AGENTS.md` | React Hooks（轮询/分页） |
+| pages | `src/main/frontend/src/pages/AGENTS.md` | 页面组件（7个路由页面） |
+| router | `src/main/frontend/src/router/AGENTS.md` | Hash 路由表 + 认证守卫 |
+| utils | `src/main/frontend/src/utils/AGENTS.md` | 工具函数（格式化/校验/Cron） |
 
 ---
 
