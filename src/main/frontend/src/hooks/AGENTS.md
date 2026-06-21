@@ -1,5 +1,7 @@
 # frontend/hooks/ — React Hooks
 
+> **文件权重**：四级文件（地方性法规级），低于 `constitution.md`（宪法）、`AGENTS.md` 根级（法律）和前端 `AGENTS.md`（行政法规）。适用于本模块修改或他模块修改涉及本模块时。
+
 ## 功能
 
 通用 React Hooks。

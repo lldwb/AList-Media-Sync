@@ -1,5 +1,7 @@
 # frontend/types/ — TypeScript 类型定义
 
+> **文件权重**：四级文件（地方性法规级），低于 `constitution.md`（宪法）、`AGENTS.md` 根级（法律）和前端 `AGENTS.md`（行政法规）。适用于本模块修改或他模块修改涉及本模块时。
+
 ## 功能
 
 前端 API 类型定义，与后端 DTO/VO 字段一一对应。
