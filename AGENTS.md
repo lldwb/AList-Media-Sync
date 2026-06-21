@@ -2,7 +2,9 @@
 
 ## AI 工作指令
 
-以下规则约束 AI 在此项目中的行为，优先级高于任何默认行为。**规则与 `.specify/memory/constitution.md`（章程版本 1.6.0）的不可协商原则对齐，冲突时以章程为准**：
+以下规则约束 AI 在此项目中的行为，优先级高于任何默认行为。**规则与 `.specify/memory/constitution.md`（章程版本 1.8.0）的不可协商原则对齐，冲突时以章程为准**。
+
+> **文件权重体系**：constitution.md（宪法）> AGENTS.md 根级（法律·全局）> 前端/后端 AGENTS.md（行政法规）> 模块 AGENTS.md（地方性法规）。本文件为全局级法律层，覆盖项目的日常修改和 AI 行为约束，前端/后端及各模块 AGENTS.md 在此基础上逐级细化。
 
 1. **直接执行，跳过冗余分析** — 收到任务后直接开始实现，不要先输出"我先了解代码库结构"或"让我分析需求"之类的开场白。AGENTS.md 已包含足够的架构上下文，直接动手。
 2. **先读模块 AGENTS.md** — 修改某个模块前，先读取该模块目录下的 `AGENTS.md` 了解功能、作用和关联。模块索引见下方"模块 AGENTS.md 索引"章节。
@@ -350,30 +352,32 @@ docker run -d -p 8080:8080 -e ALIST_BASE_URL=... -e ALIST_TOKEN=... -v alist-dat
 
 ## 模块 AGENTS.md 索引
 
-每个模块目录下有一份 `AGENTS.md`，描述该模块的功能、作用和模块间关联。修改某模块时先读其 AGENTS.md。
+每个模块目录下有一份 `AGENTS.md`，描述该模块的功能、作用和模块间关联。修改某模块时先读其 AGENTS.md。前后端各有一份入口 `AGENTS.md` 作为行政法规层。
 
-### 后端模块
+### 后端
 
-| 模块 | AGENTS.md 路径 | 一句话说明 |
+| 层级 | AGENTS.md 路径 | 一句话说明 |
 |------|---------------|-----------|
-| common | `src/main/java/…/common/AGENTS.md` | 共享基础设施（配置、认证、加密、工具） |
-| storage | `src/main/java/…/storage/AGENTS.md` | 策略模式存储引擎（AList 远程 + 本地） |
-| sync | `src/main/java/…/sync/AGENTS.md` | 文件同步引擎（三模式+三阶段） |
-| transcode | `src/main/java/…/transcode/AGENTS.md` | 媒体转码引擎（三步流程+8状态） |
-| webhook | `src/main/java/…/webhook/AGENTS.md` | Webhook 事件接收+规则匹配 |
+| 行政法规 | `src/main/java/…/AGENTS.md` | 后端入口（技术栈、模块索引、合规要点） |
+| 地方性法规 | `src/main/java/…/common/AGENTS.md` | 共享基础设施（配置、认证、加密、工具） |
+| 地方性法规 | `src/main/java/…/storage/AGENTS.md` | 策略模式存储引擎（AList 远程 + 本地） |
+| 地方性法规 | `src/main/java/…/sync/AGENTS.md` | 文件同步引擎（三模式+三阶段） |
+| 地方性法规 | `src/main/java/…/transcode/AGENTS.md` | 媒体转码引擎（三步流程+8状态） |
+| 地方性法规 | `src/main/java/…/webhook/AGENTS.md` | Webhook 事件接收+规则匹配 |
 
-### 前端模块
+### 前端
 
-| 模块 | AGENTS.md 路径 | 一句话说明 |
+| 层级 | AGENTS.md 路径 | 一句话说明 |
 |------|---------------|-----------|
-| api | `src/main/frontend/src/api/AGENTS.md` | HTTP 请求封装（fetch + Basic Auth） |
-| types | `src/main/frontend/src/types/AGENTS.md` | TypeScript 类型定义 |
-| auth | `src/main/frontend/src/auth/AGENTS.md` | 认证状态管理（Context + 超时） |
-| components | `src/main/frontend/src/components/AGENTS.md` | 可复用 UI 组件（布局/表单/基础） |
-| hooks | `src/main/frontend/src/hooks/AGENTS.md` | React Hooks（轮询/分页） |
-| pages | `src/main/frontend/src/pages/AGENTS.md` | 页面组件（7个路由页面） |
-| router | `src/main/frontend/src/router/AGENTS.md` | Hash 路由表 + 认证守卫 |
-| utils | `src/main/frontend/src/utils/AGENTS.md` | 工具函数（格式化/校验/Cron） |
+| 行政法规 | `src/main/frontend/AGENTS.md` | 前端入口（技术栈、模块索引、路由表） |
+| 地方性法规 | `src/main/frontend/src/api/AGENTS.md` | HTTP 请求封装（fetch + Basic Auth） |
+| 地方性法规 | `src/main/frontend/src/types/AGENTS.md` | TypeScript 类型定义 |
+| 地方性法规 | `src/main/frontend/src/auth/AGENTS.md` | 认证状态管理（Context + 超时） |
+| 地方性法规 | `src/main/frontend/src/components/AGENTS.md` | 可复用 UI 组件（布局/表单/基础） |
+| 地方性法规 | `src/main/frontend/src/hooks/AGENTS.md` | React Hooks（轮询/分页） |
+| 地方性法规 | `src/main/frontend/src/pages/AGENTS.md` | 页面组件（7个路由页面） |
+| 地方性法规 | `src/main/frontend/src/router/AGENTS.md` | Hash 路由表 + 认证守卫 |
+| 地方性法规 | `src/main/frontend/src/utils/AGENTS.md` | 工具函数（格式化/校验/Cron） |
 
 ---
 
