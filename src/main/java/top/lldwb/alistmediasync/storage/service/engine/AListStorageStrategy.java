@@ -145,14 +145,14 @@ public class AListStorageStrategy implements StorageEngineStrategy {
             .toBodilessEntity();
     }
 
-    // AList API 单页最大返回数量
-    private static final int MAX_PER_PAGE = 1000;
+    // AList API 单页请求大小（不宜过大，避免触发服务端限制）
+    private static final int PAGE_SIZE = 50;
 
     @Override
     public List<DirectoryEntryVO> listDirectories(StorageEngine engine, String path) {
         try {
-            // 获取当前路径下的所有条目，仅过滤出目录
-            List<FileEntry> allEntries = listFiles(engine, path, 1, MAX_PER_PAGE);
+            // 分页获取当前路径下的所有条目，仅过滤出目录
+            List<FileEntry> allEntries = fetchAllEntries(engine, path);
             List<FileEntry> directories = allEntries.stream()
                 .filter(FileEntry::isDirectory)
                 .toList();
@@ -194,11 +194,35 @@ public class AListStorageStrategy implements StorageEngineStrategy {
     }
 
     /**
+     * 分页获取指定路径下的所有条目
+     * <p>
+     * AList 服务端可能限制单页返回数量，使用固定 pageSize 循环分页，
+     * 直到返回条目数少于请求数（表示已到末尾）或返回空列表。
+     * </p>
+     */
+    private List<FileEntry> fetchAllEntries(StorageEngine engine, String path) {
+        List<FileEntry> all = new ArrayList<>();
+        int page = 1;
+        while (true) {
+            List<FileEntry> pageEntries = listFiles(engine, path, page, PAGE_SIZE);
+            if (pageEntries.isEmpty()) {
+                break;
+            }
+            all.addAll(pageEntries);
+            if (pageEntries.size() < PAGE_SIZE) {
+                break; // 最后一页
+            }
+            page++;
+        }
+        return all;
+    }
+
+    /**
      * 检查目录是否包含子目录
      */
     private boolean hasChildren(StorageEngine engine, String path) {
         try {
-            List<FileEntry> entries = listFiles(engine, path, 1, MAX_PER_PAGE);
+            List<FileEntry> entries = fetchAllEntries(engine, path);
             return entries.stream().anyMatch(FileEntry::isDirectory);
         } catch (Exception e) {
             return false;
