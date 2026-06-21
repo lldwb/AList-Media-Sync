@@ -145,14 +145,23 @@ public class AListStorageStrategy implements StorageEngineStrategy {
             .toBodilessEntity();
     }
 
+    // AList API 单页最大返回数量
+    private static final int MAX_PER_PAGE = 1000;
+
     @Override
     public List<DirectoryEntryVO> listDirectories(StorageEngine engine, String path) {
         try {
-            // 获取所有条目，仅过滤出目录
-            List<FileEntry> allEntries = listFiles(engine, path, 1, Integer.MAX_VALUE);
+            // 获取所有条目，仅过滤出目录；使用合理分页大小防止 AList API 异常
+            List<FileEntry> allEntries = listFiles(engine, path, 1, MAX_PER_PAGE);
             return allEntries.stream()
                 .filter(FileEntry::isDirectory)
-                .map(f -> new DirectoryEntryVO(f.name(), f.path(), hasChildren(engine, f.path())))
+                .collect(Collectors.toMap(
+                    FileEntry::path,
+                    f -> new DirectoryEntryVO(f.name(), f.path(), hasChildren(engine, f.path())),
+                    (existing, replacement) -> existing  // 路径重复时保留第一个
+                ))
+                .values()
+                .stream()
                 .toList();
         } catch (Exception e) {
             log.error("列出目录失败：{} — {}", path, e.getMessage(), e);
@@ -188,7 +197,7 @@ public class AListStorageStrategy implements StorageEngineStrategy {
      */
     private boolean hasChildren(StorageEngine engine, String path) {
         try {
-            List<FileEntry> entries = listFiles(engine, path, 1, 50);
+            List<FileEntry> entries = listFiles(engine, path, 1, MAX_PER_PAGE);
             return entries.stream().anyMatch(FileEntry::isDirectory);
         } catch (Exception e) {
             return false;
