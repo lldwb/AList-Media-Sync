@@ -86,10 +86,17 @@ $ARGUMENTS
    - 读取 `.specify/templates/plan-template.md`，确保任何"章程检查"或规则与更新的原则对齐。
    - 读取 `.specify/templates/spec-template.md` 以对齐范围/需求 — 如果章程添加/移除强制部分或约束，则更新。
    - 读取 `.specify/templates/tasks-template.md`，确保任务分类反映新的或移除的原则驱动任务类型（例如，可观测性、版本控制、测试规范）。
-   - 读取 `.specify/templates/commands/*.md` 中的每个命令文件（包括此文件），验证在需要通用指导时没有过时的引用（仅限代理特定名称如 CLAUDE）残留。
+   - 读取 `.specify/templates/commands/*.md` 中的每个命令文件（包括此文件），验证在需要通用指导时没有过时的引用残留。
    - 读取任何运行时指导文档（例如，`README.md`、`docs/quickstart.md` 或代理特定指导文件（如果存在））。更新对已更改原则的引用。
 
-5. 生成同步影响报告（更新后作为 HTML 注释添加到章程文件顶部）：
+5. **四层 AGENTS.md 体系同步**（原则 X 要求）：
+   - 读取根级 `AGENTS.md`，检查 AI 工作指令章节是否与章程原则一致，不一致则更新
+   - 如果章程变更涉及后端约束，读取并更新 `src/main/java/…/AGENTS.md`（后端行政法规层）
+   - 如果章程变更涉及前端约束，读取并更新 `src/main/frontend/AGENTS.md`（前端行政法规层）
+   - 如果章程变更涉及特定模块行为，读取并更新对应模块 `AGENTS.md`（地方性法规层）
+   - 同步规则：AGENTS.md 与章程冲突时以章程为准；章程版本号变更 MUST 同步到各级 AGENTS.md
+
+6. 生成同步影响报告（更新后作为 HTML 注释添加到章程文件顶部）：
    - 版本变更：旧 → 新
    - 已修改原则列表（旧标题 → 新标题，如果重命名）
    - 新增部分
@@ -97,15 +104,15 @@ $ARGUMENTS
    - 需要更新的模板（✅ 已更新 / ⚠ 待处理），附文件路径
    - 如果有任何有意推迟的占位符，列出后续 TODO。
 
-6. 最终输出前的验证：
+7. 最终输出前的验证：
    - 没有剩余的未解释方括号标记。
    - 版本行与报告匹配。
    - 日期采用 ISO 格式 YYYY-MM-DD。
    - 原则是声明性的、可测试的，不含模糊语言（"应该" → 在适当的地方替换为 MUST/SHOULD 加上理由）。
 
-7. 将完成的章程写回 `.specify/memory/constitution.md`（覆写）。
+8. 将完成的章程写回 `.specify/memory/constitution.md`（覆写）。
 
-8. 向用户输出最终摘要，包含：
+9. 向用户输出最终摘要，包含：
    - 新版本和递增理由。
    - 任何标记为需要手动跟进的文件。
    - 建议的提交消息（例如，`docs: amend constitution to vX.Y.Z (principle additions + governance update)`）。

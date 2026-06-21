@@ -155,7 +155,7 @@ $ARGUMENTS
    - 将此制品保持为验证/运行指南；实现细节属于 `tasks.md` 和实现阶段。
 
 4. **代理上下文更新**：
-   - 更新 `CLAUDE.md` 中 `<!-- SPECKIT START -->` 和 `<!-- SPECKIT END -->` 标记之间的计划引用，指向步骤 1 中创建的计划文件（IMPL_PLAN 路径）。
+   - 更新 `AGENTS.md` 中 `<!-- SPECKIT START -->` 和 `<!-- SPECKIT END -->` 标记之间的计划引用，指向步骤 1 中创建的计划文件（IMPL_PLAN 路径）。
 
 **输出**：data-model.md、/contracts/*、quickstart.md、更新后的代理上下文文件。
 
