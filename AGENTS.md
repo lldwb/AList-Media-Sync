@@ -391,3 +391,7 @@ docker run -d -p 8080:8080 -e ALIST_BASE_URL=... -e ALIST_TOKEN=... -v alist-dat
 - Web 管理前端：`specs/004-web-management-frontend/plan.md`
 - 一体化启动包：`specs/005-standalone-bootstrap/plan.md`
 - 存储引擎重构：`specs/006-storage-engine-refactor/plan.md`
+- 密码加密与代码组织：`specs/007-password-encryption-and-code-organization/plan.md`
+<!-- SPECKIT START -->
+- 转码与同步优化：`specs/008-transcode-sync-optimization/plan.md`
+<!-- SPECKIT END -->
