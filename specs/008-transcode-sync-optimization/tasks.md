@@ -36,7 +36,7 @@
 **⚠️ 关键**：在此阶段完成之前，不能开始任何用户故事的工作
 
 - [ ] T004 在 `src/main/java/top/lldwb/alistmediasync/common/enums/MessageType.java` 中创建消息类型枚举（SYNC_PROGRESS、TRANSCODE_PROGRESS、TASK_EVENT、WEBHOOK_EVENT、DASHBOARD_UPDATE）
-- [ ] T005 在 `src/main/java/top/lldwb/alistmediasync/common/dto/WsMessage.java` 中创建 WebSocket 消息 DTO record
+- [ ] T005 在 `src/main/java/top/lldwb/alistmediasync/common/dto/WsMessage.java` 中创建 WebSocket 消息 DTO record（包含 `type`、`payload`、`timestamp` 字段，`timestamp` 由 WsSessionManager 在推送时自动填充 `Instant.now().toString()`，不由客户端生成）
 - [ ] T006 在 `src/main/java/top/lldwb/alistmediasync/common/exception/RetryableException.java` 中创建可重试异常标记接口
 - [ ] T007 在 `src/main/java/top/lldwb/alistmediasync/common/interceptor/WebSocketAuthInterceptor.java` 中实现 WebSocket 握手认证拦截器（读取 Authorization 头进行 Basic Auth 验证）
 - [ ] T008 在 `src/main/java/top/lldwb/alistmediasync/common/config/WebSocketConfig.java` 中配置 WebSocket 端点 `/ws/events`，注册握手拦截器，实现连接数上限控制
@@ -69,6 +69,9 @@
 - [ ] T022 [P] [US8] 在 `src/main/java/top/lldwb/alistmediasync/webhook/service/WebhookService.java` 中 Webhook 事件状态变更时推送 WEBHOOK_EVENT 消息
 - [ ] T023 [P] [US8] 在 `src/main/java/top/lldwb/alistmediasync/sync/controller/SyncTaskController.java` 中创建/删除同步任务时推送 TASK_EVENT 消息
 - [ ] T024 [US8] 为 `WebSocketConfig.java`、`WsSessionManager.java`、`WebSocketAuthInterceptor.java` 编写单元测试 `src/test/java/top/lldwb/alistmediasync/common/WebSocketConfigTest.java`
+- [ ] T024a [US8] 为 `SyncService.java` 中 WebSocket 推送逻辑（T019）编写单元测试，验证 SYNC_PROGRESS 消息在同步状态变更时正确推送
+- [ ] T024b [P] [US8] 为 `TranscodeFileProcessor.java` 中 WebSocket 推送逻辑（T020）编写单元测试，验证 TRANSCODE_PROGRESS 消息在转码状态变更时正确推送
+- [ ] T024c [P] [US8] 为 `WebhookService.java` 中 WebSocket 推送逻辑（T022）编写单元测试，验证 WEBHOOK_EVENT 消息在事件状态变更时正确推送
 
 **检查点**：WebSocket 实时推送全面替代轮询，所有列表页面 30 秒内 HTTP 请求减少 80%+
 
@@ -86,7 +89,7 @@
 - [ ] T026 [P] [US5] 在 `src/main/java/top/lldwb/alistmediasync/storage/service/engine/AListStorageStrategy.java` 中实现 copyFile()：调用 AList `/api/fs/copy` API（POST，body 含 src_dir、dst_dir、names），按源目录分组批量调用，SKIP 文件先过滤
 - [ ] T027 [P] [US5] 在 `src/main/java/top/lldwb/alistmediasync/storage/service/engine/LocalStorageStrategy.java` 中实现 copyFile()：使用 `java.nio.file.Files.copy(source, target, StandardCopyOption.REPLACE_EXISTING)`
 - [ ] T028 [US5] 在 `src/main/java/top/lldwb/alistmediasync/sync/service/SyncService.java` 的 `executeSyncTask()` 中新增同引擎检测逻辑：`sourceEngine.getId().equals(targetEngine.getId())` 时调用 `targetStrategy.copyFile()` 替代下载→上传，调用前确保目标父目录存在
-- [ ] T029 [US5] 在 `src/main/java/top/lldwb/alistmediasync/sync/service/SyncService.java` 中同引擎复制时处理冲突策略（使用共享 ConflictStrategy 枚举：SKIP 检查目标存在则跳过，OVERWRITE 直接覆盖，RENAME 生成不重名路径）
+- [ ] T029 [US5] 在 `src/main/java/top/lldwb/alistmediasync/sync/service/SyncService.java` 中同引擎复制时处理冲突策略（使用共享 ConflictStrategy 枚举：SKIP 检查目标存在则跳过，OVERWRITE 直接覆盖，RENAME 生成不重名路径）。RENAME 策略路径生成规则：在目标文件名（不含扩展名）后追加 `_1`、`_2`... 后缀直至目标路径不存在冲突，扩展名保持不变（如 `recording.mp3` → `recording_1.mp3` → `recording_2.mp3`）
 - [ ] T030 [US5] 同引擎复制进度追踪与错误处理保持与现有同步流程一致（成功/失败计数、TaskExecution 记录、失败详情记录日志）
 - [ ] T031 [US5] 为 `AListStorageStrategy.copyFile()` 和 `LocalStorageStrategy.copyFile()` 编写单元测试 `src/test/java/top/lldwb/alistmediasync/storage/StorageEngineCopyTest.java`
 - [ ] T032 [US5] 为 `SyncService` 同引擎复制逻辑编写单元测试 `src/test/java/top/lldwb/alistmediasync/sync/SyncServiceCopyTest.java`
@@ -114,6 +117,7 @@
 - [ ] T041 [US7] 在 `src/main/java/top/lldwb/alistmediasync/transcode/controller/TranscodeTaskController.java` 的手动重试端点中确保手动重试不计入自动重试次数限制（始终执行）
 - [ ] T042 [US7] 为 `RetryService.java` 编写单元测试 `src/test/java/top/lldwb/alistmediasync/common/RetryServiceTest.java`（验证指数退避计算、RetryableException 判断、重试用尽行为）
 - [ ] T043 [US7] 为 `TranscodeFileProcessor` 自动重试逻辑编写单元测试 `src/test/java/top/lldwb/alistmediasync/transcode/TranscodeFileProcessorRetryTest.java`
+- [ ] T043a [US7] 为 `SyncService` 自动重试逻辑（T038）编写单元测试 `src/test/java/top/lldwb/alistmediasync/sync/SyncServiceRetryTest.java`，验证 RetryableException 触发重试、非 RetryableException 直接标记失败、retryCount 递增
 
 **检查点**：瞬时故障自动重试 3 次内恢复成功率 ≥ 80%，业务错误不重试
 
@@ -128,7 +132,7 @@
 ### 用户故事 1 的实现
 
 - [ ] T044 [US1] 在 `src/main/frontend/src/pages/TranscodeTaskForm.tsx` 中将复选框标签文案从"原目录转码（输出至源文件所在目录）"改为"源目录转码（输出至源文件所在目录）"
-- [ ] T045 [US1] 在 `src/main/frontend/src/pages/TranscodeTaskForm.tsx` 中实现：勾选"源目录转码"时隐藏（非禁用）"目标存储引擎"和"目标文件路径"字段及其标签，取消勾选时重新显示并恢复必填
+- [ ] T045 [US1] 在 `src/main/frontend/src/pages/TranscodeTaskForm.tsx` 中实现：勾选"源目录转码"时隐藏（非禁用）"目标存储引擎"和"目标文件路径"字段及其标签，取消勾选时重新显示并恢复必填。边界情况：勾选"源目录转码"但未选择源存储引擎时，提交表单应提示"请先选择源存储引擎"
 - [ ] T046 [US1] 在 `src/main/frontend/src/pages/TranscodeTaskForm.tsx` 中修改表单提交逻辑：当 `sourceDirectoryTranscode=true` 时不传 `targetEngineId`（或传 null），`targetFilePath` 传空字符串
 - [ ] T047 [US1] 在 `src/main/java/top/lldwb/alistmediasync/transcode/dto/transcode/TranscodeTaskCreateDTO.java` 中将 `sameDirectoryTranscode` 字段重命名为 `sourceDirectoryTranscode`，将 `targetEngineId` 的 `@NotNull` 改为条件校验（`sourceDirectoryTranscode=true` 时可为空）
 - [ ] T048 [US1] 在 `src/main/java/top/lldwb/alistmediasync/transcode/controller/TranscodeTaskController.java` 的创建任务端点中，当 `sourceDirectoryTranscode=true` 时自动将 `targetEngineId` 赋值为 `sourceEngineId`
