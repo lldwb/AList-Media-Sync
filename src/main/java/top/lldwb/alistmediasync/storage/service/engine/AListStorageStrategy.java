@@ -4,8 +4,7 @@ import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.stereotype.Component;
 import org.springframework.util.LinkedMultiValueMap;
-import org.springframework.util.MultiValueMap;
-import org.springframework.web.client.RestClient;
+import top.lldwb.alistmediasync.common.util.AListApiClient;
 import top.lldwb.alistmediasync.sync.dto.sync.DirectoryEntryVO;
 import top.lldwb.alistmediasync.sync.dto.sync.FileEntry;
 import top.lldwb.alistmediasync.storage.entity.StorageEngine;
@@ -20,8 +19,8 @@ import java.util.*;
 /**
  * AList 存储引擎策略实现
  * <p>
- * 通过 HTTP 调用 AList REST API 实现文件操作。
- * 内部使用 Spring RestClient 直接调用 AList API。
+ * 通过 {@link AListApiClient} 统一封装 HTTP 调用 AList REST API，
+ * 实现文件操作。所有 API 请求均经过统一的日志输出和异常处理。
  * </p>
  *
  * @author AList-Media-Sync
@@ -31,7 +30,7 @@ import java.util.*;
 @RequiredArgsConstructor
 public class AListStorageStrategy implements StorageEngineStrategy {
 
-    private final RestClient.Builder restClientBuilder;
+    private final AListApiClient apiClient;
 
     @Override
     public String type() {
@@ -48,14 +47,8 @@ public class AListStorageStrategy implements StorageEngineStrategy {
             "refresh", false
         );
         @SuppressWarnings("unchecked")
-        Map<String, Object> result = restClient().post()
-            .uri(engine.getBaseUrl() + "/api/fs/list")
-            .header("Authorization", engine.getEncryptedToken())
-            .contentType(org.springframework.http.MediaType.APPLICATION_JSON)
-            .body(body)
-            .retrieve()
-            .body(Map.class);
-
+        Map<String, Object> result = apiClient.post(
+            engine.getBaseUrl(), engine.getEncryptedToken(), "/api/fs/list", body);
         return parseFileList(result);
     }
 
@@ -69,14 +62,8 @@ public class AListStorageStrategy implements StorageEngineStrategy {
             "refresh", false
         );
         @SuppressWarnings("unchecked")
-        Map<String, Object> result = restClient().post()
-            .uri(engine.getBaseUrl() + "/api/fs/get")
-            .header("Authorization", engine.getEncryptedToken())
-            .contentType(org.springframework.http.MediaType.APPLICATION_JSON)
-            .body(body)
-            .retrieve()
-            .body(Map.class);
-
+        Map<String, Object> result = apiClient.post(
+            engine.getBaseUrl(), engine.getEncryptedToken(), "/api/fs/get", body);
         return parseFileEntry(result);
     }
 
@@ -86,20 +73,14 @@ public class AListStorageStrategy implements StorageEngineStrategy {
             "path", path,
             "password", ""
         );
-        byte[] fileBytes = restClient().post()
-            .uri(engine.getBaseUrl() + "/api/fs/get")
-            .header("Authorization", engine.getEncryptedToken())
-            .contentType(org.springframework.http.MediaType.APPLICATION_JSON)
-            .body(body)
-            .accept(org.springframework.http.MediaType.APPLICATION_OCTET_STREAM)
-            .retrieve()
-            .body(byte[].class);
+        byte[] fileBytes = apiClient.postForBytes(
+            engine.getBaseUrl(), engine.getEncryptedToken(), "/api/fs/get", body);
         return fileBytes != null ? new ByteArrayInputStream(fileBytes) : null;
     }
 
     @Override
     public void uploadFile(StorageEngine engine, String remotePath, InputStream inputStream, long fileSize) {
-        MultiValueMap<String, Object> parts = new LinkedMultiValueMap<>();
+        var parts = new LinkedMultiValueMap<String, Object>();
         parts.add("file", new org.springframework.core.io.InputStreamResource(inputStream) {
             @Override
             public long contentLength() {
@@ -107,27 +88,19 @@ public class AListStorageStrategy implements StorageEngineStrategy {
             }
         });
 
-        restClient().put()
-            .uri(engine.getBaseUrl() + "/api/fs/put")
-            .header("Authorization", engine.getEncryptedToken())
-            .header("File-Path", remotePath)
-            .header("As-Task", "true")
-            .contentType(org.springframework.http.MediaType.MULTIPART_FORM_DATA)
-            .body(parts)
-            .retrieve()
-            .toBodilessEntity();
+        Map<String, String> extraHeaders = new LinkedHashMap<>();
+        extraHeaders.put("File-Path", remotePath);
+        extraHeaders.put("As-Task", "true");
+
+        apiClient.putMultipart(
+            engine.getBaseUrl(), engine.getEncryptedToken(), "/api/fs/put", parts, extraHeaders);
     }
 
     @Override
     public void createDirectory(StorageEngine engine, String path) {
         Map<String, Object> body = Map.of("path", path);
-        restClient().post()
-            .uri(engine.getBaseUrl() + "/api/fs/mkdir")
-            .header("Authorization", engine.getEncryptedToken())
-            .contentType(org.springframework.http.MediaType.APPLICATION_JSON)
-            .body(body)
-            .retrieve()
-            .toBodilessEntity();
+        apiClient.postVoid(
+            engine.getBaseUrl(), engine.getEncryptedToken(), "/api/fs/mkdir", body);
     }
 
     @Override
@@ -136,13 +109,8 @@ public class AListStorageStrategy implements StorageEngineStrategy {
             "names", List.of(path.substring(path.lastIndexOf('/') + 1)),
             "dir", path.substring(0, path.lastIndexOf('/') + 1)
         );
-        restClient().post()
-            .uri(engine.getBaseUrl() + "/api/fs/remove")
-            .header("Authorization", engine.getEncryptedToken())
-            .contentType(org.springframework.http.MediaType.APPLICATION_JSON)
-            .body(body)
-            .retrieve()
-            .toBodilessEntity();
+        apiClient.postVoid(
+            engine.getBaseUrl(), engine.getEncryptedToken(), "/api/fs/remove", body);
     }
 
     // AList API 单页请求大小（不宜过大，避免触发服务端限制）
@@ -174,11 +142,8 @@ public class AListStorageStrategy implements StorageEngineStrategy {
     public boolean testConnection(StorageEngine engine) {
         try {
             @SuppressWarnings("unchecked")
-            Map<String, Object> result = restClient().get()
-                .uri(engine.getBaseUrl() + "/api/me")
-                .header("Authorization", engine.getEncryptedToken())
-                .retrieve()
-                .body(Map.class);
+            Map<String, Object> result = apiClient.get(
+                engine.getBaseUrl(), engine.getEncryptedToken(), "/api/me");
             return result != null && result.get("code") instanceof Number
                 && ((Number) result.get("code")).intValue() == 200;
         } catch (Exception e) {
@@ -188,10 +153,6 @@ public class AListStorageStrategy implements StorageEngineStrategy {
     }
 
     // ==================== 私有辅助方法 ====================
-
-    private RestClient restClient() {
-        return restClientBuilder.build();
-    }
 
     /**
      * 分页获取指定路径下的所有条目
