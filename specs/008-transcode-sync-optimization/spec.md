@@ -48,6 +48,12 @@
 - Q: 001 边界情况中"系统宕机重启后，未完成的转码任务如何恢复？"——006 定义了 8 状态模型和失败重试逻辑，但"启动时将运行中任务标记为中断并从数据库重新注册定时任务"的实现者是谁？001 FR-004 只提到同步任务手动触发时的去重，未明确说明启动时的状态恢复机制。 → A: 由 001 的启动逻辑统一处理。应用启动时在 common 包中扫描所有 RUNNING 状态的任务（同步和转码），标记为 INTERRUPTED，重新注册定时调度。001 的边界情况已描述此行为，common 包中的全局启动逻辑统一扫描所有任务状态最为合理。
 - Q: 008 未生成 plan.md 和 tasks.md，且依赖 004/006/007 的前置完成。跨 spec 的实现顺序和阻塞关系需要明确。 → A: **留待 plan 阶段解决**。008 将在 `/speckit-plan` 中定义与 004/006/007 的精确依赖关系和实现阶段划分。
 
+- Q: 自动重试如何区分"瞬时故障"（应重试）和"业务逻辑错误"（不应重试）？ → A: 引入 `RetryableException` 标记接口。可重试的异常（如网络超时、API 临时不可用）实现此接口，自动重试逻辑通过 `instanceof RetryableException` 判断是否触发重试。不可重试的异常（如文件不存在 404、格式不支持、权限不足）不实现此接口，直接标记为最终失败。
+- Q: `retryCount`（自动重试已执行次数）应存储在 TranscodeTask 实体上还是 TaskExecution 的 failureDetails JSON 中？ → A: TranscodeTask 实体新增 `retryCount` 整型字段。TranscodeTask 是重试的实际执行单元（每个转码文件独立重试），独立转码任务也有 TranscodeTask 记录，不受影响。TaskExecution 的 failureDetails JSON 中同步记录一份用于展示，但主数据源是 TranscodeTask。
+- Q: 001 中"移动"模式（MOVE）的语义——源文件同步完成后是否从源存储删除？删除时机？ → A: 整批完成后统一删除源文件。同步任务中所有文件同步成功后，再统一从源存储删除对应的源文件。若任务部分失败，源文件全部保留（不删除任何已成功同步的源文件），确保源端数据完整可重试。
+- Q: 本地路径（LOCAL）类型存储引擎是否需要路径安全约束？树状目录浏览是否允许跳出 localPath？ → A: 白名单+黑名单组合。仅允许用户主目录和指定数据目录作为 localPath，黑名单禁止系统目录（`/etc`、`C:\Windows`、`/` 等）。树状目录浏览限制在 localPath 内，不可向上越界访问外部目录。
+- Q: WebSocket DASHBOARD_UPDATE 消息的触发时机——每次任务状态变更都推送会产生大量冗余推送和数据库查询，如何控制频率？ → A: 防抖机制。任务状态变更后延迟 2 秒推送，2 秒内的多次变更合并为一次 Dashboard 更新推送。保证数据新鲜度同时避免冗余推送和过度数据库查询。
+
 ### 跨 spec 澄清分析（2026-06-21）
 
 对 `specs/` 下所有 8 个 spec.md 进行 clarify 分析。规则：**后面的 spec 覆盖前面的，冲突无需单独说明；仅列出后续 spec 也未澄清的真正决策点。**
@@ -56,7 +62,7 @@
 
 #### 001-alist-media-sync
 
-- **Q-001-1**: 同步任务中"移动"模式（MOVE）的具体语义未定义。FR-003 列出三种同步模式（仅新增/全同步/移动），但验收场景仅描述了"仅新增"和"全同步"。"移动"模式下源文件同步完成后是否从源存储删除？删除时机是单个文件同步成功后立即删除，还是整批完成后统一删除？移动一半失败时源文件状态如何恢复？ → **待澄清**
+- **Q-001-1**: ~~同步任务中"移动"模式（MOVE）的具体语义未定义。FR-003 列出三种同步模式（仅新增/全同步/移动），但验收场景仅描述了"仅新增"和"全同步"。"移动"模式下源文件同步完成后是否从源存储删除？删除时机是单个文件同步成功后立即删除，还是整批完成后统一删除？移动一半失败时源文件状态如何恢复？~~ → **已澄清**：整批完成后统一删除源文件，部分失败时源文件全部保留。
 - **Q-001-2**: 录播姬 Webhook 处理中 `FileClosed` 和 `SessionEnded` 事件的语义差异未明确。一个录制会话会产生多个 `FileClosed` 事件（分段录制），`SessionEnded` 表示整个会话结束。当规则配置为 `SessionEnded` 触发时，是否需要等待所有分段文件就绪后批量处理？还是收到事件后立即处理所有已知文件？ → **待澄清**
 - **Q-001-3**: 同步后置转码（SyncTask.transcodeEnabled=true）的转码目标存储引擎、目标路径、目标格式、码率如何确定？SyncTask 实体仅有 `transcodeEnabled` 布尔字段，缺少转码参数配置。是使用同步任务的目标引擎/路径+默认格式（MP3/128kbps），还是允许独立配置？ → **待澄清**
 - **Q-001-4**: Webhook 处理规则中"仅同步"动作（SYNC_ONLY）的源端逻辑未定义。006 补充了"录播存储引擎"下拉选择器，但 SYNC_ONLY 动作是否意味着从录播存储引擎（本地路径类型）复制到目标 AList 存储？SyncService 是否需要区分 Webhook 触发同步和常规同步？ → **待澄清**
@@ -99,7 +105,7 @@
 - **Q-006-1**: StorageEngineStrategy 接口是否在 006 中预留 `copyFile()` 默认方法（默认抛 UnsupportedOperationException），还是完全留给 008 扩展？当前 006 所有制品均未提及 copyFile，但 008 已明确需要此方法。若 006 不预留，008 需修改已上线接口。 → **待澄清**
 - **Q-006-2**: 转码临时文件目录的具体路径、文件命名规则未定义。`tempSourcePath` 和 `tempFilePath` 是否在同一子目录？三步流程的并发资源占用模型（下载/转码/上传是否共享一个并发槽位）未明确，影响磁盘空间预估。 → **待澄清**
 - **Q-006-3**: StorageEngine 的 EngineStatus（ONLINE/OFFLINE/ERROR）是仅在手动"测试连接"时更新，还是需要后台定时健康检查自动维护？ → **待澄清**
-- **Q-006-4**: 本地路径（LOCAL）类型存储引擎是否需要路径安全约束（禁止配置 `/`、`/etc`、`C:\Windows` 等系统目录）？树状目录浏览是否允许用户跳出 localPath 访问外部目录？ → **待澄清**
+- **Q-006-4**: ~~本地路径（LOCAL）类型存储引擎是否需要路径安全约束（禁止配置 `/`、`/etc`、`C:\Windows` 等系统目录）？树状目录浏览是否允许用户跳出 localPath 访问外部目录？~~ → **已澄清**：白名单+黑名单组合，仅允许用户主目录和指定数据目录，黑名单禁止系统目录，树状浏览限制在 localPath 内不可越界。
 - **Q-006-5**: WebhookRule 新增 `recordingEngine` 关联的数据迁移策略未定义。现有 Webhook 规则升级后 recordingEngine 如何赋值？`targetPath` → `targetFilePath` 字段重命名是否需要数据库迁移脚本？ → **待澄清**
 
 ---
@@ -107,10 +113,10 @@
 #### 008-transcode-sync-optimization（本规格）
 
 - **Q-008-1**: 自动重试和批量重试依赖精确的失败状态（DOWNLOAD_FAILED/TRANSCODE_FAILED/UPLOAD_FAILED），但当前 TranscodeFileProcessor 的 catch 块仅保存 errorMessage，不区分失败步骤。006 完成后异常处理是否已按步骤设置对应 FAILED 状态？如果未实现，008 的重试机制如何确定重试起点？ → **待澄清**
-- **Q-008-2**: retryCount 应存储在 TranscodeTask 实体上还是 TaskExecution 的 failureDetails JSON 中？TranscodeTask 是每个文件一条记录（重试粒度），TaskExecution 是同步任务级别的执行记录。独立转码任务（不关联 SyncTask）的重试次数如何记录？ → **待澄清**
-- **Q-008-3**: WebSocket DASHBOARD_UPDATE 消息的触发时机未明确。Dashboard 统计数据是聚合计算值，每次任务状态变更都重算推送会产生大量冗余推送和数据库查询。需要防抖/节流机制或仅任务完成时推送。 → **待澄清**
+- **Q-008-2**: ~~retryCount 应存储在 TranscodeTask 实体上还是 TaskExecution 的 failureDetails JSON 中？~~ → **已澄清**：TranscodeTask 实体新增 `retryCount` 整型字段，TaskExecution.failureDetails 同步记录，详见 FR-026。
+- **Q-008-3**: ~~WebSocket DASHBOARD_UPDATE 消息的触发时机未明确。Dashboard 统计数据是聚合计算值，每次任务状态变更都重算推送会产生大量冗余推送和数据库查询。需要防抖/节流机制或仅任务完成时推送。~~ → **已澄清**：防抖机制，任务状态变更后延迟 2 秒推送，2 秒内多次变更合并为一次。
 - **Q-008-4**: AList `/api/fs/copy` 接口支持批量复制（`names` 数组），当前 SyncService 是逐文件处理。同引擎复制时是否应按源目录分组批量调用 `/api/fs/copy`（减少 API 调用），还是保持逐文件调用？批量调用时部分文件 SKIP 部分覆盖如何处理？ → **待澄清**
-- **Q-008-5**: 自动重试如何区分"瞬时故障"和"业务逻辑错误"？A10 声明仅对瞬时故障重试，但当前代码所有失败都抛同一 Exception。AList 返回 404（文件不存在）vs 503（服务不可用）vs FFmpeg 转码失败（格式不支持）应有不同重试策略。是否需要引入可重试异常标记？ → **待澄清**
+- **Q-008-5**: ~~自动重试如何区分"瞬时故障"和"业务逻辑错误"？~~ → **已澄清**：引入 `RetryableException` 标记接口，详见 FR-024 和 A10。
 
 ---
 
@@ -118,7 +124,7 @@
 
 | 编号 | 源 spec | 问题摘要 | 影响的关键决策 |
 |------|---------|---------|---------------|
-| Q-001-1 | 001 | MOVE 同步模式语义未定义 | SyncService 执行逻辑、错误恢复策略 |
+| Q-001-1 | 001 | MOVE 同步模式语义未定义 | **已澄清**—整批完成后统一删除源文件 |
 | Q-001-2 | 001 | FileClosed vs SessionEnded 处理差异 | WebhookService 事件处理流程 |
 | Q-001-3 | 001 | 同步后置转码的目标引擎/路径/参数 | SyncTask 实体设计、Sync→Transcode 衔接 |
 | Q-001-4 | 001 | Webhook SYNC_ONLY 的源端逻辑 | SyncService 场景区分 |
@@ -136,13 +142,13 @@
 | Q-006-1 | 006 | copyFile 是否在 006 预留 | 接口二进制兼容性 |
 | Q-006-2 | 006 | 临时文件目录路径和并发模型 | 磁盘空间预估 |
 | Q-006-3 | 006 | EngineStatus 维护机制 | 健康检查定时任务 |
-| Q-006-4 | 006 | LOCAL 引擎路径安全约束 | 安全性（文件系统访问边界） |
+| Q-006-4 | 006 | LOCAL 引擎路径安全约束 | **已澄清**—白名单+黑名单组合，树状浏览限制在 localPath 内 |
 | Q-006-5 | 006 | WebhookRule 数据迁移策略 | 升级后数据完整性 |
 | Q-008-1 | 008 | 失败状态精确设置 | 重试机制可行性 |
-| Q-008-2 | 008 | retryCount 存储位置 | 数据模型设计 |
-| Q-008-3 | 008 | Dashboard WebSocket 推送频率 | 推送性能和准确性 |
+| Q-008-2 | 008 | retryCount 存储位置 | **已澄清**—TranscodeTask 实体新增字段 |
+| Q-008-3 | 008 | Dashboard WebSocket 推送频率 | **已澄清**—防抖机制，延迟 2 秒合并推送 |
 | Q-008-4 | 008 | 同引擎复制批量 vs 逐文件 | SyncService 执行逻辑 |
-| Q-008-5 | 008 | 瞬时故障 vs 业务错误区分 | 自动重试精确性 |
+| Q-008-5 | 008 | 瞬时故障 vs 业务错误区分 | **已澄清**—RetryableException 标记接口 |
 
 ## 用户场景与测试 *（强制）*
 
@@ -330,9 +336,9 @@
 
 #### 同步/转码：自动重试
 
-- **FR-024**：系统必须支持对同步和转码任务中因瞬时故障（网络超时、API 临时不可用等）失败的操作进行自动重试。最大自动重试次数通过配置文件 `app.retry.max-auto-retries` 配置，默认值 3。
+- **FR-024**：系统必须支持对同步和转码任务中因瞬时故障（网络超时、API 临时不可用等）失败的操作进行自动重试。最大自动重试次数通过配置文件 `app.retry.max-auto-retries` 配置，默认值 3。系统必须引入 `RetryableException` 标记接口——仅当捕获的异常实现了 `RetryableException` 时才触发自动重试；未实现此接口的异常（如文件不存在 404、格式不支持、权限不足等业务逻辑错误）直接标记为最终失败，不进行自动重试。
 - **FR-025**：自动重试必须采用指数退避策略：初始重试间隔 1 秒，每次翻倍，最大间隔 60 秒。重试间隔公式：`min(1000 * 2^(attempt-1), 60000)` 毫秒。
-- **FR-026**：每个失败文件的已重试次数必须记录在 `TaskExecution` 的失败详情中（如 `{ fileName, failReason, retryCount: 2, maxRetries: 3 }`），并在前端任务执行详情中展示（格式："重试 2/3"）。
+- **FR-026**：TranscodeTask 实体必须新增 `retryCount` 整型字段，记录该任务已执行的自动重试次数。自动重试每次执行时递增此字段。TaskExecution 的失败详情 JSON 中同步记录 `retryCount` 和 `maxRetries`（如 `{ fileName, failReason, retryCount: 2, maxRetries: 3 }`），用于前端同步任务执行详情展示。转码任务列表中每个任务的 `retryCount` 直接从 TranscodeTask 实体读取。前端展示格式："重试 2/3"。
 - **FR-027**：自动重试用尽后，文件标记为最终失败。用户可通过手动重试（FR-014 的"重试所有失败文件"）再次尝试，手动重试不计入自动重试次数限制，始终执行。
 - **FR-028**：转码三步流程（下载→转码→上传）中每个步骤的失败均适用自动重试。重试从失败步骤重新开始（不回到 PENDING），遵循 006 定义的重试逻辑（失败状态→对应进行中状态）。
 
@@ -352,7 +358,8 @@
 - **WebSocket 消息（WsMessage）**：通用 WebSocket 消息结构，`{ type: string, payload: object, timestamp: string }`。
 - **存储引擎策略接口（StorageEngineStrategy）**：新增 `copyFile` 默认方法。现有方法不变。
 - **重试配置（RetryConfig）**：应用程序配置实体，包含最大自动重试次数（`max-auto-retries`，默认 3）、初始重试间隔（1 秒）、最大重试间隔（60 秒）。通过 `application.yaml` 中 `app.retry` 前缀配置。
-- **任务执行记录（TaskExecution）**：失败详情字段扩展——每个失败文件记录新增 `retryCount`（已重试次数）和 `maxRetries`（最大重试次数）字段。
+- **可重试异常标记（RetryableException）**：标记接口，实现此接口的异常被视为瞬时故障，触发自动重试。未实现此接口的异常（业务逻辑错误）直接标记为最终失败。
+- **任务执行记录（TaskExecution）**：失败详情字段扩展——每个失败文件记录新增 `retryCount`（已重试次数）和 `maxRetries`（最大重试次数）字段，与 TranscodeTask.retryCount 同步。
 
 ## 成功标准 *（强制）*
 
@@ -380,7 +387,7 @@
 - **A7**：同步模块不同引擎场景下的中间文件存储在独立子目录（`{temp-dir}/sync/`），与转码临时文件分隔管理，但遵循相同的 24 小时定时清理策略。
 - **A8**：008 的实现以 006（storage-engine-refactor）已完成为前提，转码任务使用 8 状态模型。若 006 尚未实现，008 中的批量操作（依赖 DOWNLOAD_FAILED/TRANSCODE_FAILED/UPLOAD_FAILED 状态）需等待 006 完成后再执行。
 - **A9**：DTO 字段 `sourceDirectoryTranscode` 的命名：若 007 已完成（使用 `sameDirectoryTranscode`），008 将其修改为 `sourceDirectoryTranscode`；若 007 尚未实现，008 直接使用新字段名。
-- **A10**：自动重试仅适用于瞬时故障（网络超时、API 临时不可用），不适用于业务逻辑错误（如文件损坏、格式不支持）。业务逻辑错误的失败不应触发自动重试。
+- **A10**：自动重试仅适用于瞬时故障（网络超时、API 临时不可用），不适用于业务逻辑错误（如文件损坏、格式不支持）。通过 `RetryableException` 标记接口区分——网络超时、HTTP 5xx、连接拒绝等异常实现此接口触发自动重试；文件不存在（404）、格式不支持、权限不足等异常不实现此接口，直接标记为最终失败。
 - **A11**：同步和转码使用共享的 `ConflictStrategy` 枚举（OVERWRITE/SKIP/RENAME），定义在 common 包中，由各 Service 在对应步骤中统一查询执行。
 
 ## 与其他规格的关系
