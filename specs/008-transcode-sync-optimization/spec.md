@@ -318,7 +318,7 @@
 
 #### 转码模块：源目录转码 UX 优化
 
-- **FR-001**：`TranscodeTaskForm.tsx` 中复选框标签文本必须从"原目录转码（输出至源文件所在目录）"更改为"源目录转码（输出至源文件所在目录）"。
+- **FR-001**（已被 FR-005 合并）：前端复选框标签文案从"原目录转码"改为"源目录转码"，后端 DTO 字段名从 `sameDirectoryTranscode` 改为 `sourceDirectoryTranscode`。FR-002 负责隐藏字段行为。
 - **FR-002**：当用户勾选"源目录转码"复选框时，前端必须隐藏（而非仅禁用）"目标存储引擎"下拉选择框和"目标文件路径"输入框及其标签。当取消勾选时，这两个字段重新显示并恢复为必填状态。
 - **FR-003**：前端提交表单时，当 `sourceDirectoryTranscode=true`，必须不传 `targetEngineId` 字段（或传 null），`targetFilePath` 传空字符串。后端自动将 `targetEngineId` 赋值为 `sourceEngineId`。
 - **FR-004**：`TranscodeTaskCreateDTO.java` 中 `targetEngineId` 的 `@NotNull` 校验必须改为条件校验——当 `sourceDirectoryTranscode=true` 时可为空，当 `sourceDirectoryTranscode=false` 时仍为必填。可通过自定义校验注解或手动校验实现。
@@ -372,13 +372,27 @@
 - **FR-034**：WebSocket 连接必须携带认证信息。在连接握手阶段，前端通过 HTTP Upgrade 请求的 `Authorization` 请求头传递 Basic Auth 凭据（与 REST API 认证方式一致）。后端 `WebSocketConfig` 需配置握手拦截器读取 `Authorization` 请求头验证凭据，认证失败时拒绝 WebSocket 升级请求。前端收到认证失败后引导用户重新登录（与 REST API 401 行为一致），不降级为 HTTP 轮询。
 - **FR-035**：原有的 `usePolling.ts` Hook 文件必须删除。所有列表页面已迁移至 WebSocket，不再需要轮询机制。
 
+#### 同步模块：后置转码配置扩展
+
+- **FR-036**：`SyncTask` 实体必须新增 `transcodeTargetFormat`（String，默认 "MP3"）和 `transcodeBitrate`（int，默认 128000）字段，用于同步后置转码的目标格式和码率独立配置。未配置时使用系统默认值。
+- **FR-037**：`SyncTaskCreateDTO` 必须新增 `transcodeTargetFormat` 和 `transcodeBitrate` 字段，格式枚举值 MP3/MP4/FLV，码率范围 32000-320000。
+
+#### 公共模块：清理策略与健康检查
+
+- **FR-038**：临时文件清理策略从"启动时无条件清理"改为"定时任务清理超过 24 小时的孤立任务和临时文件"（替代 002 FR-013），同步临时文件由 SyncService 自管生命周期（完成/失败后立即清理）。
+- **FR-039**：存储引擎定时健康检查（`@Scheduled`，间隔由 `app.storage.health-check-interval` 配置，默认 5 分钟），自动更新 EngineStatus（ONLINE/OFFLINE/ERROR）。
+
 ### 关键实体
 
 - **消息类型枚举（MessageType）**：WebSocket 推送消息的类型标识，包含 `SYNC_PROGRESS`、`TRANSCODE_PROGRESS`、`TASK_EVENT`、`WEBHOOK_EVENT`、`DASHBOARD_UPDATE`。
 - **WebSocket 消息（WsMessage）**：通用 WebSocket 消息结构，`{ type: string, payload: object, timestamp: string }`。
-- **存储引擎策略接口（StorageEngineStrategy）**：新增 `copyFile` 默认方法。现有方法不变。
+- **存储引擎策略接口（StorageEngineStrategy）**：新增 `copyFile(StorageEngine engine, String sourcePath, String targetPath)` 默认方法（与接口其他方法一致，接受 engine 参数以获取连接信息）。现有方法不变。
 - **重试配置（RetryConfig）**：应用程序配置实体，包含最大自动重试次数（`max-auto-retries`，默认 3）、初始重试间隔（1 秒）、最大重试间隔（60 秒）。通过 `application.yaml` 中 `app.retry` 前缀配置。
-- **可重试异常标记（RetryableException）**：标记接口，实现此接口的异常被视为瞬时故障，触发自动重试。未实现此接口的异常（业务逻辑错误）直接标记为最终失败。
+- **可重试异常标记（RetryableException）**：标记接口，实现此接口的异常被视为瞬时故障，触发自动重试。未实现此接口的异常（业务逻辑错误）直接标记为最终失败。核心实现类：
+  - `NetworkTimeoutException`：网络连接/读写超时（`java.net.SocketTimeoutException`、`java.net.ConnectException` 的包装）
+  - `ApiUnavailableException`：外部 API 返回 5xx 或连接被拒绝（AList API HTTP 500/502/503、RestClientException 的子集）
+  - `StorageTemporarilyUnavailableException`：存储引擎暂时不可用（ONLINE→OFFLINE 状态切换期间的操作）
+  - **不实现 RetryableException 的异常**：文件不存在（404）、格式不支持、权限不足（403）、磁盘空间不足、数据校验失败等业务逻辑错误
 - **任务执行记录（TaskExecution）**：失败详情字段扩展——每个失败文件记录新增 `retryCount`（已重试次数）和 `maxRetries`（最大重试次数）字段，与 TranscodeTask.retryCount 同步。
 
 ## 成功标准 *（强制）*
@@ -390,10 +404,10 @@
 - **SC-003**：源目录转码后，输出文件路径严格等于 `源文件所在目录/源文件名（不含扩展名）.目标扩展名`。通过端到端测试验证。
 - **SC-004**：转码任务列表中源路径列的显示格式为 `路径/文件名.扩展名`，不显示纯目录行。
 - **SC-005**："清理失败任务"、"清理成功任务"、"重试所有失败文件"三个按钮在转码任务列表页面可见且可操作，每个按钮点击后弹出确认对话框。
-- **SC-006**：同引擎同步时，文件传输不经过本地磁盘（对于 AList，通过 `/api/fs/copy` 服务端复制；对于 LOCAL，通过系统级文件拷贝）。性能至少提升 50%（同引擎场景）。
-- **SC-007**：前端任何列表页面打开后，30 秒内 HTTP 请求数减少 80% 以上（与改前 5 秒轮询对比，改后仅首次加载和用户主动操作产生 HTTP 请求）。
+- **SC-006**：同引擎同步时，文件传输不经过本地磁盘（对于 AList，通过 `/api/fs/copy` 服务端复制；对于 LOCAL，通过系统级文件拷贝）。性能至少提升 50%（同引擎场景）。**验证方法**：使用 10 个 ≥10MB 的媒体文件在同引擎（AList→AList）和异引擎（AList→LOCAL）场景下分别测量同步耗时，同引擎耗时应 ≤ 异引擎耗时的 50%。通过 `SyncServiceCopyTest` 单元测试验证 copyFile 调用路径正确。
+- **SC-007**：前端任何列表页面打开后，30 秒内 HTTP 请求数减少 80% 以上（与改前 5 秒轮询对比，改后仅首次加载和用户主动操作产生 HTTP 请求）。**验证方法**：打开转码任务列表页面，在浏览器开发者工具 Network 面板中统计页面加载完成后 30 秒内的 XHR/Fetch 请求数。改前基线：6 次请求（5 秒轮询 × 6 次）；改后预期：≤1 次（仅首次 REST 加载）。通过 `WebSocketConfigTest` 验证连接建立和消息推送正常。
 - **SC-008**：WebSocket 连接断线后 5 秒内自动重连成功，前端无任何手动刷新操作即可恢复数据更新。
-- **SC-009**：配置 `app.retry.max-auto-retries=3` 后，瞬时网络故障导致的同步失败文件在 3 次自动重试内恢复成功率 ≥ 80%（正常网络环境下）。
+- **SC-009**：配置 `app.retry.max-auto-retries=3` 后，瞬时网络故障导致的同步失败文件在 3 次自动重试内恢复成功率 ≥ 80%。**验证方法**：模拟 `NetworkTimeoutException`（断开网络 5 秒后恢复），通过 `SyncServiceRetryTest` 验证重试触发、retryCount 递增、重试成功后状态恢复 COMPLETED。
 - **SC-010**：每个失败文件的重试次数在前端任务执行详情中可见（格式："重试 2/3"），用户无需查阅日志即可了解重试状态。
 
 ## 假设
