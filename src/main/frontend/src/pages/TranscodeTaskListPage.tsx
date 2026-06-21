@@ -117,22 +117,22 @@ export function TranscodeTaskListPage() {
     setBatchLoading(true);
     try {
       let result: { deletedCount?: number; submittedCount?: number };
-      let message: string;
+      let resultMessage = '';
       switch (batchAction) {
         case 'failed':
           result = await deleteFailedTranscodeTasks();
-          message = `已清理 ${result.deletedCount} 个失败任务`;
+          resultMessage = `已清理 ${result.deletedCount} 个失败任务`;
           break;
         case 'completed':
           result = await deleteCompletedTranscodeTasks();
-          message = `已清理 ${result.deletedCount} 个成功任务`;
+          resultMessage = `已清理 ${result.deletedCount} 个成功任务`;
           break;
         case 'retry':
           result = await retryAllTranscodeTasks();
-          message = `已提交 ${result.submittedCount} 个任务进行重试`;
+          resultMessage = `已提交 ${result.submittedCount} 个任务进行重试`;
           break;
       }
-      setBatchResult(message);
+      setBatchResult(resultMessage);
       setTimeout(() => setBatchResult(null), 5000);
       setBatchAction(null);
       await fetchTasks();

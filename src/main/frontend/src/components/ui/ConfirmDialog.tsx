@@ -9,6 +9,8 @@ interface ConfirmDialogProps {
   message: string;
   /** 确认按钮文字 */
   confirmLabel?: string;
+  /** 禁用确认按钮 */
+  disabled?: boolean;
   /** 确认回调 */
   onConfirm: () => void;
   /** 取消回调 */
@@ -19,6 +21,7 @@ export function ConfirmDialog({
   title,
   message,
   confirmLabel = '确认删除',
+  disabled = false,
   onConfirm,
   onCancel,
 }: ConfirmDialogProps) {
@@ -43,8 +46,9 @@ export function ConfirmDialog({
           </button>
           <button
             type="button"
-            className="px-4 py-2 text-sm font-medium text-white bg-red-600 rounded-md hover:bg-red-700 focus:outline-none focus:ring-2 focus:ring-red-500"
+            className="px-4 py-2 text-sm font-medium text-white bg-red-600 rounded-md hover:bg-red-700 focus:outline-none focus:ring-2 focus:ring-red-500 disabled:opacity-50 disabled:cursor-not-allowed"
             onClick={onConfirm}
+            disabled={disabled}
           >
             {confirmLabel}
           </button>

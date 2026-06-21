@@ -33,12 +33,14 @@ export function WebhookEventListPage() {
       .finally(() => setLoading(false));
   }, [fetchEvents]);
 
-  // WebSocket 接收 WEBHOOK_EVENT 消息，增量更新本地状态
+  // WebSocket 接收 WEBHOOK_EVENT 消息，增量更新本地事件状态
   useWebSocket((message: WsMessage) => {
     if (message.type === 'WEBHOOK_EVENT') {
       setItems(prev =>
         prev.map(e =>
-          e.id === message.payload.eventId ? { ...e, ...message.payload } : e
+          e.eventId === String(message.payload.eventId)
+            ? { ...e, status: message.payload.status }
+            : e
         )
       );
     }
