@@ -33,6 +33,11 @@
 - Q: 同引擎复制时是否需要按文件大小分流（大文件回退到下载→上传）？ → A: 不需要。统一使用引擎的 copy 方法（AList `/api/fs/copy`、本地 `Files.copy`），不做大小分流。AList 服务端 copy 是内部操作不经过客户端网络，无 HTTP 超时风险。
 - Q: "原目录转码"改为"源目录转码"的变更范围？ → A: UI 文案全面改为"源目录转码"，DTO 字段名从 `sameDirectoryTranscode` 改为 `sourceDirectoryTranscode`。其他 spec 文件（007、001、004 等）不做回改（历史文档保持原样）。
 - Q: WebSocket 认证失败或连接不可用时的前端降级策略？ → A: 显示连接错误提示并持续尝试重连（指数退避，最大 30 秒），不退化为 HTTP 轮询。若因认证失败（401），引导用户重新登录（与 REST API 行为一致）。
+- Q: 008 的转码任务状态模型依赖——001 的 6 状态模型 vs 006 的 8 状态模型？ → A: 008 以 006 的 8 状态模型（PENDING/DOWNLOADING/DOWNLOAD_FAILED/TRANSCODING/TRANSCODE_FAILED/UPLOADING/UPLOAD_FAILED/COMPLETED）已完成为前提，直接使用 8 状态枚举。批量操作（FR-012~FR-014）依赖 DOWNLOAD_FAILED、TRANSCODE_FAILED、UPLOAD_FAILED 状态。
+- Q: WebSocket 握手的认证凭据传递方式（URL 查询参数 vs Authorization 请求头 vs 首条消息）？ → A: 利用 HTTP Upgrade 握手的 `Authorization` 请求头（与 REST API 的 Basic Auth 一致）。前端在建立 WebSocket 连接时，由后端的握手拦截器读取 `Authorization` 请求头进行认证。认证失败时拒绝 WebSocket 升级请求。
+- Q: 002（启动时无条件清理）与 006（24 小时定时清理）的临时文件清理策略冲突？ → A: 统一采用 006 的策略——上传成功后立即清理临时文件，失败状态下保留供重试，定时任务清理超过 24 小时的孤立任务和临时文件。替代 002 的启动时无条件清理策略。
+- Q: 同步模块"不同引擎下载→上传"流程的中间临时文件存储位置？ → A: 使用独立子目录（如 `{temp-dir}/sync/`），独立的清理策略但同样遵循 24 小时定时清理。不直接使用转码临时目录，因为同步中间文件（完整原文件副本）和转码中间文件（转换后的输出）有不同的语义和生命周期。
+- Q: DTO 字段 `sameDirectoryTranscode` → `sourceDirectoryTranscode` 重命名在 007 可能已实现时的兼容处理？ → A: 008 的实现检查现有代码：若 007 已完成则修改为 `sourceDirectoryTranscode`；若 007 尚未实现，则 008 直接使用新字段名，007 的实现者后续看到时自然使用新名称。
 
 ## 用户场景与测试 *（强制）*
 
@@ -150,6 +155,8 @@
 - WebSocket 并发连接数上限通过 `app.websocket.max-connections` 配置项控制，默认 50。超过上限时拒绝新连接并返回 HTTP 429。
 - 同步同引擎复制时，如果目标目录不存在，是否自动创建？AList 的 `/api/fs/copy` 需要目标目录已存在，因此在复制前必须确保目标父目录存在（通过 `createDirectory` 方法）。
 - 同引擎复制的性能预期是什么？对于 AList，`/api/fs/copy` 是服务端内部操作，不经过本地网络，预期比下载→上传快至少一个数量级。
+- 同步不同引擎时的临时文件存储在独立子目录（如 `{temp-dir}/sync/`），遵循与转码临时文件相同的 24 小时定时清理策略。同步中间文件（完整原文件副本）和转码中间文件（转换后的输出）使用不同目录以区分语义和生命周期。
+- 临时文件清理策略统一为：上传成功后立即清理，失败状态下保留供重试，定时任务清理超过 24 小时的孤立任务和临时文件。此策略替代 002 中定义的启动时无条件清理。
 - 源目录转码隐藏"目标存储引擎"后，后端如何处理？后端自动将 `targetEngineId` 设置为与 `sourceEngineId` 相同的值，前端提交时不传 `targetEngineId`，后端在接收到请求后自动赋值。
 
 ## 需求 *（强制）*
@@ -201,7 +208,7 @@
 - **FR-026**：后端必须在以下事件发生时通过 WebSocket 推送消息：同步任务状态/进度变更（`SYNC_PROGRESS`）、转码任务状态/进度变更（`TRANSCODE_PROGRESS`）、任务创建/删除/完成（`TASK_EVENT`）、Webhook 事件接收/处理状态变更（`WEBHOOK_EVENT`）、仪表板统计数据变更（`DASHBOARD_UPDATE`）。
 - **FR-027**：前端必须新增 WebSocket 连接管理 Hook（`useWebSocket.ts`），负责建立连接、消息分发、断线重连（指数退避，初始 1 秒，最大 30 秒）、页面卸载时断开。
 - **FR-028**：前端所有列表页面（`TranscodeTaskListPage.tsx`、`SyncTaskListPage.tsx`、`WebhookEventListPage.tsx`、`DashboardPage.tsx`）必须移除 `usePolling` 调用，改为使用 `useWebSocket` 接收实时更新。页面初始加载仍通过 REST API 获取全量数据。
-- **FR-029**：WebSocket 连接必须携带认证信息。在连接握手阶段，前端通过 URL 查询参数或首条消息传递 Basic Auth 凭据。后端 `WebSocketConfig` 需配置握手拦截器验证凭据，认证失败时拒绝 WebSocket 升级请求。前端收到认证失败后引导用户重新登录（与 REST API 401 行为一致），不降级为 HTTP 轮询。
+- **FR-029**：WebSocket 连接必须携带认证信息。在连接握手阶段，前端通过 HTTP Upgrade 请求的 `Authorization` 请求头传递 Basic Auth 凭据（与 REST API 认证方式一致）。后端 `WebSocketConfig` 需配置握手拦截器读取 `Authorization` 请求头验证凭据，认证失败时拒绝 WebSocket 升级请求。前端收到认证失败后引导用户重新登录（与 REST API 401 行为一致），不降级为 HTTP 轮询。
 - **FR-030**：原有的 `usePolling.ts` Hook 文件必须删除。所有列表页面已迁移至 WebSocket，不再需要轮询机制。
 
 ### 关键实体
