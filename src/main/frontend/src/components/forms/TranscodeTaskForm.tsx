@@ -28,7 +28,7 @@ export function TranscodeTaskForm({ engines, onSubmit, onCancel, loading }: Tran
   const [targetFilePath, setTargetFilePath] = useState('');
   const [targetFormat, setTargetFormat] = useState<TargetFormat>('MP3');
   const [bitrate, setBitrate] = useState('128');
-  const [sameDir, setSameDir] = useState(false);
+  const [sourceDirectoryTranscode, setSourceDirectoryTranscode] = useState(false);
   const [errors, setErrors] = useState<FormErrors>({});
   const [submitError, setSubmitError] = useState<string | null>(null);
 
@@ -36,13 +36,22 @@ export function TranscodeTaskForm({ engines, onSubmit, onCancel, loading }: Tran
     const newErrors: FormErrors = {};
 
     if (!sourceEngineId) newErrors.sourceEngineId = '请选择源存储引擎';
-    if (!targetEngineId) newErrors.targetEngineId = '请选择目标存储引擎';
+
+    // 源目录转码时目标路径可选且不需要目标引擎
+    if (sourceDirectoryTranscode) {
+      // 勾选源目录转码但未选源引擎时提示
+      if (!sourceEngineId) {
+        newErrors.sourceEngineId = '请先选择源存储引擎';
+      }
+    } else {
+      if (!targetEngineId) newErrors.targetEngineId = '请选择目标存储引擎';
+    }
 
     const srcCheck = validatePath(sourceFilePath, '源文件路径');
     if (!srcCheck.valid) newErrors.sourceFilePath = srcCheck.error;
 
-    // 原目录转码时目标路径可选，不校验
-    if (!sameDir) {
+    // 源目录转码时目标路径可选，不校验
+    if (!sourceDirectoryTranscode) {
       const tgtCheck = validatePath(targetFilePath, '目标文件路径');
       if (!tgtCheck.valid) newErrors.targetFilePath = tgtCheck.error;
     }
@@ -63,12 +72,12 @@ export function TranscodeTaskForm({ engines, onSubmit, onCancel, loading }: Tran
     try {
       await onSubmit({
         sourceEngineId: sourceEngineId || undefined,
-        targetEngineId,
+        targetEngineId: sourceDirectoryTranscode ? undefined : targetEngineId,
         sourceFilePath: sourceFilePath.trim(),
-        targetFilePath: sameDir ? '' : targetFilePath.trim(),
+        targetFilePath: sourceDirectoryTranscode ? '' : targetFilePath.trim(),
         targetFormat,
         bitrate: parseInt(bitrate, 10) * 1000, // kbps → bps
-        sameDirectoryTranscode: sameDir,
+        sameDirectoryTranscode: sourceDirectoryTranscode,
       });
     } catch (err) {
       setSubmitError(err instanceof Error ? err.message : '提交失败');
@@ -106,6 +115,8 @@ export function TranscodeTaskForm({ engines, onSubmit, onCancel, loading }: Tran
               </select>
               {errors.sourceEngineId && <p className="mt-1 text-xs text-red-600">{errors.sourceEngineId}</p>}
             </div>
+            {/* 源目录转码时隐藏目标存储引擎 */}
+            {!sourceDirectoryTranscode && (
             <div>
               <label className="block text-sm font-medium text-gray-700 mb-1">
                 目标存储引擎 <span className="text-red-500">*</span>
@@ -124,6 +135,7 @@ export function TranscodeTaskForm({ engines, onSubmit, onCancel, loading }: Tran
               </select>
               {errors.targetEngineId && <p className="mt-1 text-xs text-red-600">{errors.targetEngineId}</p>}
             </div>
+            )}
           </div>
 
           <div>
@@ -140,38 +152,41 @@ export function TranscodeTaskForm({ engines, onSubmit, onCancel, loading }: Tran
             {errors.sourceFilePath && <p className="mt-1 text-xs text-red-600">{errors.sourceFilePath}</p>}
           </div>
 
+          {/* 源目录转码时隐藏目标文件路径 */}
+          {!sourceDirectoryTranscode && (
           <div>
             <label className="block text-sm font-medium text-gray-700 mb-1">
-              目标文件路径 {!sameDir && <span className="text-red-500">*</span>}
+              目标文件路径 <span className="text-red-500">*</span>
             </label>
             <DirectoryTreeSelector
               engineId={targetEngineId}
-              value={sameDir ? '' : targetFilePath}
+              value={targetFilePath}
               onChange={setTargetFilePath}
               placeholder="/media/recording.mp3"
-              disabled={!targetEngineId || sameDir}
+              disabled={!targetEngineId}
             />
             {errors.targetFilePath && <p className="mt-1 text-xs text-red-600">{errors.targetFilePath}</p>}
           </div>
+          )}
 
           <div>
             <label className="flex items-center gap-2 cursor-pointer select-none">
               <input
                 type="checkbox"
-                checked={sameDir}
+                checked={sourceDirectoryTranscode}
                 onChange={(e) => {
-                  setSameDir(e.target.checked);
+                  setSourceDirectoryTranscode(e.target.checked);
                   if (e.target.checked) {
                     // 自动填充源文件所在目录作为目标路径
                     const idx = sourceFilePath.lastIndexOf('/');
                     setTargetFilePath(idx > 0 ? sourceFilePath.substring(0, idx) : '/');
-                    setErrors((prev) => ({ ...prev, targetFilePath: undefined }));
+                    setErrors((prev) => ({ ...prev, targetFilePath: undefined, targetEngineId: undefined }));
                   }
                 }}
                 className="w-4 h-4 text-blue-600 border-gray-300 rounded focus:ring-blue-500"
               />
               <span className="text-sm text-gray-700">
-                原目录转码（输出至源文件所在目录）
+                源目录转码（输出至源文件所在目录）
               </span>
             </label>
           </div>

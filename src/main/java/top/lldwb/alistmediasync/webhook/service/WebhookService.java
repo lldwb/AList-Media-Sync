@@ -22,6 +22,7 @@ import top.lldwb.alistmediasync.sync.entity.SyncTask;
 import top.lldwb.alistmediasync.sync.entity.TaskExecution;
 import top.lldwb.alistmediasync.storage.entity.StorageEngine;
 import top.lldwb.alistmediasync.transcode.entity.TranscodeTask;
+import top.lldwb.alistmediasync.common.service.WsSessionManager;
 
 import java.time.Instant;
 import java.time.LocalDateTime;
@@ -54,6 +55,7 @@ public class WebhookService {
     private final StorageEngineRepository storageEngineRepository;
     private final TaskExecutionRepository taskExecutionRepository;
     private final JsonMapper objectMapper;
+    private final WsSessionManager wsSessionManager;
 
     /**
      * 接收 Webhook 事件（同步执行，立即返回）
@@ -116,6 +118,9 @@ public class WebhookService {
         event.setStatus(WebhookEvent.EventStatus.PROCESSING);
         event = eventRepository.save(event);
 
+        // WebSocket 推送 WEBHOOK_EVENT 消息
+        pushWebhookEvent(event);
+
         try {
             log.info("正在处理 Webhook 事件：EventId={}, Type={}", event.getEventId(), event.getEventType());
 
@@ -124,6 +129,7 @@ public class WebhookService {
                 && event.getEventType() != WebhookEvent.WebhookEventType.SESSION_ENDED) {
                 event.setStatus(WebhookEvent.EventStatus.COMPLETED);
                 eventRepository.save(event);
+                pushWebhookEvent(event);
                 log.debug("非处理事件类型，跳过：{}", event.getEventType());
                 return;
             }
@@ -147,6 +153,7 @@ public class WebhookService {
                     event.getEventType(), event.getRoomId());
                 event.setStatus(WebhookEvent.EventStatus.COMPLETED);
                 eventRepository.save(event);
+                pushWebhookEvent(event);
                 return;
             }
 
@@ -157,12 +164,14 @@ public class WebhookService {
 
             event.setStatus(WebhookEvent.EventStatus.COMPLETED);
             eventRepository.save(event);
+            pushWebhookEvent(event);
             log.info("Webhook 事件处理完成：EventId={}", event.getEventId());
 
         } catch (Exception e) {
             log.error("Webhook 事件处理失败：EventId={} — {}", event.getEventId(), e.getMessage(), e);
             event.setStatus(WebhookEvent.EventStatus.FAILED);
             eventRepository.save(event);
+            pushWebhookEvent(event);
         }
     }
 
@@ -299,5 +308,16 @@ public class WebhookService {
             .stream()
             .map(WebhookEventVO::from)
             .toList();
+    }
+
+    /**
+     * 通过 WebSocket 推送 Webhook 事件状态变更
+     */
+    private void pushWebhookEvent(WebhookEvent event) {
+        wsSessionManager.broadcast("WEBHOOK_EVENT", Map.of(
+            "eventId", event.getId(),
+            "eventType", event.getEventType().name(),
+            "status", event.getStatus().name()
+        ));
     }
 }

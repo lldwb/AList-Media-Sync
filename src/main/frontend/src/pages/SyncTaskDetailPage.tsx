@@ -1,5 +1,5 @@
 // ===================================================================
-// 同步任务详情页 — US3 (基本信息 + 执行历史 Tab)
+// 同步任务详情页 — 基本信息 + 执行历史 Tab + WebSocket 实时更新
 // ===================================================================
 import { useState, useEffect } from 'react';
 import { useParams, useNavigate } from 'react-router';
@@ -10,13 +10,14 @@ import { LoadingSpinner } from '@/components/ui/LoadingSpinner';
 import { ErrorBanner } from '@/components/ui/ErrorBanner';
 import { EmptyState } from '@/components/ui/EmptyState';
 import { StatusBadge } from '@/components/ui/StatusBadge';
+import { useWebSocket } from '@/hooks/useWebSocket';
 import {
   formatDateTime,
   formatSyncMode,
   formatScheduleType,
   formatConflictStrategy,
 } from '@/utils/format';
-import type { SyncTaskVO, TaskExecution, FailureDetail } from '@/types/api';
+import type { SyncTaskVO, TaskExecution, FailureDetail, WsMessage } from '@/types/api';
 
 type TabType = 'info' | 'history';
 
@@ -52,6 +53,13 @@ export function SyncTaskDetailPage() {
       });
     return () => { cancelled = true; };
   }, [id]);
+
+  // WebSocket 接收 SYNC_PROGRESS 消息，实时更新任务状态
+  useWebSocket((message: WsMessage) => {
+    if (message.type === 'SYNC_PROGRESS' && task && message.payload.taskId === task.id) {
+      setTask(prev => prev ? { ...prev, ...message.payload } : prev);
+    }
+  });
 
   if (loading) return <LoadingSpinner size="lg" />;
   if (error) return <ErrorBanner message={error} onRetry={() => window.location.reload()} />;

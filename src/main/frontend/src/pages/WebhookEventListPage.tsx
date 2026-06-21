@@ -1,5 +1,5 @@
 // ===================================================================
-// Webhook 事件列表页 — US5
+// Webhook 事件列表页 — WebSocket 实时更新
 // ===================================================================
 import { useState, useEffect, useCallback } from 'react';
 import { api } from '@/api/client';
@@ -9,12 +9,13 @@ import { LoadingSpinner } from '@/components/ui/LoadingSpinner';
 import { EmptyState } from '@/components/ui/EmptyState';
 import { ErrorBanner } from '@/components/ui/ErrorBanner';
 import { StatusBadge } from '@/components/ui/StatusBadge';
+import { useWebSocket } from '@/hooks/useWebSocket';
 import {
   formatDateTime,
   formatWebhookEventType,
   formatWebhookEventStatus,
 } from '@/utils/format';
-import type { WebhookEventVO } from '@/types/api';
+import type { WebhookEventVO, WsMessage } from '@/types/api';
 
 export function WebhookEventListPage() {
   const [items, setItems] = useState<WebhookEventVO[]>([]);
@@ -31,6 +32,17 @@ export function WebhookEventListPage() {
       .catch((err) => setError(err instanceof Error ? err.message : '加载失败'))
       .finally(() => setLoading(false));
   }, [fetchEvents]);
+
+  // WebSocket 接收 WEBHOOK_EVENT 消息，增量更新本地状态
+  useWebSocket((message: WsMessage) => {
+    if (message.type === 'WEBHOOK_EVENT') {
+      setItems(prev =>
+        prev.map(e =>
+          e.id === message.payload.eventId ? { ...e, ...message.payload } : e
+        )
+      );
+    }
+  });
 
   const columns: ColumnDef<WebhookEventVO>[] = [
     {

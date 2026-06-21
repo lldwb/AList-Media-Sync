@@ -97,4 +97,20 @@ public interface StorageEngineStrategy {
      * @return true 表示连接成功
      */
     boolean testConnection(StorageEngine engine);
+
+    /**
+     * 在同存储引擎内复制文件
+     * <p>
+     * 默认实现抛出 UnsupportedOperationException，由各策略实现覆盖。
+     * </p>
+     *
+     * @param engine     存储引擎实体
+     * @param sourcePath 源文件路径
+     * @param targetPath 目标文件路径
+     * @throws UnsupportedOperationException 如果策略不支持直接复制
+     */
+    default void copyFile(StorageEngine engine, String sourcePath, String targetPath) {
+        throw new UnsupportedOperationException(
+            "copyFile 不被当前策略支持：" + type());
+    }
 }

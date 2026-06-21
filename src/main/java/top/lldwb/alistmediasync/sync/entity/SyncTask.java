@@ -65,6 +65,19 @@ public class SyncTask {
     @Enumerated(EnumType.STRING)
     private TargetFormat targetFormat = TargetFormat.MP3;
 
+    /**
+     * 同步后置转码目标格式（String 类型，独立于 targetFormat）
+     * 未配置时使用系统默认值 "MP3"
+     */
+    @Column(length = 10)
+    private String transcodeTargetFormat = "MP3";
+
+    /**
+     * 同步后置转码码率（bps）
+     * 未配置时使用系统默认值 128000
+     */
+    private Integer transcodeBitrate = 128000;
+
     /** 冲突处理策略 */
     @Column(nullable = false, length = 20)
     @Enumerated(EnumType.STRING)

@@ -50,6 +50,18 @@ public class AppProperties {
      */
     private String serverAddress;
 
+    /** WebSocket 配置 */
+    @NotNull
+    private Websocket websocket = new Websocket();
+
+    /** 重试配置 */
+    @NotNull
+    private Retry retry = new Retry();
+
+    /** 存储引擎配置 */
+    @NotNull
+    private Storage storage = new Storage();
+
     /**
      * 认证配置内部类
      */
@@ -123,5 +135,43 @@ public class AppProperties {
         /** 线程池最大线程数 */
         @Min(1)
         private int maxSize = 32;
+    }
+
+    /**
+     * WebSocket 配置内部类
+     */
+    @Data
+    public static class Websocket {
+        /** WebSocket 最大并发连接数（默认 50） */
+        @Min(1)
+        private int maxConnections = 50;
+    }
+
+    /**
+     * 自动重试配置内部类
+     */
+    @Data
+    public static class Retry {
+        /** 最大自动重试次数（默认 3） */
+        @Min(0)
+        private int maxAutoRetries = 3;
+
+        /** 初始重试间隔（毫秒，默认 1000 = 1 秒） */
+        @Min(100)
+        private long initialInterval = 1000;
+
+        /** 最大重试间隔（毫秒，默认 60000 = 60 秒） */
+        @Min(1000)
+        private long maxInterval = 60000;
+    }
+
+    /**
+     * 存储引擎配置内部类
+     */
+    @Data
+    public static class Storage {
+        /** 存储引擎健康检查间隔（秒，默认 300 = 5 分钟） */
+        @Min(10)
+        private long healthCheckInterval = 300;
     }
 }

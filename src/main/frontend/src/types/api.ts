@@ -168,6 +168,7 @@ export interface TranscodeTaskVO {
   progressPercent: number; // 0-100
   status: TranscodeStatus;
   canRetry: boolean; // 失败状态时为 true
+  retryCount?: number; // 自动重试已执行次数
   errorMessage?: string;
   createdAt: string;
   // 移除: tempFilePath（内部实现细节）
@@ -175,12 +176,12 @@ export interface TranscodeTaskVO {
 
 export interface TranscodeTaskCreateDTO {
   sourceEngineId?: number;
-  targetEngineId: number;
+  targetEngineId?: number;
   sourceFilePath: string;
   targetFilePath: string;
   targetFormat: TargetFormat;
   bitrate?: number;
-  /** 原目录转码选项（默认 false），启用时 targetFilePath 可选 */
+  /** 源目录转码选项（默认 false），启用时 targetFilePath 可选 */
   sameDirectoryTranscode?: boolean;
 }
 
@@ -334,3 +335,79 @@ export const WEBHOOK_EVENT_STATUS_LABELS: Record<WebhookEventStatus, string> = {
   FAILED: '失败',
   DUPLICATE: '重复',
 };
+
+/* ---- WebSocket 消息 ---- */
+
+/** WebSocket 消息类型 */
+export type MessageType =
+  | 'SYNC_PROGRESS'
+  | 'TRANSCODE_PROGRESS'
+  | 'TASK_EVENT'
+  | 'WEBHOOK_EVENT'
+  | 'DASHBOARD_UPDATE';
+
+/** 通用 WebSocket 消息结构 */
+export interface WsMessage {
+  type: MessageType;
+  payload: WsPayload;
+  timestamp: string; // ISO 8601
+}
+
+/** WebSocket 消息联合载荷类型 */
+export type WsPayload =
+  | SyncProgressPayload
+  | TranscodeProgressPayload
+  | TaskEventPayload
+  | WebhookEventPayload
+  | DashboardUpdatePayload;
+
+/** SYNC_PROGRESS 消息载荷 */
+export interface SyncProgressPayload {
+  type: 'SYNC_PROGRESS';
+  taskId: number;
+  executionId?: number;
+  status: string;
+  successFiles: number;
+  failedFiles: number;
+  totalFiles: number;
+  progressPercent?: number;
+}
+
+/** TRANSCODE_PROGRESS 消息载荷 */
+export interface TranscodeProgressPayload {
+  type: 'TRANSCODE_PROGRESS';
+  taskId: number;
+  status: TranscodeStatus;
+  progressPercent?: number;
+  retryCount?: number;
+  errorMessage?: string;
+}
+
+/** TASK_EVENT 消息载荷 */
+export interface TaskEventPayload {
+  type: 'TASK_EVENT';
+  action: 'CREATED' | 'DELETED' | 'COMPLETED' | 'BATCH_DELETED';
+  taskType: 'SYNC' | 'TRANSCODE';
+  taskId?: number;
+  count?: number;
+  status?: string;
+}
+
+/** WEBHOOK_EVENT 消息载荷 */
+export interface WebhookEventPayload {
+  type: 'WEBHOOK_EVENT';
+  eventId: number;
+  eventType: WebhookEventType;
+  status: WebhookEventStatus;
+}
+
+/** DASHBOARD_UPDATE 消息载荷 */
+export interface DashboardUpdatePayload {
+  type: 'DASHBOARD_UPDATE';
+  totalSyncTasks: number;
+  activeSyncTasks: number;
+  totalTranscodeTasks: number;
+  activeTranscodeTasks: number;
+  todayWebhookEvents: number;
+  engineOnlineCount?: number;
+}

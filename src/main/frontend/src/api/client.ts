@@ -107,3 +107,20 @@ export const api = {
 
 /** 导出 credentials 读写方法，供 AuthContext 使用 */
 export { AUTH_CREDENTIALS_KEY, AUTH_USERNAME_KEY };
+
+/* ---- 批量操作 API（转码任务） ---- */
+
+/** 删除所有失败状态的转码任务 */
+export async function deleteFailedTranscodeTasks(): Promise<{ deletedCount: number }> {
+  return api.del<{ deletedCount: number }>('/transcode-tasks/failed');
+}
+
+/** 删除所有已完成状态的转码任务 */
+export async function deleteCompletedTranscodeTasks(): Promise<{ deletedCount: number }> {
+  return api.del<{ deletedCount: number }>('/transcode-tasks/completed');
+}
+
+/** 重试所有失败状态的转码任务（异步执行，返回 202） */
+export async function retryAllTranscodeTasks(): Promise<{ submittedCount: number }> {
+  return api.post<{ submittedCount: number }>('/transcode-tasks/retry-all');
+}

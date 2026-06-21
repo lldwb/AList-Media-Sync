@@ -126,3 +126,31 @@ app:
     core-size: 8
     # 转码线程池最大线程数（与 max-concurrent-transcode 联动）
     max-size: 32
+
+  # ----------------------------------------
+  # WebSocket 配置
+  # ----------------------------------------
+  websocket:
+    # WebSocket 最大并发连接数（默认 50）
+    # 超过上限时拒绝新连接并返回 HTTP 429
+    # 可通过环境变量 APP_WEBSOCKET_MAX_CONNECTIONS 覆盖
+    max-connections: ${APP_WEBSOCKET_MAX_CONNECTIONS:50}
+
+  # ----------------------------------------
+  # 自动重试配置
+  # ----------------------------------------
+  retry:
+    # 最大自动重试次数（默认 3，设为 0 禁用自动重试）
+    # 可通过环境变量 APP_RETRY_MAX_AUTO_RETRIES 覆盖
+    max-auto-retries: ${APP_RETRY_MAX_AUTO_RETRIES:3}
+    # 初始重试间隔（毫秒，默认 1000 = 1 秒）
+    initial-interval: 1000
+    # 最大重试间隔（毫秒，默认 60000 = 60 秒）
+    max-interval: 60000
+
+  # ----------------------------------------
+  # 存储引擎配置
+  # ----------------------------------------
+  storage:
+    # 存储引擎健康检查间隔（秒，默认 300 = 5 分钟）
+    health-check-interval: 300

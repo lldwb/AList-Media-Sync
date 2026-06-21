@@ -4,6 +4,7 @@ import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
 import org.springframework.web.bind.annotation.*;
 import top.lldwb.alistmediasync.common.dto.ApiResult;
+import top.lldwb.alistmediasync.common.service.WsSessionManager;
 import top.lldwb.alistmediasync.sync.dto.sync.SyncTaskCreateDTO;
 import top.lldwb.alistmediasync.sync.dto.sync.SyncTaskUpdateDTO;
 import top.lldwb.alistmediasync.sync.dto.sync.SyncTaskVO;
@@ -29,11 +30,18 @@ public class SyncTaskController {
 
     private final SyncTaskManageService manageService;
     private final SyncService syncService;
+    private final WsSessionManager wsSessionManager;
 
     /** 创建同步任务 */
     @PostMapping
     public ApiResult<SyncTaskVO> create(@Valid @RequestBody SyncTaskCreateDTO dto) {
-        return ApiResult.success(manageService.create(dto));
+        var result = manageService.create(dto);
+        wsSessionManager.broadcast("TASK_EVENT", Map.of(
+            "action", "CREATED",
+            "taskType", "SYNC",
+            "taskId", result.getId()
+        ));
+        return ApiResult.success(result);
     }
 
     /** 更新同步任务 */
@@ -46,6 +54,11 @@ public class SyncTaskController {
     @DeleteMapping("/{id}")
     public ApiResult<Void> delete(@PathVariable Long id) {
         manageService.delete(id);
+        wsSessionManager.broadcast("TASK_EVENT", Map.of(
+            "action", "DELETED",
+            "taskType", "SYNC",
+            "taskId", id
+        ));
         return ApiResult.success();
     }
 

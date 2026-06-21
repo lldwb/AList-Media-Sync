@@ -203,6 +203,24 @@ public class LocalStorageStrategy implements StorageEngineStrategy {
         return true;
     }
 
+    @Override
+    public void copyFile(StorageEngine engine, String sourcePath, String targetPath) {
+        Path source = resolvePath(engine, sourcePath);
+        Path target = resolvePath(engine, targetPath);
+        log.info("本地同引擎复制：src={}, dst={}", source, target);
+        try {
+            // 确保目标父目录存在
+            Path parent = target.getParent();
+            if (parent != null) {
+                Files.createDirectories(parent);
+            }
+            Files.copy(source, target, StandardCopyOption.REPLACE_EXISTING);
+            log.debug("本地复制完成：{} -> {}", source, target);
+        } catch (IOException e) {
+            throw new RuntimeException("本地文件复制失败：" + source + " -> " + target, e);
+        }
+    }
+
     // ==================== 私有辅助方法 ====================
 
     /**
