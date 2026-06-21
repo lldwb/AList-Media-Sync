@@ -4,7 +4,7 @@
 
 **创建日期**：2026-06-21
 
-**状态**：草稿
+**状态**：已澄清
 
 **输入**：用户描述：
 
@@ -20,6 +20,14 @@
 
 **公共模块：**
 1. 对于持续轮询的接口（如 /api/sync-tasks），改成 WebSocket 或者其他实现方式，避免频繁请求
+
+## 澄清
+
+### 会话 2026-06-21
+
+- Q: WebSocket 消息推送的数据粒度——是推送完整实体列表还是仅增量变更？ → A: 增量变更。仅推送变更的实体和变更字段（如 `{ type: "TRANSCODE_PROGRESS", payload: { taskId: 1, progressPercent: 45, status: "TRANSCODING" } }`），前端合并到本地状态。不推送全量列表。
+- Q: 批量操作（重试所有失败文件）的 UI 反馈方式？ → A: 按钮加载态 + 结果提示。点击后按钮显示加载态并禁用，API 返回后解除禁用并弹出简短结果提示（如"已重试 5 个任务"），然后自动刷新列表。
+- Q: WebSocket 并发连接数上限？ → A: 可配置。在 `application.yaml` 中提供配置项（如 `app.websocket.max-connections`），默认值 50。超过上限时拒绝新连接并返回 HTTP 429 状态码。
 
 ## 用户场景与测试 *（强制）*
 
@@ -85,7 +93,7 @@
 
 1. **假设** 转码任务列表中存在 5 个失败状态的任务，**当** 用户点击"清理失败任务"按钮，**则** 弹出确认对话框："确定要清理所有失败任务吗？此操作不可撤销。"，确认后所有失败状态的任务被删除，列表刷新。
 2. **假设** 转码任务列表中存在 10 个已完成（COMPLETED）状态的任务，**当** 用户点击"清理成功任务"按钮，**则** 弹出确认对话框，确认后所有已完成状态的任务被删除，列表刷新。
-3. **假设** 转码任务列表中存在 3 个可重试的失败任务（DOWNLOAD_FAILED / TRANSCODE_FAILED / UPLOAD_FAILED），**当** 用户点击"重试所有失败文件"按钮，**则** 弹出确认对话框："确定要重试所有失败文件吗？"，确认后所有可重试的失败任务依次执行重试操作，列表刷新显示最新状态。
+3. **假设** 转码任务列表中存在 3 个可重试的失败任务（DOWNLOAD_FAILED / TRANSCODE_FAILED / UPLOAD_FAILED），**当** 用户点击"重试所有失败文件"按钮，**则** 弹出确认对话框："确定要重试所有失败文件吗？"，确认后按钮进入加载态显示"重试中..."，API 返回后显示结果提示"已重试 3 个任务"，列表自动刷新显示最新状态。
 4. **假设** 转码任务列表中没有任何失败任务，**当** 用户点击"清理失败任务"或"重试所有失败文件"，**则** 显示提示"没有可操作的失败任务"。
 5. **假设** 转码任务列表中没有任何成功任务，**当** 用户点击"清理成功任务"，**则** 显示提示"没有可清理的成功任务"。
 
@@ -119,8 +127,8 @@
 **验收场景**：
 
 1. **假设** 用户打开任意管理页面，**当** 页面加载完成，**则** 前端自动与后端建立 WebSocket 连接（连接端点 `/ws/events`），连接成功后前端不再对列表数据进行 HTTP 轮询。
-2. **假设** 有一个同步任务正在执行，**当** 任务状态或进度发生变化，**则** 后端通过 WebSocket 推送更新消息（消息类型：`SYNC_PROGRESS`），前端接收后更新对应的任务行数据，无需额外的 HTTP 请求。
-3. **假设** 有一个转码任务正在执行，**当** 任务状态或进度发生变化，**则** 后端通过 WebSocket 推送更新消息（消息类型：`TRANSCODE_PROGRESS`），前端接收后更新对应的任务行数据。
+2. **假设** 有一个同步任务正在执行，**当** 任务状态或进度发生变化，**则** 后端通过 WebSocket 推送增量更新消息（消息类型：`SYNC_PROGRESS`，payload 仅含变更的任务字段如 `{ taskId, status, successFiles, failedFiles }`），前端接收后合并到本地状态，无需额外的 HTTP 请求。
+3. **假设** 有一个转码任务正在执行，**当** 任务状态或进度发生变化，**则** 后端通过 WebSocket 推送增量更新消息（消息类型：`TRANSCODE_PROGRESS`，payload 仅含变更字段如 `{ taskId, status, progressPercent }`），前端接收后合并到本地状态。
 4. **假设** 前端 WebSocket 连接意外断开，**当** 断线后，**则** 前端自动尝试重连（采用指数退避策略，最大重连间隔 30 秒），重连成功后恢复实时更新。
 5. **假设** 用户关闭或离开管理页面，**当** 页面卸载，**则** 前端主动关闭 WebSocket 连接，释放服务端资源。
 6. **假设** 后端需要通知前端全局状态变化（如任务创建、删除、执行完成），**当** 事件发生，**则** 后端通过 WebSocket 广播对应类型的消息。
@@ -134,6 +142,7 @@
 - 当源目录转码的源路径为根目录 `/file.flv` 时，目标路径应同样为 `/file.mp3`。
 - WebSocket 服务端如何处理多实例部署？当前为单实例部署（H2 数据库），WebSocket 直接在应用进程内处理，暂不考虑多实例扩展需求。
 - WebSocket 连接是否需要认证？需要，与 REST API 使用相同的 Basic Auth 认证机制。WebSocket 握手阶段验证凭据。
+- WebSocket 并发连接数上限通过 `app.websocket.max-connections` 配置项控制，默认 50。超过上限时拒绝新连接并返回 HTTP 429。
 - 同步同引擎复制时，如果目标目录不存在，是否自动创建？AList 的 `/api/fs/copy` 需要目标目录已存在，因此在复制前必须确保目标父目录存在（通过 `createDirectory` 方法）。
 - 同引擎复制的性能预期是什么？对于 AList，`/api/fs/copy` 是服务端内部操作，不经过本地网络，预期比下载→上传快至少一个数量级。
 - 源目录转码隐藏"目标存储引擎"后，后端如何处理？后端自动将 `targetEngineId` 设置为与 `sourceEngineId` 相同的值，前端提交时不传 `targetEngineId`，后端在接收到请求后自动赋值。
@@ -168,7 +177,7 @@
 - **FR-013**：后端必须新增 `DELETE /api/transcode-tasks/completed` 端点，删除所有状态为 `COMPLETED` 的转码任务，返回删除数量。
 - **FR-014**：后端必须新增 `POST /api/transcode-tasks/retry-all` 端点，对所有状态为 `DOWNLOAD_FAILED`、`TRANSCODE_FAILED`、`UPLOAD_FAILED` 的转码任务执行重试操作，返回重试的任务数量。重试必须异步执行，避免阻塞请求。
 - **FR-015**：`TranscodeTaskRepository` 必须新增按状态批量删除的查询方法 `deleteByStatusIn(List<TranscodeStatus> statuses)` 和按状态查询的 `findByStatusIn(List<TranscodeStatus> statuses)`。
-- **FR-016**：前端 `TranscodeTaskListPage.tsx` 必须在页面顶部操作栏添加三个按钮："清理失败任务"、"清理成功任务"、"重试所有失败文件"。每个按钮点击后弹出确认对话框，确认后调用对应 API。操作完成或无可操作项时给出反馈提示。
+- **FR-016**：前端 `TranscodeTaskListPage.tsx` 必须在页面顶部操作栏添加三个按钮："清理失败任务"、"清理成功任务"、"重试所有失败文件"。每个按钮点击后弹出确认对话框，确认后按钮进入加载态（显示"清理中..."或"重试中..."）并禁用，API 返回后展示简短结果提示（如"已清理 5 个失败任务"、"已重试 3 个任务"），然后自动刷新列表。
 - **FR-017**：前端 `api.ts` 中的 API 客户端必须新增对应的接口方法，端点映射如上。
 
 #### 同步模块：同引擎复制
@@ -182,8 +191,8 @@
 
 #### 公共模块：WebSocket 替代轮询
 
-- **FR-024**：后端必须引入 Spring WebSocket 支持（`spring-boot-starter-websocket`），配置 `WebSocketConfig` 注册 `/ws/events` 端点，启用 STOMP 协议（可选：使用原始 WebSocket 简化实现）。
-- **FR-025**：后端必须实现 WebSocket 会话管理和消息广播机制。消息格式为 JSON，包含 `type`（消息类型）、`payload`（数据载荷）、`timestamp`（时间戳）。
+- **FR-024**：后端必须引入 Spring WebSocket 支持（`spring-boot-starter-websocket`），配置 `WebSocketConfig` 注册 `/ws/events` 端点，启用原始 WebSocket（不使用 STOMP 以遵循 YAGNI）。WebSocket 并发连接数通过配置项 `app.websocket.max-connections` 控制（默认 50），超过上限时拒绝新连接。
+- **FR-025**：后端必须实现 WebSocket 会话管理和消息广播机制。消息格式为 JSON，包含 `type`（消息类型）、`payload`（增量数据载荷，仅含变更字段）、`timestamp`（时间戳）。采用增量变更模式：每次仅推送变更的实体和变更字段（如 `{ taskId, status, progressPercent }`），前端负责将增量合并到本地状态，不推送全量列表。
 - **FR-026**：后端必须在以下事件发生时通过 WebSocket 推送消息：同步任务状态/进度变更（`SYNC_PROGRESS`）、转码任务状态/进度变更（`TRANSCODE_PROGRESS`）、任务创建/删除/完成（`TASK_EVENT`）。
 - **FR-027**：前端必须新增 WebSocket 连接管理 Hook（`useWebSocket.ts`），负责建立连接、消息分发、断线重连（指数退避，初始 1 秒，最大 30 秒）、页面卸载时断开。
 - **FR-028**：前端 `TranscodeTaskListPage.tsx` 和 `SyncTaskListPage.tsx` 必须移除 `usePolling` 调用，改为使用 `useWebSocket` 接收实时更新。页面初始加载仍通过 REST API 获取全量数据。
