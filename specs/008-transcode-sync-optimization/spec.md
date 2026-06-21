@@ -38,6 +38,15 @@
 - Q: 002（启动时无条件清理）与 006（24 小时定时清理）的临时文件清理策略冲突？ → A: 统一采用 006 的策略——上传成功后立即清理临时文件，失败状态下保留供重试，定时任务清理超过 24 小时的孤立任务和临时文件。替代 002 的启动时无条件清理策略。
 - Q: 同步模块"不同引擎下载→上传"流程的中间临时文件存储位置？ → A: 使用独立子目录（如 `{temp-dir}/sync/`），独立的清理策略但同样遵循 24 小时定时清理。不直接使用转码临时目录，因为同步中间文件（完整原文件副本）和转码中间文件（转换后的输出）有不同的语义和生命周期。
 - Q: DTO 字段 `sameDirectoryTranscode` → `sourceDirectoryTranscode` 重命名在 007 可能已实现时的兼容处理？ → A: 008 的实现检查现有代码：若 007 已完成则修改为 `sourceDirectoryTranscode`；若 007 尚未实现，则 008 直接使用新字段名，007 的实现者后续看到时自然使用新名称。
+- Q: 001 边界情况中的"断点续传/自动重试机制"和"API 不可用时的重试策略（指数退避）"由哪个 spec 承接？002 明确将自动重试推迟到后续功能（FR-010），008 也未涉及自动重试。当前无 spec 覆盖此能力。 → A: 在 008 中纳入自动重试逻辑。重试次数在前端任务列表中显示，最大自动重试次数通过配置文件（`app.retry.max-auto-retries`）配置。重试采用指数退避策略（初始间隔 1 秒，每次翻倍，最大间隔 60 秒）。
+- Q: 001 FR-012（转码冲突策略）与 008 FR-022（同步同引擎复制的冲突策略）是否共享同一套冲突策略枚举（OVERWRITE/SKIP/RENAME）？在 006 的转码三步流程中，上传阶段和目标引擎 copy 阶段各自如何使用冲突策略？ → A: 完全共享。同步和转码使用同一 `ConflictStrategy` 枚举（OVERWRITE/SKIP/RENAME），由各自的 Service 在对应步骤（上传/copy）中统一查询策略并执行。共享枚举减少代码重复，符合 DRY 原则。
+- Q: 008 新增的类应放置在 007 定义的哪个功能模块包中？具体包括：WebSocket 相关类（WebSocketConfig、WsSessionManager、WsMessage 等）、批量操作 API（TranscodeTaskController 新增端点）、同步复制逻辑（AListStorageStrategy/LocalStorageStrategy 新增 copyFile）、前端 useWebSocket Hook。 → A: WebSocket 相关放入 `common/`（通用基础设施，与 AsyncConfig、WebMvcConfig 同级），批量操作在 `transcode/controller/` 和 `transcode/repository/`，copyFile 在 `storage/service/engine/`，前端 useWebSocket Hook 在原有 hooks 目录。遵循 007 的分包原则。
+- Q: 006 FR-008 将 JAVE2 编解码器 codec 设为 null（让 FFmpeg 自动选择）。008 的转码路径修正（FR-006~FR-009）和批量重试（FR-014）是否依赖此变更？若 006 未完成，008 的转码测试会受影响吗？ → A: 008 不依赖 codec=null 变更。路径拼接逻辑（sourceDirectoryTranscode 计算 targetPath）和批量操作（按状态删除/重试）与 JAVE2 编解码器参数完全解耦，可独立测试。
+- Q: 008 将 Dashboard 改为 WebSocket 推送（FR-026 定义 DASHBOARD_UPDATE 消息类型），但 004 A7 定义了 `GET /api/dashboard/stats` REST API 用于仪表板初始加载。Dashboard REST API 如何与 WebSocket 共存？ → A: 保留 REST API 用于初始加载，WebSocket 仅推送增量更新。与 008 FR-028 的"页面初始加载仍通过 REST API 获取全量数据"模式一致。
+- Q: 005 SC-007 启动包大小 ≤ 150MB、003 SC-002 镜像 ≤ 250MB——006（新增 LocalStorageStrategy）、007（代码目录重组）、008（WebSocket + 批量操作 + copyFile）的新增代码和依赖是否会影响这些大小约束？是否需要更新目标？ → A: 在 008 的 plan 阶段实际测量体积增量后再决策是否调整约束。当前暂不修改 005 和 003 的大小目标。
+- Q: 004（侧边栏导航、全局交互）、006（存储引擎文案替换）、008（转码表单 UX、WebSocket 迁移、批量操作按钮）同时修改前端时存在合并冲突风险。如何协调多 spec 对同一前端组件（如 TranscodeTaskForm.tsx、SyncTaskListPage.tsx、侧边栏导航）的并发修改？ → A: 串行实现。按 spec 编号顺序：006（文案+策略模式）→ 007（原目录转码）→ 008（源目录转码 UX 优化 + WebSocket），后续 spec rebase 前一个的变更。006 的存储引擎类型字段变更和 007 的 sourceDirectoryTranscode 字段是 008 表单优化的前置条件。
+- Q: 001 边界情况中"系统宕机重启后，未完成的转码任务如何恢复？"——006 定义了 8 状态模型和失败重试逻辑，但"启动时将运行中任务标记为中断并从数据库重新注册定时任务"的实现者是谁？001 FR-004 只提到同步任务手动触发时的去重，未明确说明启动时的状态恢复机制。 → A: 由 001 的启动逻辑统一处理。应用启动时在 common 包中扫描所有 RUNNING 状态的任务（同步和转码），标记为 INTERRUPTED，重新注册定时调度。001 的边界情况已描述此行为，common 包中的全局启动逻辑统一扫描所有任务状态最为合理。
+- Q: 008 未生成 plan.md 和 tasks.md，且依赖 004/006/007 的前置完成。跨 spec 的实现顺序和阻塞关系需要明确。 → A: **留待 plan 阶段解决**。008 将在 `/speckit-plan` 中定义与 004/006/007 的精确依赖关系和实现阶段划分。
 
 ## 用户场景与测试 *（强制）*
 
@@ -126,7 +135,25 @@
 
 ---
 
-### 用户故事 6 — WebSocket 实时推送替代轮询（优先级：P1）
+### 用户故事 7 — 同步/转码失败自动重试（优先级：P2）
+
+作为系统管理员，当同步任务或转码任务因网络波动、API 临时不可用等瞬时故障导致失败时，我希望系统能够自动重试失败的操作，无需我手动介入。重试次数应在前端任务列表中可见，最大自动重试次数可通过配置文件调整。
+
+**为什么是此优先级**：自动重试能显著减少因瞬时故障导致的手动运维工作。001 边界情况中已定义此需求（"应支持重试策略（指数退避），超时后标记任务失败"），但此前无 spec 承接实现。与 008 中已有的手动批量重试（FR-014）互补——手动重试覆盖已确认的失败，自动重试覆盖瞬时故障。
+
+**独立测试**：配置最大自动重试次数为 3，模拟网络中断导致同步失败，验证系统自动重试并在重试次数用尽后标记为最终失败。
+
+**验收场景**：
+
+1. **假设** 配置文件中 `app.retry.max-auto-retries` 设置为 3，**当** 同步任务中某个文件因网络超时传输失败，**则** 系统自动对该文件执行重试（指数退避：初始间隔 1 秒，每次翻倍，最大间隔 60 秒），最多重试 3 次。全部失败后标记该文件为最终失败。
+2. **假设** 某文件在第 2 次自动重试时成功，**当** 重试完成，**则** 系统继续处理下一个文件，该文件的重试次数（2）记录在任务执行详情中。
+3. **假设** 转码任务的上传步骤因网络问题失败，**当** 自动重试机制触发，**则** 任务状态保持为 UPLOAD_FAILED 但系统在后台自动重新执行上传（无需回到 UPLOADING 状态），重试成功后状态变为 COMPLETED。
+4. **假设** 用户查看任务执行详情，**当** 查看失败文件列表，**则** 每个失败文件显示已重试次数和最大重试次数（如"重试 2/3"）。
+5. **假设** 用户手动触发了重试（FR-014 的"重试所有失败文件"），**当** 手动重试执行，**则** 手动重试不计入自动重试次数限制，手动重试始终执行。
+
+---
+
+### 用户故事 8 — WebSocket 实时推送替代轮询（优先级：P1）
 
 作为系统架构师，我希望前端通过 WebSocket 接收实时数据更新，而不是通过每 5 秒轮询一次 REST API。这可以减少不必要的 HTTP 请求，降低服务端负载，并提供更实时的用户体验。
 
@@ -158,6 +185,10 @@
 - 同步不同引擎时的临时文件存储在独立子目录（如 `{temp-dir}/sync/`），遵循与转码临时文件相同的 24 小时定时清理策略。同步中间文件（完整原文件副本）和转码中间文件（转换后的输出）使用不同目录以区分语义和生命周期。
 - 临时文件清理策略统一为：上传成功后立即清理，失败状态下保留供重试，定时任务清理超过 24 小时的孤立任务和临时文件。此策略替代 002 中定义的启动时无条件清理。
 - 源目录转码隐藏"目标存储引擎"后，后端如何处理？后端自动将 `targetEngineId` 设置为与 `sourceEngineId` 相同的值，前端提交时不传 `targetEngineId`，后端在接收到请求后自动赋值。
+- 自动重试与手动重试的关系？手动重试（FR-014）不计入自动重试次数限制，始终执行。自动重试用尽后标记为最终失败，用户仍可手动重试。
+- 自动重试的指数退避策略如何与并发控制协调？自动重试的等待时间不占用线程池工作线程（使用 `ScheduledExecutorService` 调度），不影响其他文件的正常处理。
+- 配置文件未设置 `app.retry.max-auto-retries` 时的默认行为？默认值 3，即每个失败文件最多自动重试 3 次。
+- 自动重试过程中系统重启如何处理？重启后所有未完成的自动重试任务失效，任务保持原失败状态。用户可通过手动重试恢复。
 
 ## 需求 *（强制）*
 
@@ -198,24 +229,34 @@
 - **FR-019**：`AListStorageStrategy` 必须实现 `copyFile` 方法，调用 AList 的 `/api/fs/copy` 接口（POST 请求，body 包含 `src_dir`、`dst_dir`、`names` 参数）。
 - **FR-020**：`LocalStorageStrategy` 必须实现 `copyFile` 方法，使用 `java.nio.file.Files.copy` 进行本地文件复制。
 - **FR-021**：`SyncService.executeSyncTask()` 方法必须在执行同步时检测源引擎和目标引擎是否为同一个引擎（`sourceEngine.getId().equals(targetEngine.getId())`）。如果是，对每个待同步文件统一调用 `targetStrategy.copyFile()` 而非下载→上传流程（不做文件大小分流）。必须在调用前确保目标父目录存在。
-- **FR-022**：同引擎复制时必须处理冲突策略。对于 SKIP 策略，在复制前检查目标是否存在，若存在则跳过。对于 OVERWRITE 策略，直接覆盖（AList `/api/fs/copy` 默认行为需确认是否覆盖，或在覆盖前先删除目标文件）。对于 RENAME 策略，生成不重名的目标路径后复制。
+- **FR-022**：同引擎复制时必须处理冲突策略。使用与转码共享的 `ConflictStrategy` 枚举（OVERWRITE/SKIP/RENAME）。对于 SKIP 策略，在复制前检查目标是否存在，若存在则跳过。对于 OVERWRITE 策略，直接覆盖。对于 RENAME 策略，生成不重名的目标路径后复制。
 - **FR-023**：同引擎复制的进度追踪和错误处理必须与现有同步流程一致——成功/失败计数、`TaskExecution` 记录更新、失败详情记录。
+
+#### 同步/转码：自动重试
+
+- **FR-024**：系统必须支持对同步和转码任务中因瞬时故障（网络超时、API 临时不可用等）失败的操作进行自动重试。最大自动重试次数通过配置文件 `app.retry.max-auto-retries` 配置，默认值 3。
+- **FR-025**：自动重试必须采用指数退避策略：初始重试间隔 1 秒，每次翻倍，最大间隔 60 秒。重试间隔公式：`min(1000 * 2^(attempt-1), 60000)` 毫秒。
+- **FR-026**：每个失败文件的已重试次数必须记录在 `TaskExecution` 的失败详情中（如 `{ fileName, failReason, retryCount: 2, maxRetries: 3 }`），并在前端任务执行详情中展示（格式："重试 2/3"）。
+- **FR-027**：自动重试用尽后，文件标记为最终失败。用户可通过手动重试（FR-014 的"重试所有失败文件"）再次尝试，手动重试不计入自动重试次数限制，始终执行。
+- **FR-028**：转码三步流程（下载→转码→上传）中每个步骤的失败均适用自动重试。重试从失败步骤重新开始（不回到 PENDING），遵循 006 定义的重试逻辑（失败状态→对应进行中状态）。
 
 #### 公共模块：WebSocket 替代轮询
 
-- **FR-024**：后端必须引入 Spring WebSocket 支持（`spring-boot-starter-websocket`），配置 `WebSocketConfig` 注册 `/ws/events` 端点，启用原始 WebSocket（不使用 STOMP 以遵循 YAGNI）。WebSocket 并发连接数通过配置项 `app.websocket.max-connections` 控制（默认 50），超过上限时拒绝新连接。
-- **FR-025**：后端必须实现 WebSocket 会话管理和消息广播机制。消息格式为 JSON，包含 `type`（消息类型）、`payload`（增量数据载荷，仅含变更字段）、`timestamp`（时间戳）。采用增量变更模式：每次仅推送变更的实体和变更字段（如 `{ taskId, status, progressPercent }`），前端负责将增量合并到本地状态，不推送全量列表。
-- **FR-026**：后端必须在以下事件发生时通过 WebSocket 推送消息：同步任务状态/进度变更（`SYNC_PROGRESS`）、转码任务状态/进度变更（`TRANSCODE_PROGRESS`）、任务创建/删除/完成（`TASK_EVENT`）、Webhook 事件接收/处理状态变更（`WEBHOOK_EVENT`）、仪表板统计数据变更（`DASHBOARD_UPDATE`）。
-- **FR-027**：前端必须新增 WebSocket 连接管理 Hook（`useWebSocket.ts`），负责建立连接、消息分发、断线重连（指数退避，初始 1 秒，最大 30 秒）、页面卸载时断开。
-- **FR-028**：前端所有列表页面（`TranscodeTaskListPage.tsx`、`SyncTaskListPage.tsx`、`WebhookEventListPage.tsx`、`DashboardPage.tsx`）必须移除 `usePolling` 调用，改为使用 `useWebSocket` 接收实时更新。页面初始加载仍通过 REST API 获取全量数据。
-- **FR-029**：WebSocket 连接必须携带认证信息。在连接握手阶段，前端通过 HTTP Upgrade 请求的 `Authorization` 请求头传递 Basic Auth 凭据（与 REST API 认证方式一致）。后端 `WebSocketConfig` 需配置握手拦截器读取 `Authorization` 请求头验证凭据，认证失败时拒绝 WebSocket 升级请求。前端收到认证失败后引导用户重新登录（与 REST API 401 行为一致），不降级为 HTTP 轮询。
-- **FR-030**：原有的 `usePolling.ts` Hook 文件必须删除。所有列表页面已迁移至 WebSocket，不再需要轮询机制。
+- **FR-029**：后端必须引入 Spring WebSocket 支持（`spring-boot-starter-websocket`），配置 `WebSocketConfig` 注册 `/ws/events` 端点，启用原始 WebSocket（不使用 STOMP 以遵循 YAGNI）。WebSocket 并发连接数通过配置项 `app.websocket.max-connections` 控制（默认 50），超过上限时拒绝新连接。
+- **FR-030**：后端必须实现 WebSocket 会话管理和消息广播机制。消息格式为 JSON，包含 `type`（消息类型）、`payload`（增量数据载荷，仅含变更字段）、`timestamp`（时间戳）。采用增量变更模式：每次仅推送变更的实体和变更字段（如 `{ taskId, status, progressPercent }`），前端负责将增量合并到本地状态，不推送全量列表。
+- **FR-031**：后端必须在以下事件发生时通过 WebSocket 推送消息：同步任务状态/进度变更（`SYNC_PROGRESS`）、转码任务状态/进度变更（`TRANSCODE_PROGRESS`）、任务创建/删除/完成（`TASK_EVENT`）、Webhook 事件接收/处理状态变更（`WEBHOOK_EVENT`）、仪表板统计数据变更（`DASHBOARD_UPDATE`）。
+- **FR-032**：前端必须新增 WebSocket 连接管理 Hook（`useWebSocket.ts`），负责建立连接、消息分发、断线重连（指数退避，初始 1 秒，最大 30 秒）、页面卸载时断开。
+- **FR-033**：前端所有列表页面（`TranscodeTaskListPage.tsx`、`SyncTaskListPage.tsx`、`WebhookEventListPage.tsx`、`DashboardPage.tsx`）必须移除 `usePolling` 调用，改为使用 `useWebSocket` 接收实时更新。页面初始加载仍通过 REST API 获取全量数据。
+- **FR-034**：WebSocket 连接必须携带认证信息。在连接握手阶段，前端通过 HTTP Upgrade 请求的 `Authorization` 请求头传递 Basic Auth 凭据（与 REST API 认证方式一致）。后端 `WebSocketConfig` 需配置握手拦截器读取 `Authorization` 请求头验证凭据，认证失败时拒绝 WebSocket 升级请求。前端收到认证失败后引导用户重新登录（与 REST API 401 行为一致），不降级为 HTTP 轮询。
+- **FR-035**：原有的 `usePolling.ts` Hook 文件必须删除。所有列表页面已迁移至 WebSocket，不再需要轮询机制。
 
 ### 关键实体
 
 - **消息类型枚举（MessageType）**：WebSocket 推送消息的类型标识，包含 `SYNC_PROGRESS`、`TRANSCODE_PROGRESS`、`TASK_EVENT`、`WEBHOOK_EVENT`、`DASHBOARD_UPDATE`。
 - **WebSocket 消息（WsMessage）**：通用 WebSocket 消息结构，`{ type: string, payload: object, timestamp: string }`。
 - **存储引擎策略接口（StorageEngineStrategy）**：新增 `copyFile` 默认方法。现有方法不变。
+- **重试配置（RetryConfig）**：应用程序配置实体，包含最大自动重试次数（`max-auto-retries`，默认 3）、初始重试间隔（1 秒）、最大重试间隔（60 秒）。通过 `application.yaml` 中 `app.retry` 前缀配置。
+- **任务执行记录（TaskExecution）**：失败详情字段扩展——每个失败文件记录新增 `retryCount`（已重试次数）和 `maxRetries`（最大重试次数）字段。
 
 ## 成功标准 *（强制）*
 
@@ -229,6 +270,8 @@
 - **SC-006**：同引擎同步时，文件传输不经过本地磁盘（对于 AList，通过 `/api/fs/copy` 服务端复制；对于 LOCAL，通过系统级文件拷贝）。性能至少提升 50%（同引擎场景）。
 - **SC-007**：前端任何列表页面打开后，30 秒内 HTTP 请求数减少 80% 以上（与改前 5 秒轮询对比，改后仅首次加载和用户主动操作产生 HTTP 请求）。
 - **SC-008**：WebSocket 连接断线后 5 秒内自动重连成功，前端无任何手动刷新操作即可恢复数据更新。
+- **SC-009**：配置 `app.retry.max-auto-retries=3` 后，瞬时网络故障导致的同步失败文件在 3 次自动重试内恢复成功率 ≥ 80%（正常网络环境下）。
+- **SC-010**：每个失败文件的重试次数在前端任务执行详情中可见（格式："重试 2/3"），用户无需查阅日志即可了解重试状态。
 
 ## 假设
 
@@ -237,9 +280,24 @@
 - **A3**：前端所有 WebSocket 消费者（转码列表页、同步列表页）可在同一 WebSocket 连接上通过消息类型路由到不同的数据更新逻辑。
 - **A4**：所有前端列表页面（转码、同步、Webhook 事件、Dashboard）均已迁移至 WebSocket，`usePolling.ts` 被删除。无页面继续使用轮询机制。
 - **A5**：Spring WebSocket 支持通过 `spring-boot-starter-websocket` 自动配置，无需额外的中间件或代理配置。
-- **A6**：浏览器兼容性：WebSocket API 在所有现代浏览器中均受支持（Chrome、Firefox、Edge、Safari），无需 polyfill。
+- **A6**：浏览器兼容性：WebSocket API 在所有现代浏览器中均受支持（Chrome、Firefox、Edge、Safari），无需 polyfill。WebSocket 连接通过 HTTP Upgrade 握手的 `Authorization` 请求头传递 Basic Auth 凭据，后端握手拦截器验证。
+- **A7**：同步模块不同引擎场景下的中间文件存储在独立子目录（`{temp-dir}/sync/`），与转码临时文件分隔管理，但遵循相同的 24 小时定时清理策略。
+- **A8**：008 的实现以 006（storage-engine-refactor）已完成为前提，转码任务使用 8 状态模型。若 006 尚未实现，008 中的批量操作（依赖 DOWNLOAD_FAILED/TRANSCODE_FAILED/UPLOAD_FAILED 状态）需等待 006 完成后再执行。
+- **A9**：DTO 字段 `sourceDirectoryTranscode` 的命名：若 007 已完成（使用 `sameDirectoryTranscode`），008 将其修改为 `sourceDirectoryTranscode`；若 007 尚未实现，008 直接使用新字段名。
+- **A10**：自动重试仅适用于瞬时故障（网络超时、API 临时不可用），不适用于业务逻辑错误（如文件损坏、格式不支持）。业务逻辑错误的失败不应触发自动重试。
+- **A11**：同步和转码使用共享的 `ConflictStrategy` 枚举（OVERWRITE/SKIP/RENAME），定义在 common 包中，由各 Service 在对应步骤中统一查询执行。
 
 ## 与其他规格的关系
+
+### 对 002-transcode-temp-suffix-config 的修改
+
+- **临时文件清理策略**：002 中定义的"启动时无条件清理所有残留临时文件"（FR-013）被替代为"上传成功后立即清理，失败状态下保留供重试，定时任务清理超过 24 小时的孤立任务和临时文件"（与 006 FR-007 统一）。
+- **同步模块临时目录**：002 的临时目录（`temp-dir`）新增 `sync/` 子目录用于同步模块的下载→上传中间文件，独立于转码临时文件目录。
+
+### 对 006-storage-engine-refactor 的依赖
+
+- **8 状态模型**：008 的批量操作功能（FR-012~FR-014）直接依赖 006 定义的 8 状态模型（PENDING/DOWNLOADING/DOWNLOAD_FAILED/TRANSCODING/TRANSCODE_FAILED/UPLOADING/UPLOAD_FAILED/COMPLETED）。008 以 006 已完成为前提。
+- **临时文件生命周期**：008 遵循 006 中定义的临时文件管理策略（上传成功后立即清理、失败保留、24 小时定时清理），与 006 保持一致。
 
 ### 对 007-password-encryption-and-code-organization 的修改
 
