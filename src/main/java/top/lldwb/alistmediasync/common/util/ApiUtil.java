@@ -8,35 +8,29 @@ import org.springframework.web.client.RestClient;
 import java.util.Map;
 
 /**
- * AList API 请求封装工具类
+ * AList API 请求工具类
  * <p>
- * 统一封装 AList REST API 的 HTTP 请求发送、日志输出和异常处理。
- * 所有方法均遵循 constitution 原则 VII：DEBUG 级别记录请求入参和响应出参，
+ * 提供静态方法封装 AList REST API 的 HTTP 请求发送、完整日志输出和异常处理。
+ * 所有方法均遵循 constitution 原则 VII：DEBUG 级别记录请求入参和响应出参（含完整返回值），
  * ERROR 级别记录失败详情（含完整上下文）。
  * </p>
  *
  * <h3>设计说明</h3>
  * <ul>
- *   <li>提供 5 个公共方法，覆盖 AList API 的 6 种调用模式</li>
+ *   <li>提供 5 个公共静态方法，覆盖 AList API 的 6 种调用模式</li>
  *   <li>Token 仅用于设置 Authorization 请求头，不出现在日志中</li>
  *   <li>异常统一包装为 RuntimeException 向上抛出，由业务层决定处理方式</li>
- *   <li>遵循 KISS 原则：不创建接口抽象，不引入自定义异常类</li>
+ *   <li>遵循 KISS 原则：纯静态工具类，不创建接口抽象，不引入自定义异常类</li>
+ *   <li>每个方法要求传入 {@link RestClient} 实例，由调用方通过依赖注入获取</li>
  * </ul>
  *
  * @author AList-Media-Sync
  */
 @Slf4j
-public class AListApiClient {
+public final class ApiUtil {
 
-    private final RestClient restClient;
-
-    /**
-     * 构造器注入已配置好的 RestClient（含超时和日志拦截器）
-     *
-     * @param restClient 已配置超时和拦截器的 RestClient 实例
-     */
-    public AListApiClient(RestClient restClient) {
-        this.restClient = restClient;
+    private ApiUtil() {
+        // 工具类，禁止实例化
     }
 
     /**
@@ -45,14 +39,15 @@ public class AListApiClient {
      * 用于 AList API 的 GET 端点（如 GET /api/me 连接测试）。
      * </p>
      *
-     * @param baseUrl AList 服务器基础 URL
-     * @param token   AList API 认证令牌
-     * @param uri     API 路径（如 /api/me）
+     * @param restClient 已配置的 RestClient 实例
+     * @param baseUrl    AList 服务器基础 URL
+     * @param token      AList API 认证令牌
+     * @param uri        API 路径（如 /api/me）
      * @return 响应体解析为 Map，键为字符串，值为任意类型
      * @throws RuntimeException 请求失败时抛出（含 ERROR 日志）
      */
     @SuppressWarnings("unchecked")
-    public Map<String, Object> get(String baseUrl, String token, String uri) {
+    public static Map<String, Object> get(RestClient restClient, String baseUrl, String token, String uri) {
         String fullUrl = baseUrl + uri;
         log.debug("AList API 请求：GET {} — 无请求体", fullUrl);
         try {
@@ -61,8 +56,7 @@ public class AListApiClient {
                 .header("Authorization", token)
                 .retrieve()
                 .body(Map.class);
-            log.debug("AList API 响应：GET {} — 状态码=200, 响应键={}", fullUrl,
-                result != null ? result.keySet() : "null");
+            log.debug("AList API 响应：GET {} — 状态码=200, result={}", fullUrl, result);
             return result;
         } catch (Exception e) {
             log.error("AList API 调用失败：GET {} — 原因：{}", fullUrl, e.getMessage(), e);
@@ -76,15 +70,17 @@ public class AListApiClient {
      * 用于 AList API 的 POST 端点（如 POST /api/fs/list、POST /api/fs/get 获取元数据）。
      * </p>
      *
-     * @param baseUrl AList 服务器基础 URL
-     * @param token   AList API 认证令牌
-     * @param uri     API 路径（如 /api/fs/list）
-     * @param body    请求体（JSON Map）
+     * @param restClient 已配置的 RestClient 实例
+     * @param baseUrl    AList 服务器基础 URL
+     * @param token      AList API 认证令牌
+     * @param uri        API 路径（如 /api/fs/list）
+     * @param body       请求体（JSON Map）
      * @return 响应体解析为 Map
      * @throws RuntimeException 请求失败时抛出（含 ERROR 日志）
      */
     @SuppressWarnings("unchecked")
-    public Map<String, Object> post(String baseUrl, String token, String uri, Map<String, Object> body) {
+    public static Map<String, Object> post(RestClient restClient, String baseUrl, String token, String uri,
+                                           Map<String, Object> body) {
         String fullUrl = baseUrl + uri;
         log.debug("AList API 请求：POST {} — body={}", fullUrl, summarizeBody(body));
         try {
@@ -95,8 +91,7 @@ public class AListApiClient {
                 .body(body)
                 .retrieve()
                 .body(Map.class);
-            log.debug("AList API 响应：POST {} — 状态码=200, 响应键={}", fullUrl,
-                result != null ? result.keySet() : "null");
+            log.debug("AList API 响应：POST {} — 状态码=200, result={}", fullUrl, result);
             return result;
         } catch (Exception e) {
             log.error("AList API 调用失败：POST {} — body={}, 原因：{}", fullUrl, summarizeBody(body),
@@ -111,14 +106,16 @@ public class AListApiClient {
      * 用于 AList API 的文件下载端点（POST /api/fs/get + Accept: octet-stream）。
      * </p>
      *
-     * @param baseUrl AList 服务器基础 URL
-     * @param token   AList API 认证令牌
-     * @param uri     API 路径（如 /api/fs/get）
-     * @param body    请求体（JSON Map，含 path 等信息）
+     * @param restClient 已配置的 RestClient 实例
+     * @param baseUrl    AList 服务器基础 URL
+     * @param token      AList API 认证令牌
+     * @param uri        API 路径（如 /api/fs/get）
+     * @param body       请求体（JSON Map，含 path 等信息）
      * @return 响应体字节数组，可能为 null
      * @throws RuntimeException 请求失败时抛出（含 ERROR 日志）
      */
-    public byte[] postForBytes(String baseUrl, String token, String uri, Map<String, Object> body) {
+    public static byte[] postForBytes(RestClient restClient, String baseUrl, String token, String uri,
+                                      Map<String, Object> body) {
         String fullUrl = baseUrl + uri;
         log.debug("AList API 请求：POST {} (下载) — path={}", fullUrl, body.get("path"));
         try {
@@ -130,8 +127,10 @@ public class AListApiClient {
                 .accept(MediaType.APPLICATION_OCTET_STREAM)
                 .retrieve()
                 .body(byte[].class);
-            log.debug("AList API 响应：POST {} (下载) — 状态码=200, 文件大小={}bytes", fullUrl,
-                result != null ? result.length : 0);
+            log.debug("AList API 响应：POST {} (下载) — 状态码=200, 文件大小={}bytes, 字节数组前16位(hex)={}",
+                fullUrl,
+                result != null ? result.length : 0,
+                result != null ? toHexPrefix(result, 16) : "null");
             return result;
         } catch (Exception e) {
             log.error("AList API 调用失败：POST {} (下载) — path={}, 原因：{}", fullUrl,
@@ -146,13 +145,15 @@ public class AListApiClient {
      * 用于 AList API 的无响应体端点（如 POST /api/fs/mkdir、POST /api/fs/remove）。
      * </p>
      *
-     * @param baseUrl AList 服务器基础 URL
-     * @param token   AList API 认证令牌
-     * @param uri     API 路径（如 /api/fs/mkdir）
-     * @param body    请求体（JSON Map）
+     * @param restClient 已配置的 RestClient 实例
+     * @param baseUrl    AList 服务器基础 URL
+     * @param token      AList API 认证令牌
+     * @param uri        API 路径（如 /api/fs/mkdir）
+     * @param body       请求体（JSON Map）
      * @throws RuntimeException 请求失败时抛出（含 ERROR 日志）
      */
-    public void postVoid(String baseUrl, String token, String uri, Map<String, Object> body) {
+    public static void postVoid(RestClient restClient, String baseUrl, String token, String uri,
+                                Map<String, Object> body) {
         String fullUrl = baseUrl + uri;
         log.debug("AList API 请求：POST {} (void) — body={}", fullUrl, summarizeBody(body));
         try {
@@ -163,7 +164,7 @@ public class AListApiClient {
                 .body(body)
                 .retrieve()
                 .toBodilessEntity();
-            log.debug("AList API 响应：POST {} (void) — 状态码=200", fullUrl);
+            log.debug("AList API 响应：POST {} (void) — 状态码=200, 无响应体", fullUrl);
         } catch (Exception e) {
             log.error("AList API 调用失败：POST {} (void) — body={}, 原因：{}", fullUrl,
                 summarizeBody(body), e.getMessage(), e);
@@ -177,6 +178,7 @@ public class AListApiClient {
      * 用于 AList API 的文件上传端点（PUT /api/fs/put）。
      * </p>
      *
+     * @param restClient   已配置的 RestClient 实例
      * @param baseUrl      AList 服务器基础 URL
      * @param token        AList API 认证令牌
      * @param uri          API 路径（如 /api/fs/put）
@@ -184,9 +186,9 @@ public class AListApiClient {
      * @param extraHeaders 额外的请求头（如 File-Path、As-Task）
      * @throws RuntimeException 请求失败时抛出（含 ERROR 日志）
      */
-    public void putMultipart(String baseUrl, String token, String uri,
-                             MultiValueMap<String, Object> parts,
-                             Map<String, String> extraHeaders) {
+    public static void putMultipart(RestClient restClient, String baseUrl, String token, String uri,
+                                    MultiValueMap<String, Object> parts,
+                                    Map<String, String> extraHeaders) {
         String fullUrl = baseUrl + uri;
         log.debug("AList API 请求：PUT {} (上传) — headers={}", fullUrl, extraHeaders);
         try {
@@ -201,7 +203,7 @@ public class AListApiClient {
             requestBuilder.body(parts)
                 .retrieve()
                 .toBodilessEntity();
-            log.debug("AList API 响应：PUT {} (上传) — 状态码=200", fullUrl);
+            log.debug("AList API 响应：PUT {} (上传) — 状态码=200, 无响应体", fullUrl);
         } catch (Exception e) {
             log.error("AList API 调用失败：PUT {} (上传) — headers={}, 原因：{}", fullUrl,
                 extraHeaders, e.getMessage(), e);
@@ -217,7 +219,7 @@ public class AListApiClient {
      * 对于敏感或过大的请求体字段进行摘要处理，仅保留关键业务字段。
      * </p>
      */
-    private String summarizeBody(Map<String, Object> body) {
+    private static String summarizeBody(Map<String, Object> body) {
         if (body == null) {
             return "null";
         }
@@ -238,5 +240,27 @@ public class AListApiClient {
             return "{names=" + body.get("names") + ", dir=" + body.get("dir") + "}";
         }
         return body.toString();
+    }
+
+    /**
+     * 将字节数组前 N 位转换为十六进制字符串（用于日志，避免输出完整二进制内容）
+     *
+     * @param bytes 字节数组
+     * @param maxLen 最大显示的字节数
+     * @return 十六进制字符串
+     */
+    private static String toHexPrefix(byte[] bytes, int maxLen) {
+        if (bytes == null) {
+            return "null";
+        }
+        int len = Math.min(bytes.length, maxLen);
+        StringBuilder sb = new StringBuilder(len * 2);
+        for (int i = 0; i < len; i++) {
+            sb.append(String.format("%02x", bytes[i] & 0xFF));
+        }
+        if (bytes.length > maxLen) {
+            sb.append("...");
+        }
+        return sb.toString();
     }
 }

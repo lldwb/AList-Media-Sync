@@ -10,7 +10,7 @@ import org.springframework.http.client.ClientHttpRequestInterceptor;
 import org.springframework.http.client.ClientHttpResponse;
 import org.springframework.http.client.SimpleClientHttpRequestFactory;
 import org.springframework.web.client.RestClient;
-import top.lldwb.alistmediasync.common.util.AListApiClient;
+import top.lldwb.alistmediasync.common.util.ApiUtil;
 
 import java.io.IOException;
 import java.time.Duration;
@@ -40,7 +40,7 @@ public class RestClientConfig {
     /**
      * 配置好的 RestClient 实例（含超时和日志拦截器）
      * <p>
-     * 供 {@link AListApiClient} 使用，所有通过此 RestClient 的 HTTP 调用
+     * 供 {@link ApiUtil} 使用，所有通过此 RestClient 的 HTTP 调用
      * 都会自动记录请求和响应日志。
      * </p>
      */
@@ -56,20 +56,12 @@ public class RestClientConfig {
      * RestClient.Builder Bean（向后兼容）
      * <p>
      * 保留此 Bean 以兼容测试代码中 Mock RestClient.Builder 的场景。
-     * 新代码应优先使用 {@link #restClient()} 或 {@link AListApiClient}。
+     * 新代码应优先使用 {@link #restClient()} 或 {@link ApiUtil}。
      * </p>
      */
     @Bean
     public RestClient.Builder restClientBuilder() {
         return RestClient.builder();
-    }
-
-    /**
-     * AList API 客户端 Bean
-     */
-    @Bean
-    public AListApiClient alistApiClient() {
-        return new AListApiClient(restClient());
     }
 
     /**

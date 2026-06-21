@@ -1,10 +1,10 @@
 package top.lldwb.alistmediasync.storage.service.engine;
 
-import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.stereotype.Component;
 import org.springframework.util.LinkedMultiValueMap;
-import top.lldwb.alistmediasync.common.util.AListApiClient;
+import org.springframework.web.client.RestClient;
+import top.lldwb.alistmediasync.common.util.ApiUtil;
 import top.lldwb.alistmediasync.sync.dto.sync.DirectoryEntryVO;
 import top.lldwb.alistmediasync.sync.dto.sync.FileEntry;
 import top.lldwb.alistmediasync.storage.entity.StorageEngine;
@@ -19,7 +19,7 @@ import java.util.*;
 /**
  * AList 存储引擎策略实现
  * <p>
- * 通过 {@link AListApiClient} 统一封装 HTTP 调用 AList REST API，
+ * 通过 {@link ApiUtil} 静态方法统一封装 HTTP 调用 AList REST API，
  * 实现文件操作。所有 API 请求均经过统一的日志输出和异常处理。
  * 遵循 constitution 原则 VII：写操作（上传/创建/删除）使用 INFO，
  * 读操作（列出/获取/下载）使用 DEBUG。
@@ -29,10 +29,13 @@ import java.util.*;
  */
 @Slf4j
 @Component
-@RequiredArgsConstructor
 public class AListStorageStrategy implements StorageEngineStrategy {
 
-    private final AListApiClient apiClient;
+    private final RestClient restClient;
+
+    public AListStorageStrategy(RestClient restClient) {
+        this.restClient = restClient;
+    }
 
     @Override
     public String type() {
@@ -50,8 +53,8 @@ public class AListStorageStrategy implements StorageEngineStrategy {
             "refresh", false
         );
         @SuppressWarnings("unchecked")
-        Map<String, Object> result = apiClient.post(
-            engine.getBaseUrl(), engine.getEncryptedToken(), "/api/fs/list", body);
+        Map<String, Object> result = ApiUtil.post(
+            restClient, engine.getBaseUrl(), engine.getEncryptedToken(), "/api/fs/list", body);
         List<FileEntry> entries = parseFileList(result);
         log.debug("列出文件完成：path={}, 返回 {} 条", path, entries.size());
         return entries;
@@ -68,8 +71,8 @@ public class AListStorageStrategy implements StorageEngineStrategy {
             "refresh", false
         );
         @SuppressWarnings("unchecked")
-        Map<String, Object> result = apiClient.post(
-            engine.getBaseUrl(), engine.getEncryptedToken(), "/api/fs/get", body);
+        Map<String, Object> result = ApiUtil.post(
+            restClient, engine.getBaseUrl(), engine.getEncryptedToken(), "/api/fs/get", body);
         return parseFileEntry(result);
     }
 
@@ -80,8 +83,8 @@ public class AListStorageStrategy implements StorageEngineStrategy {
             "path", path,
             "password", ""
         );
-        byte[] fileBytes = apiClient.postForBytes(
-            engine.getBaseUrl(), engine.getEncryptedToken(), "/api/fs/get", body);
+        byte[] fileBytes = ApiUtil.postForBytes(
+            restClient, engine.getBaseUrl(), engine.getEncryptedToken(), "/api/fs/get", body);
         if (fileBytes != null) {
             log.debug("文件下载完成：path={}, size={}bytes", path, fileBytes.length);
             return new ByteArrayInputStream(fileBytes);
@@ -104,8 +107,8 @@ public class AListStorageStrategy implements StorageEngineStrategy {
         extraHeaders.put("File-Path", remotePath);
         extraHeaders.put("As-Task", "true");
 
-        apiClient.putMultipart(
-            engine.getBaseUrl(), engine.getEncryptedToken(), "/api/fs/put", parts, extraHeaders);
+        ApiUtil.putMultipart(
+            restClient, engine.getBaseUrl(), engine.getEncryptedToken(), "/api/fs/put", parts, extraHeaders);
         log.debug("文件上传完成：{}", remotePath);
     }
 
@@ -113,8 +116,8 @@ public class AListStorageStrategy implements StorageEngineStrategy {
     public void createDirectory(StorageEngine engine, String path) {
         log.info("创建目录：引擎={}, path={}", engine.getName(), path);
         Map<String, Object> body = Map.of("path", path);
-        apiClient.postVoid(
-            engine.getBaseUrl(), engine.getEncryptedToken(), "/api/fs/mkdir", body);
+        ApiUtil.postVoid(
+            restClient, engine.getBaseUrl(), engine.getEncryptedToken(), "/api/fs/mkdir", body);
     }
 
     @Override
@@ -124,8 +127,8 @@ public class AListStorageStrategy implements StorageEngineStrategy {
             "names", List.of(path.substring(path.lastIndexOf('/') + 1)),
             "dir", path.substring(0, path.lastIndexOf('/') + 1)
         );
-        apiClient.postVoid(
-            engine.getBaseUrl(), engine.getEncryptedToken(), "/api/fs/remove", body);
+        ApiUtil.postVoid(
+            restClient, engine.getBaseUrl(), engine.getEncryptedToken(), "/api/fs/remove", body);
     }
 
     // AList API 单页请求大小（不宜过大，避免触发服务端限制）
@@ -160,8 +163,8 @@ public class AListStorageStrategy implements StorageEngineStrategy {
         log.debug("测试连接：引擎={}, baseUrl={}", engine.getName(), engine.getBaseUrl());
         try {
             @SuppressWarnings("unchecked")
-            Map<String, Object> result = apiClient.get(
-                engine.getBaseUrl(), engine.getEncryptedToken(), "/api/me");
+            Map<String, Object> result = ApiUtil.get(
+                restClient, engine.getBaseUrl(), engine.getEncryptedToken(), "/api/me");
             boolean success = result != null && result.get("code") instanceof Number
                 && ((Number) result.get("code")).intValue() == 200;
             if (success) {
