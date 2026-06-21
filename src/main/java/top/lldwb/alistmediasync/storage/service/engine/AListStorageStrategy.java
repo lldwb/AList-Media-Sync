@@ -252,10 +252,18 @@ public class AListStorageStrategy implements StorageEngineStrategy {
 
     /**
      * 将 AList API 返回的 Map 转换为 FileEntry
+     * <p>
+     * AList 对于挂载的存储（如 123云盘、夸克、百度网盘），API 返回的 path 字段为空字符串，
+     * 实际路径存储在 virtual_path 中。需要优先使用 path，path 为空时回退到 virtual_path。
+     * </p>
      */
     private FileEntry mapToFileEntry(Map<String, Object> map) {
         String name = (String) map.get("name");
         String path = (String) map.get("path");
+        // AList 挂载存储的 path 可能为空字符串，此时回退使用 virtual_path
+        if (path == null || path.isEmpty()) {
+            path = (String) map.get("virtual_path");
+        }
         if (name == null || path == null) {
             return null;
         }
