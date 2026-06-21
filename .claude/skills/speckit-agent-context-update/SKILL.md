@@ -12,7 +12,7 @@ disable-model-invocation: false
 
 # 更新编码代理上下文
 
-刷新当前编码代理的上下文/指令文件（例如 `CLAUDE.md`、`.github/copilot-instructions.md`、`AGENTS.md`）中受管理的 Spec Kit 区块。
+刷新当前编码代理的上下文/指令文件（例如 `AGENTS.md`、`CLAUDE.md`、`.github/copilot-instructions.md`）中受管理的 Spec Kit 区块。
 
 ## 行为
 

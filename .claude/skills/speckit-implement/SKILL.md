@@ -97,6 +97,11 @@ $ARGUMENTS
    - **如果存在**：读取 research.md 以获取技术决策和约束。
    - **如果存在**：读取 .specify/memory/constitution.md 以获取治理约束。
    - **如果存在**：读取 quickstart.md 以获取集成场景。
+   - **四层 AGENTS.md 体系**：根据要修改的模块，读取对应层级的 AGENTS.md：
+     - 根级 `AGENTS.md` — 全局 AI 工作指令（始终读取）
+     - 后端入口 `src/main/java/…/AGENTS.md` — 涉及后端修改时
+     - 前端入口 `src/main/frontend/AGENTS.md` — 涉及前端修改时
+     - 模块 `AGENTS.md` — 修改具体模块时读取对应模块文件
 
 4. **项目设置验证**：
    - **必需**：根据实际项目设置创建/验证忽略文件：
