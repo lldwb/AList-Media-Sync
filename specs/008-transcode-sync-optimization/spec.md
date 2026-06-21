@@ -28,6 +28,11 @@
 - Q: WebSocket 消息推送的数据粒度——是推送完整实体列表还是仅增量变更？ → A: 增量变更。仅推送变更的实体和变更字段（如 `{ type: "TRANSCODE_PROGRESS", payload: { taskId: 1, progressPercent: 45, status: "TRANSCODING" } }`），前端合并到本地状态。不推送全量列表。
 - Q: 批量操作（重试所有失败文件）的 UI 反馈方式？ → A: 按钮加载态 + 结果提示。点击后按钮显示加载态并禁用，API 返回后解除禁用并弹出简短结果提示（如"已重试 5 个任务"），然后自动刷新列表。
 - Q: WebSocket 并发连接数上限？ → A: 可配置。在 `application.yaml` 中提供配置项（如 `app.websocket.max-connections`），默认值 50。超过上限时拒绝新连接并返回 HTTP 429 状态码。
+- Q: 重试所有失败文件的 API 执行模式（同步等待 vs 异步执行）？ → A: 异步执行。`POST /api/transcode-tasks/retry-all` 立即返回 202 Accepted，实际重试在后端异步执行。每个任务的重试结果通过 WebSocket 逐条推送（`TRANSCODE_PROGRESS` 消息），前端自动更新列表状态，用户无需手动刷新。
+- Q: 哪些页面改用 WebSocket，哪些保留轮询？ → A: 所有列表页面全面改为 WebSocket（转码任务列表、同步任务列表、Webhook 事件列表、Dashboard 仪表板）。`usePolling.ts` 删除，不再保留。
+- Q: 同引擎复制时是否需要按文件大小分流（大文件回退到下载→上传）？ → A: 不需要。统一使用引擎的 copy 方法（AList `/api/fs/copy`、本地 `Files.copy`），不做大小分流。AList 服务端 copy 是内部操作不经过客户端网络，无 HTTP 超时风险。
+- Q: "原目录转码"改为"源目录转码"的变更范围？ → A: UI 文案全面改为"源目录转码"，DTO 字段名从 `sameDirectoryTranscode` 改为 `sourceDirectoryTranscode`。其他 spec 文件（007、001、004 等）不做回改（历史文档保持原样）。
+- Q: WebSocket 认证失败或连接不可用时的前端降级策略？ → A: 显示连接错误提示并持续尝试重连（指数退避，最大 30 秒），不退化为 HTTP 轮询。若因认证失败（401），引导用户重新登录（与 REST API 行为一致）。
 
 ## 用户场景与测试 *（强制）*
 
@@ -93,7 +98,7 @@
 
 1. **假设** 转码任务列表中存在 5 个失败状态的任务，**当** 用户点击"清理失败任务"按钮，**则** 弹出确认对话框："确定要清理所有失败任务吗？此操作不可撤销。"，确认后所有失败状态的任务被删除，列表刷新。
 2. **假设** 转码任务列表中存在 10 个已完成（COMPLETED）状态的任务，**当** 用户点击"清理成功任务"按钮，**则** 弹出确认对话框，确认后所有已完成状态的任务被删除，列表刷新。
-3. **假设** 转码任务列表中存在 3 个可重试的失败任务（DOWNLOAD_FAILED / TRANSCODE_FAILED / UPLOAD_FAILED），**当** 用户点击"重试所有失败文件"按钮，**则** 弹出确认对话框："确定要重试所有失败文件吗？"，确认后按钮进入加载态显示"重试中..."，API 返回后显示结果提示"已重试 3 个任务"，列表自动刷新显示最新状态。
+3. **假设** 转码任务列表中存在 3 个可重试的失败任务（DOWNLOAD_FAILED / TRANSCODE_FAILED / UPLOAD_FAILED），**当** 用户点击"重试所有失败文件"按钮，**则** 弹出确认对话框："确定要重试所有失败文件吗？"，确认后按钮进入加载态显示"重试中..."，API 返回 202 后提示"已提交 3 个任务进行重试，结果将通过实时更新推送"，列表通过 WebSocket 自动刷新显示最新状态。
 4. **假设** 转码任务列表中没有任何失败任务，**当** 用户点击"清理失败任务"或"重试所有失败文件"，**则** 显示提示"没有可操作的失败任务"。
 5. **假设** 转码任务列表中没有任何成功任务，**当** 用户点击"清理成功任务"，**则** 显示提示"没有可清理的成功任务"。
 
@@ -129,7 +134,7 @@
 1. **假设** 用户打开任意管理页面，**当** 页面加载完成，**则** 前端自动与后端建立 WebSocket 连接（连接端点 `/ws/events`），连接成功后前端不再对列表数据进行 HTTP 轮询。
 2. **假设** 有一个同步任务正在执行，**当** 任务状态或进度发生变化，**则** 后端通过 WebSocket 推送增量更新消息（消息类型：`SYNC_PROGRESS`，payload 仅含变更的任务字段如 `{ taskId, status, successFiles, failedFiles }`），前端接收后合并到本地状态，无需额外的 HTTP 请求。
 3. **假设** 有一个转码任务正在执行，**当** 任务状态或进度发生变化，**则** 后端通过 WebSocket 推送增量更新消息（消息类型：`TRANSCODE_PROGRESS`，payload 仅含变更字段如 `{ taskId, status, progressPercent }`），前端接收后合并到本地状态。
-4. **假设** 前端 WebSocket 连接意外断开，**当** 断线后，**则** 前端自动尝试重连（采用指数退避策略，最大重连间隔 30 秒），重连成功后恢复实时更新。
+4. **假设** 前端 WebSocket 连接意外断开，**当** 断线后，**则** 前端自动尝试重连（采用指数退避策略，最大重连间隔 30 秒），重连成功后恢复实时更新。重连期间显示"连接中断，正在重连..."提示。认证失败时不降级为 HTTP 轮询，直接引导用户重新登录。
 5. **假设** 用户关闭或离开管理页面，**当** 页面卸载，**则** 前端主动关闭 WebSocket 连接，释放服务端资源。
 6. **假设** 后端需要通知前端全局状态变化（如任务创建、删除、执行完成），**当** 事件发生，**则** 后端通过 WebSocket 广播对应类型的消息。
 
@@ -141,7 +146,7 @@
 - 当转码任务列表为空时，点击"清理失败任务"、"清理成功任务"、"重试所有失败文件"应给出友好提示而非静默无视。
 - 当源目录转码的源路径为根目录 `/file.flv` 时，目标路径应同样为 `/file.mp3`。
 - WebSocket 服务端如何处理多实例部署？当前为单实例部署（H2 数据库），WebSocket 直接在应用进程内处理，暂不考虑多实例扩展需求。
-- WebSocket 连接是否需要认证？需要，与 REST API 使用相同的 Basic Auth 认证机制。WebSocket 握手阶段验证凭据。
+- WebSocket 连接是否需要认证？需要，与 REST API 使用相同的 Basic Auth 认证机制。WebSocket 握手阶段验证凭据。认证失败时拒绝升级请求，前端不退化为 HTTP 轮询，引导用户重新登录。
 - WebSocket 并发连接数上限通过 `app.websocket.max-connections` 配置项控制，默认 50。超过上限时拒绝新连接并返回 HTTP 429。
 - 同步同引擎复制时，如果目标目录不存在，是否自动创建？AList 的 `/api/fs/copy` 需要目标目录已存在，因此在复制前必须确保目标父目录存在（通过 `createDirectory` 方法）。
 - 同引擎复制的性能预期是什么？对于 AList，`/api/fs/copy` 是服务端内部操作，不经过本地网络，预期比下载→上传快至少一个数量级。
@@ -155,13 +160,13 @@
 
 - **FR-001**：`TranscodeTaskForm.tsx` 中复选框标签文本必须从"原目录转码（输出至源文件所在目录）"更改为"源目录转码（输出至源文件所在目录）"。
 - **FR-002**：当用户勾选"源目录转码"复选框时，前端必须隐藏（而非仅禁用）"目标存储引擎"下拉选择框和"目标文件路径"输入框及其标签。当取消勾选时，这两个字段重新显示并恢复为必填状态。
-- **FR-003**：前端提交表单时，当 `sameDirectoryTranscode=true`，必须不传 `targetEngineId` 字段（或传 null），`targetFilePath` 传空字符串。后端自动将 `targetEngineId` 赋值为 `sourceEngineId`。
-- **FR-004**：`TranscodeTaskCreateDTO.java` 中 `targetEngineId` 的 `@NotNull` 校验必须改为条件校验——当 `sameDirectoryTranscode=true` 时可为空，当 `sameDirectoryTranscode=false` 时仍为必填。可通过自定义校验注解或手动校验实现。
-- **FR-005**：用户界面中复选框的文字从"原目录转码"改为"源目录转码"，后端 DTO 字段名 `sameDirectoryTranscode` 保持不变（英文语义已足够准确）。
+- **FR-003**：前端提交表单时，当 `sourceDirectoryTranscode=true`，必须不传 `targetEngineId` 字段（或传 null），`targetFilePath` 传空字符串。后端自动将 `targetEngineId` 赋值为 `sourceEngineId`。
+- **FR-004**：`TranscodeTaskCreateDTO.java` 中 `targetEngineId` 的 `@NotNull` 校验必须改为条件校验——当 `sourceDirectoryTranscode=true` 时可为空，当 `sourceDirectoryTranscode=false` 时仍为必填。可通过自定义校验注解或手动校验实现。
+- **FR-005**：用户界面中复选框的文字从"原目录转码"改为"源目录转码"，后端 DTO 字段名从 `sameDirectoryTranscode` 改为 `sourceDirectoryTranscode`。
 
 #### 转码模块：源目录转码路径计算
 
-- **FR-006**：`TranscodeService.createTask()` 方法中，当 `sameDirectoryTranscode=true` 时，`targetFilePath` 必须设置为源文件的**完整目录路径**（即 `sourceFilePath` 去掉文件名后的目录部分），而非简单设置为 `/`。
+- **FR-006**：`TranscodeService.createTask()` 方法中，当 `sourceDirectoryTranscode=true` 时，`targetFilePath` 必须设置为源文件的**完整目录路径**（即 `sourceFilePath` 去掉文件名后的目录部分），而非简单设置为 `/`。
 - **FR-007**：`TranscodeFileProcessor` 中的 `uploadStep` 方法必须确保源目录转码的输出文件路径遵循规则：`源文件所在目录 / 源文件名（不含原扩展名）.目标格式扩展名`。对于目录扫描模式，每个文件的输出路径独立计算。
 - **FR-008**：`getOutputName()` 方法中的输出文件名生成逻辑必须确认已在 007 中正确实现并通过测试。当前 `TranscodeFileProcessor.java:264-268` 和 `TranscodeService.java:560-563` 已有去扩展名+新扩展名的逻辑，需验证与源目录转码场景的兼容性。
 - **FR-009**：`TranscodeCandidate` record 中的 `targetPath` 字段在源目录转码场景下必须等于源文件所在目录路径（即 `fullPath` 去掉文件名部分）。
@@ -175,9 +180,9 @@
 
 - **FR-012**：后端必须新增 `DELETE /api/transcode-tasks/failed` 端点，删除所有状态为 `DOWNLOAD_FAILED`、`TRANSCODE_FAILED`、`UPLOAD_FAILED` 的转码任务，返回删除数量。
 - **FR-013**：后端必须新增 `DELETE /api/transcode-tasks/completed` 端点，删除所有状态为 `COMPLETED` 的转码任务，返回删除数量。
-- **FR-014**：后端必须新增 `POST /api/transcode-tasks/retry-all` 端点，对所有状态为 `DOWNLOAD_FAILED`、`TRANSCODE_FAILED`、`UPLOAD_FAILED` 的转码任务执行重试操作，返回重试的任务数量。重试必须异步执行，避免阻塞请求。
+- **FR-014**：后端必须新增 `POST /api/transcode-tasks/retry-all` 端点，对所有状态为 `DOWNLOAD_FAILED`、`TRANSCODE_FAILED`、`UPLOAD_FAILED` 的转码任务执行重试操作。端点立即返回 202 Accepted（不等待重试完成），实际重试在后端异步执行。每个任务的重试结果通过 WebSocket `TRANSCODE_PROGRESS` 消息逐条推送，前端自动更新列表状态。
 - **FR-015**：`TranscodeTaskRepository` 必须新增按状态批量删除的查询方法 `deleteByStatusIn(List<TranscodeStatus> statuses)` 和按状态查询的 `findByStatusIn(List<TranscodeStatus> statuses)`。
-- **FR-016**：前端 `TranscodeTaskListPage.tsx` 必须在页面顶部操作栏添加三个按钮："清理失败任务"、"清理成功任务"、"重试所有失败文件"。每个按钮点击后弹出确认对话框，确认后按钮进入加载态（显示"清理中..."或"重试中..."）并禁用，API 返回后展示简短结果提示（如"已清理 5 个失败任务"、"已重试 3 个任务"），然后自动刷新列表。
+- **FR-016**：前端 `TranscodeTaskListPage.tsx` 必须在页面顶部操作栏添加三个按钮："清理失败任务"、"清理成功任务"、"重试所有失败文件"。每个按钮点击后弹出确认对话框，确认后按钮进入加载态（显示"清理中..."或"重试中..."）并禁用。对于清理操作，API 返回后展示简短结果提示（如"已清理 5 个失败任务"）并自动刷新列表。对于重试操作，API 返回 202 后提示"已提交 N 个任务进行重试"，后续通过 WebSocket 实时更新列表。
 - **FR-017**：前端 `api.ts` 中的 API 客户端必须新增对应的接口方法，端点映射如上。
 
 #### 同步模块：同引擎复制
@@ -185,7 +190,7 @@
 - **FR-018**：`StorageEngineStrategy` 接口必须新增 `copyFile(StorageEngine engine, String sourcePath, String targetPath)` 默认方法，默认实现抛出 `UnsupportedOperationException`，由各策略实现覆盖。
 - **FR-019**：`AListStorageStrategy` 必须实现 `copyFile` 方法，调用 AList 的 `/api/fs/copy` 接口（POST 请求，body 包含 `src_dir`、`dst_dir`、`names` 参数）。
 - **FR-020**：`LocalStorageStrategy` 必须实现 `copyFile` 方法，使用 `java.nio.file.Files.copy` 进行本地文件复制。
-- **FR-021**：`SyncService.executeSyncTask()` 方法必须在执行同步时检测源引擎和目标引擎是否为同一个引擎（`sourceEngine.getId().equals(targetEngine.getId())`）。如果是，对每个待同步文件调用 `targetStrategy.copyFile()` 而非下载→上传流程。必须在调用前确保目标父目录存在。
+- **FR-021**：`SyncService.executeSyncTask()` 方法必须在执行同步时检测源引擎和目标引擎是否为同一个引擎（`sourceEngine.getId().equals(targetEngine.getId())`）。如果是，对每个待同步文件统一调用 `targetStrategy.copyFile()` 而非下载→上传流程（不做文件大小分流）。必须在调用前确保目标父目录存在。
 - **FR-022**：同引擎复制时必须处理冲突策略。对于 SKIP 策略，在复制前检查目标是否存在，若存在则跳过。对于 OVERWRITE 策略，直接覆盖（AList `/api/fs/copy` 默认行为需确认是否覆盖，或在覆盖前先删除目标文件）。对于 RENAME 策略，生成不重名的目标路径后复制。
 - **FR-023**：同引擎复制的进度追踪和错误处理必须与现有同步流程一致——成功/失败计数、`TaskExecution` 记录更新、失败详情记录。
 
@@ -193,15 +198,15 @@
 
 - **FR-024**：后端必须引入 Spring WebSocket 支持（`spring-boot-starter-websocket`），配置 `WebSocketConfig` 注册 `/ws/events` 端点，启用原始 WebSocket（不使用 STOMP 以遵循 YAGNI）。WebSocket 并发连接数通过配置项 `app.websocket.max-connections` 控制（默认 50），超过上限时拒绝新连接。
 - **FR-025**：后端必须实现 WebSocket 会话管理和消息广播机制。消息格式为 JSON，包含 `type`（消息类型）、`payload`（增量数据载荷，仅含变更字段）、`timestamp`（时间戳）。采用增量变更模式：每次仅推送变更的实体和变更字段（如 `{ taskId, status, progressPercent }`），前端负责将增量合并到本地状态，不推送全量列表。
-- **FR-026**：后端必须在以下事件发生时通过 WebSocket 推送消息：同步任务状态/进度变更（`SYNC_PROGRESS`）、转码任务状态/进度变更（`TRANSCODE_PROGRESS`）、任务创建/删除/完成（`TASK_EVENT`）。
+- **FR-026**：后端必须在以下事件发生时通过 WebSocket 推送消息：同步任务状态/进度变更（`SYNC_PROGRESS`）、转码任务状态/进度变更（`TRANSCODE_PROGRESS`）、任务创建/删除/完成（`TASK_EVENT`）、Webhook 事件接收/处理状态变更（`WEBHOOK_EVENT`）、仪表板统计数据变更（`DASHBOARD_UPDATE`）。
 - **FR-027**：前端必须新增 WebSocket 连接管理 Hook（`useWebSocket.ts`），负责建立连接、消息分发、断线重连（指数退避，初始 1 秒，最大 30 秒）、页面卸载时断开。
-- **FR-028**：前端 `TranscodeTaskListPage.tsx` 和 `SyncTaskListPage.tsx` 必须移除 `usePolling` 调用，改为使用 `useWebSocket` 接收实时更新。页面初始加载仍通过 REST API 获取全量数据。
-- **FR-029**：WebSocket 连接必须携带认证信息。在连接握手阶段，前端通过 URL 查询参数或首条消息传递 Basic Auth 凭据。后端 `WebSocketConfig` 需配置握手拦截器验证凭据。
-- **FR-030**：原有的 `usePolling.ts` Hook 文件保留，不删除（可能被其他模块使用），但转码和同步列表页面不再引用它。
+- **FR-028**：前端所有列表页面（`TranscodeTaskListPage.tsx`、`SyncTaskListPage.tsx`、`WebhookEventListPage.tsx`、`DashboardPage.tsx`）必须移除 `usePolling` 调用，改为使用 `useWebSocket` 接收实时更新。页面初始加载仍通过 REST API 获取全量数据。
+- **FR-029**：WebSocket 连接必须携带认证信息。在连接握手阶段，前端通过 URL 查询参数或首条消息传递 Basic Auth 凭据。后端 `WebSocketConfig` 需配置握手拦截器验证凭据，认证失败时拒绝 WebSocket 升级请求。前端收到认证失败后引导用户重新登录（与 REST API 401 行为一致），不降级为 HTTP 轮询。
+- **FR-030**：原有的 `usePolling.ts` Hook 文件必须删除。所有列表页面已迁移至 WebSocket，不再需要轮询机制。
 
 ### 关键实体
 
-- **消息类型枚举（MessageType）**：WebSocket 推送消息的类型标识，包含 `SYNC_PROGRESS`、`TRANSCODE_PROGRESS`、`TASK_EVENT`。
+- **消息类型枚举（MessageType）**：WebSocket 推送消息的类型标识，包含 `SYNC_PROGRESS`、`TRANSCODE_PROGRESS`、`TASK_EVENT`、`WEBHOOK_EVENT`、`DASHBOARD_UPDATE`。
 - **WebSocket 消息（WsMessage）**：通用 WebSocket 消息结构，`{ type: string, payload: object, timestamp: string }`。
 - **存储引擎策略接口（StorageEngineStrategy）**：新增 `copyFile` 默认方法。现有方法不变。
 
@@ -215,7 +220,7 @@
 - **SC-004**：转码任务列表中源路径列的显示格式为 `路径/文件名.扩展名`，不显示纯目录行。
 - **SC-005**："清理失败任务"、"清理成功任务"、"重试所有失败文件"三个按钮在转码任务列表页面可见且可操作，每个按钮点击后弹出确认对话框。
 - **SC-006**：同引擎同步时，文件传输不经过本地磁盘（对于 AList，通过 `/api/fs/copy` 服务端复制；对于 LOCAL，通过系统级文件拷贝）。性能至少提升 50%（同引擎场景）。
-- **SC-007**：前端同步任务列表页面打开后，30 秒内 HTTP 请求数减少 80% 以上（与改前 5 秒轮询对比，改后仅首次加载和用户主动操作产生 HTTP 请求）。
+- **SC-007**：前端任何列表页面打开后，30 秒内 HTTP 请求数减少 80% 以上（与改前 5 秒轮询对比，改后仅首次加载和用户主动操作产生 HTTP 请求）。
 - **SC-008**：WebSocket 连接断线后 5 秒内自动重连成功，前端无任何手动刷新操作即可恢复数据更新。
 
 ## 假设
@@ -223,7 +228,7 @@
 - **A1**：AList 的 `/api/fs/copy` 接口行为为服务端内部复制（不经过客户端网络），目标目录必须已存在。
 - **A2**：当前单实例部署架构下，WebSocket 会话管理和消息推送在应用进程内完成，无需引入外部消息中间件（如 Redis Pub/Sub）。
 - **A3**：前端所有 WebSocket 消费者（转码列表页、同步列表页）可在同一 WebSocket 连接上通过消息类型路由到不同的数据更新逻辑。
-- **A4**：`usePolling.ts` 在其他页面（如 Webhook 事件列表页）仍被使用，因此保留原文件不删除。
+- **A4**：所有前端列表页面（转码、同步、Webhook 事件、Dashboard）均已迁移至 WebSocket，`usePolling.ts` 被删除。无页面继续使用轮询机制。
 - **A5**：Spring WebSocket 支持通过 `spring-boot-starter-websocket` 自动配置，无需额外的中间件或代理配置。
 - **A6**：浏览器兼容性：WebSocket API 在所有现代浏览器中均受支持（Chrome、Firefox、Edge、Safari），无需 polyfill。
 
