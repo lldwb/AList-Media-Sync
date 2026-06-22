@@ -231,16 +231,16 @@ public class StorageEngineService {
                 StorageEngine.EngineStatus newStatus = online
                     ? StorageEngine.EngineStatus.ONLINE
                     : StorageEngine.EngineStatus.OFFLINE;
-                if (engine.getEngineStatus() != newStatus) {
+                if (engine.getStatus() != newStatus) {
                     log.info("存储引擎状态变更：{} {} -> {}", engine.getName(),
-                        engine.getEngineStatus(), newStatus);
-                    engine.setEngineStatus(newStatus);
+                        engine.getStatus(), newStatus);
+                    engine.setStatus(newStatus);
                     repository.save(engine);
                 }
             } catch (Exception e) {
                 log.warn("存储引擎健康检查异常：{} — {}", engine.getName(), e.getMessage());
-                if (engine.getEngineStatus() != StorageEngine.EngineStatus.ERROR) {
-                    engine.setEngineStatus(StorageEngine.EngineStatus.ERROR);
+                if (engine.getStatus() != StorageEngine.EngineStatus.ERROR) {
+                    engine.setStatus(StorageEngine.EngineStatus.ERROR);
                     repository.save(engine);
                 }
             }

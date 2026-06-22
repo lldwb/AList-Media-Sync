@@ -351,6 +351,12 @@ public class SyncService {
         }
     }
 
+    /** 从完整路径中提取父目录路径 */
+    private String getDirPath(String filePath) {
+        int lastSlash = filePath.lastIndexOf('/');
+        return lastSlash > 0 ? filePath.substring(0, lastSlash) : "";
+    }
+
     /** 路径拼接 */
     private String concatPath(String dir, String name) {
         if (dir.endsWith("/")) return dir + name;
