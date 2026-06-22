@@ -65,6 +65,19 @@ public class ApiResult<T> {
     }
 
     /**
+     * 创建自定义状态码响应
+     *
+     * @param code    HTTP/业务状态码
+     * @param message 提示消息
+     * @param data    响应数据
+     * @param <T>     数据类型
+     * @return ApiResult 实例
+     */
+    public static <T> ApiResult<T> of(int code, String message, T data) {
+        return new ApiResult<>(code, message, data);
+    }
+
+    /**
      * 创建错误响应
      *
      * @param code    业务错误码

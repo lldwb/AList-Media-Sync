@@ -1,6 +1,7 @@
 package top.lldwb.alistmediasync.transcode.dto.transcode;
 
 import jakarta.validation.constraints.NotBlank;
+import jakarta.validation.constraints.NotNull;
 import lombok.Data;
 import top.lldwb.alistmediasync.transcode.entity.TranscodeTask;
 
