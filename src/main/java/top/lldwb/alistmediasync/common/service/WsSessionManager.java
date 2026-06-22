@@ -1,6 +1,6 @@
 package top.lldwb.alistmediasync.common.service;
 
-import com.fasterxml.jackson.databind.ObjectMapper;
+import tools.jackson.databind.json.JsonMapper;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.stereotype.Component;
 import org.springframework.web.socket.CloseStatus;
@@ -54,11 +54,11 @@ public class WsSessionManager extends TextWebSocketHandler {
     /** 防抖时间窗口（毫秒） */
     private static final long DASHBOARD_DEBOUNCE_MS = 2000;
 
-    private final ObjectMapper objectMapper;
+    private final JsonMapper jsonMapper;
     private final AppProperties appProperties;
 
-    public WsSessionManager(ObjectMapper objectMapper, AppProperties appProperties) {
-        this.objectMapper = objectMapper;
+    public WsSessionManager(JsonMapper jsonMapper, AppProperties appProperties) {
+        this.jsonMapper = jsonMapper;
         this.appProperties = appProperties;
     }
 
@@ -111,7 +111,7 @@ public class WsSessionManager extends TextWebSocketHandler {
         WsMessage message = new WsMessage(type, payload, Instant.now().toString());
         String json;
         try {
-            json = objectMapper.writeValueAsString(message);
+            json = jsonMapper.writeValueAsString(message);
         } catch (Exception e) {
             log.error("序列化 WebSocket 消息失败：{}", e.getMessage());
             return;

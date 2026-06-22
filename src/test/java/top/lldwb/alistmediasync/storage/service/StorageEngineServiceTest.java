@@ -11,6 +11,7 @@ import top.lldwb.alistmediasync.storage.dto.storage.StorageEngineUpdateDTO;
 import top.lldwb.alistmediasync.storage.dto.storage.StorageEngineVO;
 import top.lldwb.alistmediasync.storage.entity.StorageEngine;
 import top.lldwb.alistmediasync.storage.entity.StorageEngine.EngineType;
+import top.lldwb.alistmediasync.common.config.AppProperties;
 import top.lldwb.alistmediasync.storage.repository.StorageEngineRepository;
 import top.lldwb.alistmediasync.storage.service.engine.StorageEngineStrategy;
 
@@ -43,6 +44,9 @@ class StorageEngineServiceTest {
     @Mock
     private StorageEngineStrategy localStrategy;
 
+    @Mock
+    private AppProperties appProperties;
+
     private StorageEngineService service;
 
     private StorageEngineCreateDTO createDTO;
@@ -54,7 +58,7 @@ class StorageEngineServiceTest {
         when(alistStrategy.type()).thenReturn("ALIST");
         when(localStrategy.type()).thenReturn("LOCAL");
 
-        service = new StorageEngineService(repository, List.of(alistStrategy, localStrategy));
+        service = new StorageEngineService(repository, List.of(alistStrategy, localStrategy), appProperties);
 
         createDTO = new StorageEngineCreateDTO();
         createDTO.setName("测试引擎");

@@ -19,6 +19,7 @@ import top.lldwb.alistmediasync.storage.service.StorageEngineService;
 import top.lldwb.alistmediasync.sync.repository.SyncTaskRepository;
 import top.lldwb.alistmediasync.storage.repository.StorageEngineRepository;
 import top.lldwb.alistmediasync.sync.repository.TaskExecutionRepository;
+import top.lldwb.alistmediasync.common.service.WsSessionManager;
 import top.lldwb.alistmediasync.transcode.service.TranscodeService;
 import top.lldwb.alistmediasync.storage.service.engine.StorageEngineStrategy;
 import tools.jackson.databind.json.JsonMapper;
@@ -64,6 +65,9 @@ class SyncServiceTest {
 
     @Mock
     private JsonMapper objectMapper;
+
+    @Mock
+    private WsSessionManager wsSessionManager;
 
     @Mock
     private StorageEngineStrategy sourceStrategy;
