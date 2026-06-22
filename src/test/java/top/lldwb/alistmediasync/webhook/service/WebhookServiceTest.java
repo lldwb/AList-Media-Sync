@@ -16,6 +16,7 @@ import top.lldwb.alistmediasync.sync.service.SyncService;
 import top.lldwb.alistmediasync.transcode.service.TranscodeService;
 import top.lldwb.alistmediasync.storage.repository.StorageEngineRepository;
 import top.lldwb.alistmediasync.sync.repository.TaskExecutionRepository;
+import top.lldwb.alistmediasync.common.service.WsSessionManager;
 import top.lldwb.alistmediasync.webhook.repository.WebhookEventRepository;
 import top.lldwb.alistmediasync.webhook.repository.WebhookRuleRepository;
 import tools.jackson.databind.json.JsonMapper;
@@ -61,6 +62,9 @@ class WebhookServiceTest {
 
     @Mock
     private JsonMapper objectMapper;
+
+    @Mock
+    private WsSessionManager wsSessionManager;
 
     @InjectMocks
     private WebhookService service;

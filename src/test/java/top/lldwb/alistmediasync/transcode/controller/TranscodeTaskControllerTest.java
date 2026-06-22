@@ -12,8 +12,10 @@ import org.springframework.test.web.servlet.MockMvc;
 import top.lldwb.alistmediasync.common.config.AppProperties;
 import top.lldwb.alistmediasync.common.interceptor.AuthInterceptor;
 import top.lldwb.alistmediasync.common.service.CleanupService;
+import top.lldwb.alistmediasync.common.service.WsSessionManager;
 import top.lldwb.alistmediasync.transcode.dto.transcode.TranscodeTaskCreateDTO;
 import top.lldwb.alistmediasync.transcode.entity.TranscodeTask;
+import top.lldwb.alistmediasync.transcode.repository.TranscodeTaskRepository;
 import top.lldwb.alistmediasync.transcode.service.TranscodeService;
 
 import static org.mockito.ArgumentMatchers.*;
@@ -48,6 +50,12 @@ class TranscodeTaskControllerTest {
     @MockitoBean
     private AppProperties appProperties;
 
+    @MockitoBean
+    private WsSessionManager wsSessionManager;
+
+    @MockitoBean
+    private TranscodeTaskRepository transcodeTaskRepository;
+
     private final JsonMapper objectMapper = new JsonMapper();
 
     @BeforeEach
@@ -67,14 +75,14 @@ class TranscodeTaskControllerTest {
     }
 
     @Test
-    @DisplayName("sameDirectoryTranscode=true 且 targetFilePath 为空时创建成功（200）")
+    @DisplayName("setSourceDirectoryTranscode=true 且 targetFilePath 为空时创建成功（200）")
     void shouldCreateTaskWhenSameDirectoryTranscodeTrueAndTargetPathEmpty() throws Exception {
         TranscodeTaskCreateDTO dto = new TranscodeTaskCreateDTO();
         dto.setSourceFilePath("/videos/test.flv");
         dto.setTargetFilePath(null); // 不填目标路径
         dto.setTargetFormat(TranscodeTask.TargetFormat.MP3);
         dto.setTargetEngineId(1L);
-        dto.setSameDirectoryTranscode(true);
+        dto.setSourceDirectoryTranscode(true);
 
         mockMvc.perform(post("/api/transcode-tasks")
                 .contentType(MediaType.APPLICATION_JSON)
@@ -84,7 +92,7 @@ class TranscodeTaskControllerTest {
     }
 
     @Test
-    @DisplayName("sameDirectoryTranscode=false 且 targetFilePath 为空时应返回错误")
+    @DisplayName("setSourceDirectoryTranscode=false 且 targetFilePath 为空时应返回错误")
     void shouldReturnErrorWhenSameDirectoryTranscodeFalseAndTargetPathEmpty() throws Exception {
         // 模拟 Service 层抛出校验异常
         when(transcodeService.createTask(any(), any(), any(), any(), any(), any(), eq(false)))
@@ -95,7 +103,7 @@ class TranscodeTaskControllerTest {
         dto.setTargetFilePath(null);
         dto.setTargetFormat(TranscodeTask.TargetFormat.MP3);
         dto.setTargetEngineId(1L);
-        dto.setSameDirectoryTranscode(false);
+        dto.setSourceDirectoryTranscode(false);
 
         mockMvc.perform(post("/api/transcode-tasks")
                 .contentType(MediaType.APPLICATION_JSON)
@@ -104,14 +112,14 @@ class TranscodeTaskControllerTest {
     }
 
     @Test
-    @DisplayName("sameDirectoryTranscode=true 时忽略传入的 targetFilePath")
+    @DisplayName("setSourceDirectoryTranscode=true 时忽略传入的 targetFilePath")
     void shouldIgnoreTargetPathWhenSameDirectoryTranscodeTrue() throws Exception {
         TranscodeTaskCreateDTO dto = new TranscodeTaskCreateDTO();
         dto.setSourceFilePath("/videos/test.flv");
         dto.setTargetFilePath("/ignored/path/");
         dto.setTargetFormat(TranscodeTask.TargetFormat.MP3);
         dto.setTargetEngineId(1L);
-        dto.setSameDirectoryTranscode(true);
+        dto.setSourceDirectoryTranscode(true);
 
         mockMvc.perform(post("/api/transcode-tasks")
                 .contentType(MediaType.APPLICATION_JSON)
