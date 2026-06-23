@@ -1,5 +1,7 @@
 package top.lldwb.alistmediasync.transcode.dto.transcode;
 
+import com.fasterxml.jackson.annotation.JsonAlias;
+import com.fasterxml.jackson.annotation.JsonProperty;
 import jakarta.validation.constraints.NotBlank;
 import jakarta.validation.constraints.NotNull;
 import lombok.Data;
@@ -51,6 +53,17 @@ public class TranscodeTaskCreateDTO {
      * 启用时转码输出文件自动放置在源文件所在目录，无需手动指定目标路径。
      * 此时 targetFilePath 和 targetEngineId 可为空，后端自动计算。
      * </p>
+     * <p>
+     * 使用包装类型 {@link Boolean} 而非 boolean primitive：
+     * Lombok 对 boolean primitive 会生成 {@code isXxx()} getter，
+     * 在 Jackson 3.x 下其 JSON 属性名推导可能与字段名冲突，
+     * 曾导致前端发送的 {@code "sourceDirectoryTranscode": true} 反序列化为 false。
+     * 改为 Boolean 包装类型后 Lombok 生成标准 {@code getXxx()} getter，
+     * 反序列化路径无歧义；同时显式标注 {@link JsonProperty}/{@link JsonAlias} 加固命名映射，
+     * 并兼容历史字段名 {@code sameDirectoryTranscode}。
+     * </p>
      */
-    private boolean sourceDirectoryTranscode = false;
+    @JsonProperty("sourceDirectoryTranscode")
+    @JsonAlias({"sameDirectoryTranscode"})
+    private Boolean sourceDirectoryTranscode = false;
 }
