@@ -159,6 +159,25 @@ public class AListStorageStrategy implements StorageEngineStrategy {
     }
 
     @Override
+    public List<FileEntry> listEntries(StorageEngine engine, String path) {
+        log.debug("列出全部条目：引擎={}, path={}", engine.getName(), path);
+        try {
+            // 通过分页聚合得到该目录下全部条目（含目录和文件）
+            List<FileEntry> all = fetchAllEntries(engine, path);
+            // 排序：目录在前、文件在后，名称升序，便于前端展示
+            List<FileEntry> sorted = all.stream()
+                .sorted(Comparator.comparing(FileEntry::isDirectory).reversed()
+                    .thenComparing(FileEntry::name))
+                .toList();
+            log.debug("列出全部条目完成：path={}, 共 {} 个", path, sorted.size());
+            return sorted;
+        } catch (Exception e) {
+            log.error("列出全部条目失败：{} — {}", path, e.getMessage(), e);
+            return List.of();
+        }
+    }
+
+    @Override
     public boolean testConnection(StorageEngine engine) {
         log.debug("测试连接：引擎={}, baseUrl={}", engine.getName(), engine.getBaseUrl());
         try {

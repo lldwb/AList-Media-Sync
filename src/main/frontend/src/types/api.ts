@@ -54,6 +54,18 @@ export interface DirectoryEntryVO {
   hasChildren: boolean;
 }
 
+/**
+ * 通用条目（文件 + 目录），文件选择器使用
+ * 与后端 FileEntry 字段对齐
+ */
+export interface FileEntryVO {
+  name: string;
+  path: string;
+  isDirectory: boolean;
+  size: number;
+  modifiedTime: string;
+}
+
 /* ---- 同步任务 ---- */
 
 export type SyncMode = 'NEW_ONLY' | 'FULL' | 'MOVE';

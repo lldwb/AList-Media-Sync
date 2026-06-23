@@ -140,14 +140,15 @@ export function TranscodeTaskForm({ engines, onSubmit, onCancel, loading }: Tran
 
           <div>
             <label className="block text-sm font-medium text-gray-700 mb-1">
-              源文件路径 <span className="text-red-500">*</span>
+              {sourceDirectoryTranscode ? '源目录路径' : '源文件路径'} <span className="text-red-500">*</span>
             </label>
             <DirectoryTreeSelector
               engineId={sourceEngineId}
               value={sourceFilePath}
               onChange={setSourceFilePath}
-              placeholder="/media/recording.flv"
+              placeholder={sourceDirectoryTranscode ? '/media/videos' : '/media/recording.flv'}
               disabled={!sourceEngineId}
+              mode={sourceDirectoryTranscode ? 'directory' : 'file'}
             />
             {errors.sourceFilePath && <p className="mt-1 text-xs text-red-600">{errors.sourceFilePath}</p>}
           </div>
@@ -164,6 +165,7 @@ export function TranscodeTaskForm({ engines, onSubmit, onCancel, loading }: Tran
               onChange={setTargetFilePath}
               placeholder="/media/recording.mp3"
               disabled={!targetEngineId}
+              mode="file"
             />
             {errors.targetFilePath && <p className="mt-1 text-xs text-red-600">{errors.targetFilePath}</p>}
           </div>

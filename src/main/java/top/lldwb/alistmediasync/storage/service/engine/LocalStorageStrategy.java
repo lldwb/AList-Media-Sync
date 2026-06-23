@@ -180,6 +180,30 @@ public class LocalStorageStrategy implements StorageEngineStrategy {
     }
 
     @Override
+    public List<FileEntry> listEntries(StorageEngine engine, String path) {
+        Path dir = resolvePath(engine, path);
+        log.debug("列出本地全部条目：引擎={}, path={}", engine.getName(), dir);
+        if (!Files.exists(dir) || !Files.isDirectory(dir)) {
+            log.warn("本地目录不存在或不是目录：{}", dir);
+            return Collections.emptyList();
+        }
+        try (Stream<Path> stream = Files.list(dir)) {
+            // 直接走 toFileEntry，目录在前、文件在后，名称升序
+            List<FileEntry> result = stream
+                .map(p -> toFileEntry(p, engine.getLocalPath()))
+                .filter(Objects::nonNull)
+                .sorted(Comparator.comparing(FileEntry::isDirectory).reversed()
+                    .thenComparing(FileEntry::name))
+                .toList();
+            log.debug("列出本地全部条目完成：path={}, 共 {} 个", dir, result.size());
+            return result;
+        } catch (IOException e) {
+            log.error("列出本地全部条目失败：{} — {}", dir, e.getMessage(), e);
+            return Collections.emptyList();
+        }
+    }
+
+    @Override
     public boolean testConnection(StorageEngine engine) {
         Path dir = Path.of(engine.getLocalPath());
         log.debug("测试本地连接：引擎={}, path={}", engine.getName(), dir);

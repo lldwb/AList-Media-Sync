@@ -192,4 +192,42 @@ class LocalStorageStrategyTest {
         assertEquals(1, result.size());
         assertTrue(result.get(0).hasChildren());
     }
+
+    @Test
+    @DisplayName("listEntries 应同时返回目录和文件（目录在前、名称升序）")
+    void listEntriesShouldReturnBothDirectoriesAndFiles() throws IOException {
+        Files.createDirectory(tempDir.resolve("b_dir"));
+        Files.createDirectory(tempDir.resolve("a_dir"));
+        Files.createFile(tempDir.resolve("b_file.txt"));
+        Files.createFile(tempDir.resolve("a_file.txt"));
+
+        List<FileEntry> result = strategy.listEntries(engine, "/");
+        assertEquals(4, result.size());
+        // 目录在前并按名称升序
+        assertTrue(result.get(0).isDirectory());
+        assertEquals("a_dir", result.get(0).name());
+        assertTrue(result.get(1).isDirectory());
+        assertEquals("b_dir", result.get(1).name());
+        // 文件在后并按名称升序
+        assertFalse(result.get(2).isDirectory());
+        assertEquals("a_file.txt", result.get(2).name());
+        assertFalse(result.get(3).isDirectory());
+        assertEquals("b_file.txt", result.get(3).name());
+    }
+
+    @Test
+    @DisplayName("listEntries 对空目录应返回空列表")
+    void listEntriesShouldReturnEmptyForEmptyDir() {
+        List<FileEntry> result = strategy.listEntries(engine, "/");
+        assertNotNull(result);
+        assertTrue(result.isEmpty());
+    }
+
+    @Test
+    @DisplayName("listEntries 对不存在的目录应返回空列表")
+    void listEntriesShouldReturnEmptyForMissingDir() {
+        List<FileEntry> result = strategy.listEntries(engine, "/no-such-dir");
+        assertNotNull(result);
+        assertTrue(result.isEmpty());
+    }
 }
