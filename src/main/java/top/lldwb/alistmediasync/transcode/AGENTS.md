@@ -12,7 +12,7 @@
 - **TranscodeFileProcessor**：单文件处理器，下载→FFmpeg→上传，Semaphore 并发控制
 - **TranscodeTaskController**：转码任务 CRUD + 手动触发 + 重试 API
 - **8 状态模型**：PENDING → DOWNLOADING → TRANSCODING → UPLOADING → COMPLETED，每步可独立失败和重试
-- **sameDirectoryTranscode**：源目录转码选项，输出至源文件所在目录
+- **sourceDirectoryTranscode**：源目录转码选项，输出至源文件所在目录
 
 ## 模块关联
 

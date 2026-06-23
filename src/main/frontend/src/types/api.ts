@@ -182,7 +182,7 @@ export interface TranscodeTaskCreateDTO {
   targetFormat: TargetFormat;
   bitrate?: number;
   /** 源目录转码选项（默认 false），启用时 targetFilePath 可选 */
-  sameDirectoryTranscode?: boolean;
+  sourceDirectoryTranscode?: boolean;
 }
 
 /* ---- Webhook 规则 ---- */
