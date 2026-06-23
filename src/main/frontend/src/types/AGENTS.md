@@ -9,7 +9,7 @@
 ## 作用
 
 - `api.ts`：定义所有 API 接口类型（StorageEngineVO, SyncTaskVO, TranscodeTaskVO, WebhookRuleVO 等）、枚举映射（ENGINE_TYPE_LABELS, TRANSCODE_STATUS_LABELS 等）
-- `TranscodeTaskCreateDTO` 含 `sameDirectoryTranscode` 字段
+- `TranscodeTaskCreateDTO` 含 `sourceDirectoryTranscode` 字段
 
 ## 模块关联
 

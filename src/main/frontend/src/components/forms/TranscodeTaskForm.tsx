@@ -77,7 +77,7 @@ export function TranscodeTaskForm({ engines, onSubmit, onCancel, loading }: Tran
         targetFilePath: sourceDirectoryTranscode ? '' : targetFilePath.trim(),
         targetFormat,
         bitrate: parseInt(bitrate, 10) * 1000, // kbps → bps
-        sameDirectoryTranscode: sourceDirectoryTranscode,
+        sourceDirectoryTranscode: sourceDirectoryTranscode,
       });
     } catch (err) {
       setSubmitError(err instanceof Error ? err.message : '提交失败');
