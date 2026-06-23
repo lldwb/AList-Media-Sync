@@ -8,6 +8,7 @@ import top.lldwb.alistmediasync.storage.dto.storage.StorageEngineCreateDTO;
 import top.lldwb.alistmediasync.storage.dto.storage.StorageEngineUpdateDTO;
 import top.lldwb.alistmediasync.storage.dto.storage.StorageEngineVO;
 import top.lldwb.alistmediasync.sync.dto.sync.DirectoryEntryVO;
+import top.lldwb.alistmediasync.sync.dto.sync.FileEntry;
 import top.lldwb.alistmediasync.storage.entity.StorageEngine;
 import top.lldwb.alistmediasync.storage.service.StorageEngineService;
 import top.lldwb.alistmediasync.storage.service.engine.StorageEngineStrategy;
@@ -82,5 +83,26 @@ public class StorageEngineController {
         StorageEngine engine = service.getEntity(id);
         StorageEngineStrategy strategy = service.resolve(engine);
         return ApiResult.success(strategy.listDirectories(engine, path));
+    }
+
+    /**
+     * 获取存储引擎指定目录下的全部条目（文件 + 目录）
+     * <p>
+     * 文件选择器（如转码任务源/目标文件选择）使用此接口；
+     * 与 {@link #listDirectories} 的区别在于返回结果包含文件项，
+     * 前端据 {@code isDirectory} 字段决定可否展开 / 可否选中。
+     * </p>
+     *
+     * @param id   存储引擎 ID
+     * @param path 目录路径（可选，不传时返回根目录）
+     * @return 文件 + 子目录列表
+     */
+    @GetMapping("/{id}/entries")
+    public ApiResult<List<FileEntry>> listEntries(
+        @PathVariable Long id,
+        @RequestParam(required = false, defaultValue = "/") String path) {
+        StorageEngine engine = service.getEntity(id);
+        StorageEngineStrategy strategy = service.resolve(engine);
+        return ApiResult.success(strategy.listEntries(engine, path));
     }
 }

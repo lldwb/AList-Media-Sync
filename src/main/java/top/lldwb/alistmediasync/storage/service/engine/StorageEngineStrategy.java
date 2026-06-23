@@ -91,6 +91,26 @@ public interface StorageEngineStrategy {
     List<DirectoryEntryVO> listDirectories(StorageEngine engine, String path);
 
     /**
+     * 列出指定路径下的全部条目（文件 + 子目录），供"文件选择"场景使用
+     * <p>
+     * 与 {@link #listDirectories} 的区别：
+     * <ul>
+     *   <li>{@code listDirectories}：仅返回目录，用于"目录选择器"（如同步任务的源/目标目录）</li>
+     *   <li>{@code listEntries}：返回目录 + 文件，用于"文件选择器"（如转码任务的源/目标文件）</li>
+     * </ul>
+     * 默认实现基于 {@link #listFiles} 聚合分页结果，子类可按需重写以做性能优化。
+     * </p>
+     *
+     * @param engine 存储引擎实体
+     * @param path   目录路径
+     * @return 文件 + 子目录列表，目录在前、文件在后，名称升序
+     */
+    default List<FileEntry> listEntries(StorageEngine engine, String path) {
+        // 默认走单页 + 大 perPage 实现；AList 策略覆盖以走分页接口
+        return listFiles(engine, path, 1, Integer.MAX_VALUE);
+    }
+
+    /**
      * 测试连接
      *
      * @param engine 存储引擎实体
