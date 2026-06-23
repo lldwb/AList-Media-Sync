@@ -38,8 +38,10 @@ public class TranscodeTaskController {
     /** 创建独立转码任务（支持源目录转码选项） */
     @PostMapping
     public ApiResult<TranscodeTaskVO> create(@Valid @RequestBody TranscodeTaskCreateDTO dto) {
+        // null 视为 false，避免反序列化缺失时 NPE
+        boolean sourceDirectoryTranscode = Boolean.TRUE.equals(dto.getSourceDirectoryTranscode());
         // 源目录转码时自动将 targetEngineId 赋值为 sourceEngineId
-        Long targetEngineId = dto.isSourceDirectoryTranscode()
+        Long targetEngineId = sourceDirectoryTranscode
             ? dto.getSourceEngineId() : dto.getTargetEngineId();
 
         var task = transcodeService.createTask(
@@ -49,7 +51,7 @@ public class TranscodeTaskController {
             dto.getTargetFilePath(),
             dto.getTargetFormat(),
             dto.getBitrate(),
-            dto.isSourceDirectoryTranscode()
+            sourceDirectoryTranscode
         );
         transcodeService.executeAsync(task);
         // 推送 TASK_EVENT 消息
