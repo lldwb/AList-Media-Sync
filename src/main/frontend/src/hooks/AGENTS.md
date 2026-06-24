@@ -8,10 +8,10 @@
 
 ## 内容
 
-- `usePolling.ts`：轮询 hook，定时调用 fetcher，满足 stopCondition 时停止
+- `useWebSocket.ts`：WebSocket 连接管理 hook，连接 `/ws/events` 端点，提供消息分发回调、指数退避重连（1s → 30s）和连接状态（CONNECTING / OPEN / CLOSED / AUTH_FAILED）
 - `usePagination.ts`：分页状态管理
 
 ## 模块关联
 
-- `usePolling` 被 `TranscodeTaskListPage` 和 `SyncTaskDetailPage` 用于实时状态更新
-- **待优化**：轮询方式应替换为 WebSocket/SSE 推送，减少不必要的 HTTP 请求
+- `useWebSocket` 被 `DashboardPage`、`SyncTaskDetailPage`、`TranscodeTaskListPage`、`WebhookEventListPage`、`SyncTaskListPage` 用于接收实时状态/事件推送（替代旧的 HTTP 轮询）
+- 依赖 **api/client.ts** 暴露的 `AUTH_CREDENTIALS_KEY` 取出 Basic 凭证

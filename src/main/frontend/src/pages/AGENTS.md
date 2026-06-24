@@ -11,18 +11,17 @@
 | 页面 | 路由 | 说明 |
 |------|------|------|
 | `LoginPage.tsx` | `/login` | 登录页 |
-| `DashboardPage.tsx` | `/` | 仪表板首页 |
+| `DashboardPage.tsx` | `/` | 仪表板首页（WebSocket 实时刷新统计） |
 | `EngineListPage.tsx` | `/engines` | 存储引擎管理 |
 | `SyncTaskListPage.tsx` | `/sync-tasks` | 同步任务列表（创建/编辑/触发） |
-| `SyncTaskDetailPage.tsx` | `/sync-tasks/:id` | 同步任务详情+进度（使用轮询） |
-| `TranscodeTaskListPage.tsx` | `/transcode-tasks` | 转码任务列表（创建/重试/清理） |
+| `SyncTaskDetailPage.tsx` | `/sync-tasks/:id` | 同步任务详情+进度（WebSocket 推送） |
+| `TranscodeTaskListPage.tsx` | `/transcode-tasks` | 转码任务列表（创建/重试/批量清理/重试所有失败） |
 | `WebhookRuleListPage.tsx` | `/webhook-rules` | Webhook 规则管理 |
-| `WebhookEventListPage.tsx` | `/webhook-events` | Webhook 事件查询 |
+| `WebhookEventListPage.tsx` | `/webhook-events` | Webhook 事件查询（WebSocket 实时刷新） |
 
 ## 模块关联
 
 - 使用 **api/client.ts** 进行数据请求
 - 使用 **components/forms/** 中的表单组件
 - 使用 **components/ui/** 中的 UI 组件
-- 使用 **hooks/** 中的轮询和分页 hook
-- **TranscodeTaskListPage** 待添加：清理失败/成功任务、重试所有失败文件的批量操作按钮
+- 使用 **hooks/useWebSocket** 订阅实时事件，**hooks/usePagination** 进行分页

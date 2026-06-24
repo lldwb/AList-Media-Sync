@@ -16,9 +16,8 @@
 
 ## 模块关联
 
-- 依赖 **storage/** 模块：通过 `StorageEngineStrategy` 接口操作源和目标存储
+- 依赖 **storage/** 模块：通过 `StorageEngineStrategy` 接口操作源和目标存储；同引擎复制走 `copyFile`（服务端复制）
 - 可调用 **transcode/** 模块：同步任务可配置 `transcodeEnabled` 自动触发转码
 - 依赖 **common/** 模块：DTO/VO、工具类
 - 被 **webhook/** 模块调用：Webhook 规则匹配后触发同步任务
-- **已知问题**：进度查询当前使用 HTTP 轮询（`/api/sync-tasks`），应考虑改为 WebSocket 或 SSE 推送以降低请求频率
-- **待优化**：同引擎同步应调用存储层的 copy 方法（服务端复制），而非下载→上传
+- 前端进度通过 **common/service/WsSessionManager** 经 WebSocket（`/ws/events`）实时推送，无需 HTTP 轮询
