@@ -114,6 +114,23 @@ class AListStorageStrategyTest {
     }
 
     @Test
+    @DisplayName("downloadFile 应抛出异常当 raw_url 缺失")
+    void downloadFileShouldThrowWhenRawUrlMissing() {
+        try (MockedStatic<ApiUtil> apiUtil = mockStatic(ApiUtil.class)) {
+            // /api/fs/get 返回元数据但没有 raw_url
+            apiUtil.when(() -> ApiUtil.post(any(), anyString(), anyString(), eq("/api/fs/get"), any()))
+                .thenReturn(Map.of("data", Map.of("name", "x.flv", "size", 1024)));
+
+            RuntimeException ex = assertThrows(RuntimeException.class,
+                () -> strategy.downloadFile(engine, "/x.flv"));
+            assertTrue(ex.getMessage().contains("raw_url 缺失"));
+            // 关键：不应再走 postForBytes 拿"字节流"
+            apiUtil.verify(() -> ApiUtil.postForBytes(any(), anyString(), anyString(), anyString(), any()),
+                never());
+        }
+    }
+
+    @Test
     @DisplayName("createDirectory 应正确调用 API")
     void createDirectoryShouldCallApi() {
         try (MockedStatic<ApiUtil> apiUtil = mockStatic(ApiUtil.class)) {

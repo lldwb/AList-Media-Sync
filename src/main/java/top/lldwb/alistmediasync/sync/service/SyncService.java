@@ -320,10 +320,15 @@ public class SyncService {
         long startTime = System.currentTimeMillis();
         log.debug("小文件同步（流式）：{} -> {}, size={}bytes", sourcePath, targetPath, file.size);
         InputStream inputStream = sourceStrategy.downloadFile(sourceEngine, sourcePath);
-        if (inputStream == null) throw new RuntimeException("下载文件失败：" + sourcePath);
+        if (inputStream == null) {
+            log.error("下载文件失败：源策略返回 null 流，sourcePath={}", sourcePath);
+            throw new RuntimeException("下载文件失败：" + sourcePath);
+        }
         try (inputStream) {
             targetStrategy.uploadFile(targetEngine, targetPath, inputStream, file.size);
         } catch (Exception e) {
+            log.error("上传文件失败：sourcePath={}, targetPath={}, size={}bytes — {}",
+                sourcePath, targetPath, file.size, e.getMessage(), e);
             throw new RuntimeException("上传文件失败：" + targetPath, e);
         }
         log.debug("小文件同步完成：{} -> {}, 耗时={}ms", sourcePath, targetPath,
@@ -340,7 +345,10 @@ public class SyncService {
         try {
             tempFile = java.nio.file.Files.createTempFile("alist-sync-", ".tmp");
             try (InputStream in = sourceStrategy.downloadFile(sourceEngine, sourcePath)) {
-                if (in == null) throw new RuntimeException("下载文件失败：" + sourcePath);
+                if (in == null) {
+                    log.error("大文件下载失败：源策略返回 null 流，sourcePath={}", sourcePath);
+                    throw new RuntimeException("下载文件失败：" + sourcePath);
+                }
                 java.nio.file.Files.copy(in, tempFile, java.nio.file.StandardCopyOption.REPLACE_EXISTING);
             }
             try (InputStream fileIn = java.nio.file.Files.newInputStream(tempFile)) {
@@ -349,6 +357,8 @@ public class SyncService {
             log.info("大文件同步完成：{} -> {}, 耗时={}ms", sourcePath, targetPath,
                 System.currentTimeMillis() - startTime);
         } catch (Exception e) {
+            log.error("大文件同步失败：sourcePath={}, targetPath={}, size={}MB — {}",
+                sourcePath, targetPath, file.size / 1048576, e.getMessage(), e);
             throw new RuntimeException("大文件同步失败：" + sourcePath, e);
         } finally {
             if (tempFile != null) {
