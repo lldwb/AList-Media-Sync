@@ -103,7 +103,12 @@ public final class ApiUtil {
     /**
      * POST JSON 请求，返回二进制字节数组
      * <p>
-     * 用于 AList API 的文件下载端点（POST /api/fs/get + Accept: octet-stream）。
+     * 通用的 POST 取二进制响应工具方法。
+     * </p>
+     * <p>
+     * 注意：AList 的 {@code /api/fs/get} 返回 JSON 元数据（含 raw_url 直链），
+     * 不直接返回文件字节流。下载真实文件应先解析 raw_url 再通过 HTTP GET 流式拉取，
+     * 不要用本方法对接 {@code /api/fs/get}。
      * </p>
      *
      * @param restClient 已配置的 RestClient 实例

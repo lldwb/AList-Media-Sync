@@ -9,7 +9,6 @@ import top.lldwb.alistmediasync.sync.dto.sync.DirectoryEntryVO;
 import top.lldwb.alistmediasync.sync.dto.sync.FileEntry;
 import top.lldwb.alistmediasync.storage.entity.StorageEngine;
 
-import java.io.ByteArrayInputStream;
 import java.io.InputStream;
 import java.time.Instant;
 import java.time.LocalDateTime;
@@ -79,17 +78,41 @@ public class AListStorageStrategy implements StorageEngineStrategy {
     @Override
     public InputStream downloadFile(StorageEngine engine, String path) {
         log.debug("下载文件：引擎={}, path={}", engine.getName(), path);
+        // 第一步：调用 /api/fs/get 拿到文件元数据（含 raw_url 直链）
         Map<String, Object> body = Map.of(
             "path", path,
             "password", ""
         );
-        byte[] fileBytes = ApiUtil.postForBytes(
+        @SuppressWarnings("unchecked")
+        Map<String, Object> meta = ApiUtil.post(
             restClient, engine.getBaseUrl(), engine.getEncryptedToken(), "/api/fs/get", body);
-        if (fileBytes != null) {
-            log.debug("文件下载完成：path={}, size={}bytes", path, fileBytes.length);
-            return new ByteArrayInputStream(fileBytes);
+        String rawUrl = extractRawUrl(meta);
+        if (rawUrl == null || rawUrl.isEmpty()) {
+            log.error("下载文件失败：raw_url 缺失，path={}, meta={}", path, meta);
+            throw new RuntimeException("AList 文件下载失败：raw_url 缺失，path=" + path);
         }
-        return null;
+        log.debug("解析到 raw_url：path={}, rawUrl={}", path, rawUrl);
+        // 第二步：通过 raw_url 直接获取真实文件流（直链通常已带 sign 鉴权，不依赖 token）
+        try {
+            InputStream in = new java.net.URL(rawUrl).openStream();
+            log.debug("文件下载流已打开：path={}", path);
+            return in;
+        } catch (Exception e) {
+            log.error("下载文件流打开失败：path={}, rawUrl={}, 原因：{}", path, rawUrl, e.getMessage(), e);
+            throw new RuntimeException("AList 文件下载流打开失败：" + path, e);
+        }
+    }
+
+    /**
+     * 从 /api/fs/get 响应中提取 raw_url
+     */
+    @SuppressWarnings("unchecked")
+    private String extractRawUrl(Map<String, Object> meta) {
+        if (meta == null || !(meta.get("data") instanceof Map<?, ?> data)) {
+            return null;
+        }
+        Object raw = ((Map<String, Object>) data).get("raw_url");
+        return raw instanceof String s ? s : null;
     }
 
     @Override

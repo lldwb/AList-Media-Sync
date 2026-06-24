@@ -91,6 +91,7 @@ public class LocalStorageStrategy implements StorageEngineStrategy {
         try {
             return Files.newInputStream(filePath);
         } catch (IOException e) {
+            log.error("读取本地文件失败：path={} — {}", filePath, e.getMessage(), e);
             throw new RuntimeException("读取本地文件失败：" + filePath, e);
         }
     }
@@ -114,6 +115,7 @@ public class LocalStorageStrategy implements StorageEngineStrategy {
             }
             log.debug("本地文件写入完成：{}", targetPath);
         } catch (IOException e) {
+            log.error("写入本地文件失败：path={}, size={}bytes — {}", targetPath, fileSize, e.getMessage(), e);
             throw new RuntimeException("写入本地文件失败：" + targetPath, e);
         }
     }
@@ -125,6 +127,7 @@ public class LocalStorageStrategy implements StorageEngineStrategy {
         try {
             Files.createDirectories(dirPath);
         } catch (IOException e) {
+            log.error("创建本地目录失败：path={} — {}", dirPath, e.getMessage(), e);
             throw new RuntimeException("创建本地目录失败：" + dirPath, e);
         }
     }
@@ -142,6 +145,7 @@ public class LocalStorageStrategy implements StorageEngineStrategy {
                             try {
                                 Files.delete(p);
                             } catch (IOException e) {
+                                log.error("递归删除子节点失败：path={} — {}", p, e.getMessage(), e);
                                 throw new RuntimeException("删除失败：" + p, e);
                             }
                         });
@@ -150,6 +154,7 @@ public class LocalStorageStrategy implements StorageEngineStrategy {
                 Files.deleteIfExists(filePath);
             }
         } catch (IOException e) {
+            log.error("删除本地文件失败：path={} — {}", filePath, e.getMessage(), e);
             throw new RuntimeException("删除本地文件失败：" + filePath, e);
         }
     }
@@ -247,6 +252,7 @@ public class LocalStorageStrategy implements StorageEngineStrategy {
             Files.copy(source, target, StandardCopyOption.REPLACE_EXISTING);
             log.debug("本地复制完成：{} -> {}", source, target);
         } catch (IOException e) {
+            log.error("本地文件复制失败：src={}, dst={} — {}", source, target, e.getMessage(), e);
             throw new RuntimeException("本地文件复制失败：" + source + " -> " + target, e);
         }
     }
