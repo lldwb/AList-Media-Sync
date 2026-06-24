@@ -388,6 +388,16 @@ docker run -d -p 8080:8080 -e ALIST_BASE_URL=... -e ALIST_TOKEN=... -v alist-dat
 | 地方性法规 | `src/main/frontend/src/router/AGENTS.md` | Hash 路由表 + 认证守卫 |
 | 地方性法规 | `src/main/frontend/src/utils/AGENTS.md` | 工具函数（格式化/校验/Cron） |
 
+### 对接系统文档
+
+修改对接相关代码（`storage/service/engine/AListStorageStrategy`、`webhook/service/WebhookService`）前，MUST 先读 `md/` 下对应外部系统的 AGENTS.md 与接口 md，以外部契约为事实来源。
+
+| 层级 | AGENTS.md 路径 | 一句话说明 |
+|------|---------------|-----------|
+| 行政法规 | `md/AGENTS.md` | 对接系统总入口（对接模式、系统索引、文档同步） |
+| 地方性法规 | `md/alist/AGENTS.md` | AList REST API 参考（auth/fs/public/admin/Schemas，源自 Apifox） |
+| 地方性法规 | `md/danmuji/AGENTS.md` | 录播姬 Webhook v2 协议参考（事件矩阵、幂等约束） |
+
 ---
 
 ## 引用规格文档
