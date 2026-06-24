@@ -1,0 +1,84 @@
+# Alist-Public
+
+## API Docs
+- auth [token获取](https://alist-public.apifox.cn/327955409e0.md): 获取某个用户的临时JWt token，默认48小时过期
+- auth [用户注册](https://alist-public.apifox.cn/337499402e0.md): 
+- auth [token获取hash](https://alist-public.apifox.cn/327955410e0.md): 获取某个用户的临时JWt token，传入的密码需要在添加-https://github.com/alist-org/alist后缀后再进行sha256
+- auth [生成2FA密钥](https://alist-public.apifox.cn/327955411e0.md): 
+- auth [验证2FA code](https://alist-public.apifox.cn/327955412e0.md): 
+- auth [获取当前用户信息](https://alist-public.apifox.cn/327955413e0.md): 
+- fs [列出文件目录](https://alist-public.apifox.cn/327961242e0.md): 
+- fs [获取某个文件/目录信息](https://alist-public.apifox.cn/327955415e0.md): 
+- fs [获取目录](https://alist-public.apifox.cn/327955416e0.md): 
+- fs [搜索文件或文件夹](https://alist-public.apifox.cn/327955417e0.md): 
+- fs [新建文件夹](https://alist-public.apifox.cn/327955418e0.md): 
+- fs [重命名文件](https://alist-public.apifox.cn/327955419e0.md): 
+- fs [批量重命名](https://alist-public.apifox.cn/327955420e0.md): 
+- fs [正则重命名](https://alist-public.apifox.cn/327955421e0.md): 
+- fs [移动文件](https://alist-public.apifox.cn/327955422e0.md): 
+- fs [聚合移动](https://alist-public.apifox.cn/327955423e0.md): 
+- fs [复制文件](https://alist-public.apifox.cn/327955424e0.md): 
+- fs [删除文件或文件夹](https://alist-public.apifox.cn/327955425e0.md): 
+- fs [删除空文件夹](https://alist-public.apifox.cn/327955426e0.md): 
+- fs [添加离线下载](https://alist-public.apifox.cn/327955427e0.md): 
+- fs [表单上传文件](https://alist-public.apifox.cn/327955428e0.md): 
+- fs [流式上传文件](https://alist-public.apifox.cn/327955429e0.md): 
+- public [获取站点设置](https://alist-public.apifox.cn/327955430e0.md): 
+- public [ping检测](https://alist-public.apifox.cn/327955431e0.md): 连通性ping检测
+- admin > meta [列出元信息](https://alist-public.apifox.cn/327955432e0.md): 
+- admin > meta [获取元信息](https://alist-public.apifox.cn/327955433e0.md): 
+- admin > meta [新增元信息](https://alist-public.apifox.cn/327955434e0.md): 
+- admin > meta [更新元信息](https://alist-public.apifox.cn/327955435e0.md): 
+- admin > meta [删除元信息](https://alist-public.apifox.cn/327955436e0.md): 
+- admin > user [列出所有用户](https://alist-public.apifox.cn/327955437e0.md): 列出所有用户的信息
+- admin > user [列出某个用户](https://alist-public.apifox.cn/327955438e0.md): 
+- admin > user [新建用户](https://alist-public.apifox.cn/327955439e0.md): 
+- admin > user [更新用户信息](https://alist-public.apifox.cn/327955440e0.md): 
+- admin > user [取消某个用户的两步验证](https://alist-public.apifox.cn/327955441e0.md): 
+- admin > user [删除用户](https://alist-public.apifox.cn/327955442e0.md): 
+- admin > user [删除用户缓存](https://alist-public.apifox.cn/327955443e0.md): 
+- admin > storage [创建存储](https://alist-public.apifox.cn/327955444e0.md): 
+- admin > storage [更新存储](https://alist-public.apifox.cn/327955445e0.md): 
+- admin > storage [列出存储列表](https://alist-public.apifox.cn/327955446e0.md): 
+- admin > storage [启用存储](https://alist-public.apifox.cn/327955447e0.md): 
+- admin > storage [禁用存储](https://alist-public.apifox.cn/327955448e0.md): 
+- admin > storage [查询指定存储信息](https://alist-public.apifox.cn/327955449e0.md): 
+- admin > storage [删除指定存储](https://alist-public.apifox.cn/327955450e0.md): 
+- admin > storage [重新加载所有存储](https://alist-public.apifox.cn/327955451e0.md): 
+- admin > driver [查询所有驱动配置模板列表](https://alist-public.apifox.cn/327955452e0.md): 
+- admin > driver [列出驱动名列表](https://alist-public.apifox.cn/327955453e0.md): 
+- admin > driver [列出特定驱动信息](https://alist-public.apifox.cn/327955454e0.md): 
+- admin > setting [列出设置](https://alist-public.apifox.cn/327955455e0.md): 包括永久令牌
+- admin > setting [获取某项设置](https://alist-public.apifox.cn/327955456e0.md): 
+- admin > setting [保存设置](https://alist-public.apifox.cn/327955457e0.md): 
+- admin > setting [删除设置](https://alist-public.apifox.cn/327955458e0.md): 仅用于弃用的设置
+- admin > setting [重置令牌](https://alist-public.apifox.cn/327955459e0.md): 
+- admin > setting [设置aria2](https://alist-public.apifox.cn/327955460e0.md): 
+- admin > setting [设置qBittorrent](https://alist-public.apifox.cn/327955461e0.md): 
+- admin > task > upload [获取任务信息](https://alist-public.apifox.cn/327955462e0.md): 
+- admin > task > upload [获取已完成任务](https://alist-public.apifox.cn/327955463e0.md): 
+- admin > task > upload [获取未完成任务](https://alist-public.apifox.cn/327955464e0.md): 
+- admin > task > upload [删除任务](https://alist-public.apifox.cn/327955465e0.md): 
+- admin > task > upload [取消任务](https://alist-public.apifox.cn/327955466e0.md): 
+- admin > task > upload [重试任务](https://alist-public.apifox.cn/327955467e0.md): 
+- admin > task > upload [清除已完成任务](https://alist-public.apifox.cn/327955468e0.md): 
+- admin > task > upload [清除已成功任务](https://alist-public.apifox.cn/327955469e0.md): 
+- admin > tag [标签列表](https://alist-public.apifox.cn/327961234e0.md): 
+- admin > tag [创建标签](https://alist-public.apifox.cn/327961235e0.md): 
+- admin > tag [修改标签](https://alist-public.apifox.cn/327961236e0.md): 
+- admin > tag [标签详情](https://alist-public.apifox.cn/327961237e0.md): 
+- admin > tag [删除标签](https://alist-public.apifox.cn/327961238e0.md): 
+- admin > tag [文件绑定标签](https://alist-public.apifox.cn/327961239e0.md): 
+- admin > tag [根据文件名称获取对应标签](https://alist-public.apifox.cn/327961240e0.md): 
+- admin > tag [解除文件标签绑定关系](https://alist-public.apifox.cn/327961241e0.md): 
+- admin > tag [根据标签获取文件信息](https://alist-public.apifox.cn/327961243e0.md): 
+- admin > tag [批量设置文件标签](https://alist-public.apifox.cn/336631692e0.md): 
+- admin > role [获取角色列表](https://alist-public.apifox.cn/327970155e0.md): 
+- admin > role [获取角色详情](https://alist-public.apifox.cn/327970156e0.md): 
+- admin > role [创建角色](https://alist-public.apifox.cn/327970157e0.md): 
+- admin > role [更新角色](https://alist-public.apifox.cn/327970158e0.md): 
+- admin > role [删除角色](https://alist-public.apifox.cn/327970159e0.md): 
+
+## Schemas
+- Schemas [PermissionEntry](https://alist-public.apifox.cn/187928157d0.md): 
+- Schemas [Role](https://alist-public.apifox.cn/187928158d0.md): 
