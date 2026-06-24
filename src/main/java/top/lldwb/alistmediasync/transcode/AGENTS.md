@@ -19,10 +19,4 @@
 - 依赖 **storage/** 模块：下载源文件和上传转码产物
 - 被 **sync/** 模块调用：同步任务可配置自动转码
 - 被 **webhook/** 模块调用：Webhook 规则匹配后触发转码
-- 依赖 **common/** 模块：`TempFileManager`、`DiskSpaceChecker`、`MagicBytesDetector`
-- **待实现功能**：
-  1. 源目录转码时，前端隐藏"目标文件路径"和"目标存储引擎"
-  2. "原目录转码"文案改为"源目录转码"
-  3. 列表页不显示目录只显示文件，文件路径格式为"路径/文件"
-  4. 添加清理失败/成功任务和重试所有失败文件的功能
-  5. 源目录转码时输出路径为：原文件路径/文件名.目标格式
+- 依赖 **common/** 模块：`TempFileManager`、`DiskSpaceChecker`、`MagicBytesDetector`、`WsSessionManager`（状态推送）

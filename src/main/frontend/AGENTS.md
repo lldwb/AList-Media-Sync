@@ -25,8 +25,8 @@ src/main/frontend/src/
 ├── types/         # TypeScript 类型定义（与后端 DTO/VO 对应）
 ├── auth/          # 认证状态管理（Context + 会话超时）
 ├── components/    # 可复用 UI 组件（布局/表单/基础）
-├── hooks/         # React Hooks（轮询/分页）
-├── pages/         # 页面组件（7 个路由页面）
+├── hooks/         # React Hooks（WebSocket / 分页）
+├── pages/         # 页面组件（8 个路由页面）
 ├── router/        # Hash 路由表 + 认证守卫
 └── utils/         # 工具函数（格式化/校验/Cron）
 ```
@@ -39,8 +39,8 @@ src/main/frontend/src/
 | types | `src/types/AGENTS.md` | TypeScript 类型定义 |
 | auth | `src/auth/AGENTS.md` | 认证状态管理（Context + 超时） |
 | components | `src/components/AGENTS.md` | 可复用 UI 组件（布局/表单/基础） |
-| hooks | `src/hooks/AGENTS.md` | React Hooks（轮询/分页） |
-| pages | `src/pages/AGENTS.md` | 页面组件（7 个路由页面） |
+| hooks | `src/hooks/AGENTS.md` | React Hooks（WebSocket / 分页） |
+| pages | `src/pages/AGENTS.md` | 页面组件（8 个路由页面） |
 | router | `src/router/AGENTS.md` | Hash 路由表 + 认证守卫 |
 | utils | `src/utils/AGENTS.md` | 工具函数（格式化/校验/Cron） |
 
@@ -57,8 +57,7 @@ src/main/frontend/src/
 | `/webhook-rules` | WebhookRuleListPage | 是 |
 | `/webhook-events` | WebhookEventListPage | 是 |
 
-## 待优化项
+## 实时通信
 
-- 轮询接口（`/api/sync-tasks` 等）改为 WebSocket/SSE 推送
-- `TranscodeTaskForm`：源目录转码时隐藏目标路径和目标引擎
-- `TranscodeTaskListPage`：添加批量清理和重试所有失败文件功能
+- 通过 `hooks/useWebSocket` 连接后端 `/ws/events` 端点，推送同步进度、转码状态、Webhook 事件、仪表板统计
+- 重连策略：指数退避（初始 1s，封顶 30s），认证失败置为 `AUTH_FAILED` 不再重连

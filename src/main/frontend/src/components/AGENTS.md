@@ -15,4 +15,4 @@
 ## 模块关联
 
 - 被所有 **pages/** 使用
-- **TranscodeTaskForm** 需要修改：源目录转码时隐藏目标路径和目标引擎选择，文案"源目录转码"
+- **TranscodeTaskForm** 已实现源目录转码（`sourceDirectoryTranscode`）勾选，勾选后自动隐藏"目标存储引擎"与"目标文件路径"输入，并切换源路径选择器为目录模式
