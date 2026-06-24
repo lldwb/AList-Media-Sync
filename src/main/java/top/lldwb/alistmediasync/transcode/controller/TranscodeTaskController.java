@@ -10,7 +10,6 @@ import top.lldwb.alistmediasync.transcode.dto.transcode.TranscodeTaskVO;
 import top.lldwb.alistmediasync.common.service.CleanupService;
 import top.lldwb.alistmediasync.common.service.WsSessionManager;
 import top.lldwb.alistmediasync.transcode.entity.TranscodeTask;
-import top.lldwb.alistmediasync.transcode.repository.TranscodeTaskRepository;
 import top.lldwb.alistmediasync.transcode.service.TranscodeService;
 
 import java.util.List;
@@ -33,7 +32,6 @@ public class TranscodeTaskController {
     private final TranscodeService transcodeService;
     private final CleanupService cleanupService;
     private final WsSessionManager wsSessionManager;
-    private final TranscodeTaskRepository repository;
 
     /** 创建独立转码任务（支持源目录转码选项） */
     @PostMapping
@@ -104,11 +102,11 @@ public class TranscodeTaskController {
             TranscodeTask.TranscodeStatus.TRANSCODE_FAILED,
             TranscodeTask.TranscodeStatus.UPLOAD_FAILED
         );
-        long count = repository.countByStatusIn(failedStatuses);
+        long count = transcodeService.countByStatusIn(failedStatuses);
         if (count == 0) {
             return ApiResult.success("没有可操作的失败任务", Map.of("deletedCount", 0));
         }
-        int deleted = repository.deleteByStatusIn(failedStatuses);
+        int deleted = transcodeService.deleteByStatusIn(failedStatuses);
         wsSessionManager.broadcast("TASK_EVENT", Map.of(
             "action", "BATCH_DELETED",
             "taskType", "TRANSCODE",
@@ -122,11 +120,11 @@ public class TranscodeTaskController {
     @DeleteMapping("/completed")
     public ApiResult<Map<String, Object>> deleteCompleted() {
         var completedStatus = List.of(TranscodeTask.TranscodeStatus.COMPLETED);
-        long count = repository.countByStatusIn(completedStatus);
+        long count = transcodeService.countByStatusIn(completedStatus);
         if (count == 0) {
             return ApiResult.success("没有可清理的成功任务", Map.of("deletedCount", 0));
         }
-        int deleted = repository.deleteByStatusIn(completedStatus);
+        int deleted = transcodeService.deleteByStatusIn(completedStatus);
         wsSessionManager.broadcast("TASK_EVENT", Map.of(
             "action", "BATCH_DELETED",
             "taskType", "TRANSCODE",
@@ -144,7 +142,7 @@ public class TranscodeTaskController {
             TranscodeTask.TranscodeStatus.TRANSCODE_FAILED,
             TranscodeTask.TranscodeStatus.UPLOAD_FAILED
         );
-        var failedTasks = repository.findByStatusIn(failedStatuses);
+        var failedTasks = transcodeService.findByStatusIn(failedStatuses);
         if (failedTasks.isEmpty()) {
             return ApiResult.success("没有可操作的失败任务", Map.of("submittedCount", 0));
         }

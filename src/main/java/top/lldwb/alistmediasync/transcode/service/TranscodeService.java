@@ -523,6 +523,46 @@ public class TranscodeService {
             .orElseThrow(() -> new NoSuchElementException("转码任务不存在：id=" + id));
     }
 
+    /**
+     * 按状态批量删除转码任务
+     * <p>
+     * 删除前先解除 {@code task_execution.transcode_task_id} 外键引用（置为 NULL），
+     * 以保留历史执行记录并避免完整性约束冲突。整个过程在同一事务内完成。
+     * </p>
+     *
+     * @param statuses 待删除任务的状态集合
+     * @return 实际删除的转码任务数量
+     */
+    @Transactional
+    public int deleteByStatusIn(List<TranscodeStatus> statuses) {
+        List<Long> taskIds = repository.findByStatusIn(statuses).stream()
+            .map(TranscodeTask::getId)
+            .toList();
+        if (taskIds.isEmpty()) {
+            return 0;
+        }
+        // 1. 先解除 TaskExecution 对这些转码任务的外键引用（保留历史记录）
+        taskExecutionRepository.nullifyTranscodeTaskRefs(taskIds);
+        // 2. 再批量删除转码任务
+        int deleted = repository.deleteByStatusIn(statuses);
+        log.info("已按状态批量删除转码任务：statuses={}, 删除数量={}", statuses, deleted);
+        return deleted;
+    }
+
+    /**
+     * 按状态批量查询转码任务数量
+     */
+    public long countByStatusIn(List<TranscodeStatus> statuses) {
+        return repository.countByStatusIn(statuses);
+    }
+
+    /**
+     * 按状态批量查询转码任务
+     */
+    public List<TranscodeTask> findByStatusIn(List<TranscodeStatus> statuses) {
+        return repository.findByStatusIn(statuses);
+    }
+
     // ================================================================
     // 私有辅助方法
     // ================================================================

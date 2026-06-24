@@ -42,4 +42,15 @@ public interface TaskExecutionRepository extends JpaRepository<TaskExecution, Lo
     @Transactional
     @Query("UPDATE TaskExecution e SET e.status = 'INTERRUPTED' WHERE e.status = 'RUNNING'")
     int markAllRunningAsInterrupted();
+
+    /**
+     * 批量解除转码任务外键引用（删除转码任务前调用以避免完整性约束冲突）
+     * <p>
+     * 把 task_execution.transcode_task_id 在给定 ID 集合中的行置为 NULL，保留历史执行记录。
+     * </p>
+     */
+    @Modifying
+    @Transactional
+    @Query("UPDATE TaskExecution e SET e.transcodeTask = NULL WHERE e.transcodeTask.id IN :taskIds")
+    int nullifyTranscodeTaskRefs(@Param("taskIds") List<Long> taskIds);
 }

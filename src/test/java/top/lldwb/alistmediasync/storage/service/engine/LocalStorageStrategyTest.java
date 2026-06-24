@@ -101,6 +101,17 @@ class LocalStorageStrategyTest {
     }
 
     @Test
+    @DisplayName("listFiles 请求超出范围的页码应返回空列表")
+    void listFilesShouldReturnEmptyForOutOfRangePage() throws IOException {
+        Files.createFile(tempDir.resolve("only.txt"));
+
+        // 总数=1, page=2, perPage=50 → fromIndex=50 ≥ size，应返回空
+        List<FileEntry> result = strategy.listFiles(engine, "/", 2, 50);
+        assertNotNull(result);
+        assertTrue(result.isEmpty());
+    }
+
+    @Test
     @DisplayName("getFileInfo 应返回文件信息")
     void getFileInfoShouldReturnFileInfo() throws IOException {
         Path file = tempDir.resolve("hello.txt");
