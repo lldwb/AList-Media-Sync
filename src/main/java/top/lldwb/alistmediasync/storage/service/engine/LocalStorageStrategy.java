@@ -51,10 +51,16 @@ public class LocalStorageStrategy implements StorageEngineStrategy {
                     .thenComparing(FileEntry::name))
                 .toList();
 
+            // 空目录：直接返回，避免与"分页越界"混淆
+            if (allEntries.isEmpty()) {
+                log.debug("列出本地文件完成：path={}, 目录为空", dir);
+                return Collections.emptyList();
+            }
+
             // 简单分页
             int fromIndex = (page - 1) * perPage;
             if (fromIndex >= allEntries.size()) {
-                log.debug("列出本地文件完成：path={}, 总数={}, 返回空（分页越界）", dir, allEntries.size());
+                log.debug("列出本地文件完成：path={}, 总数={}, 请求 page={} 超出范围", dir, allEntries.size(), page);
                 return Collections.emptyList();
             }
             int toIndex = Math.min(fromIndex + perPage, allEntries.size());

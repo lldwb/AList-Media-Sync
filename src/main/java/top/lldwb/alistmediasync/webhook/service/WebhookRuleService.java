@@ -27,6 +27,7 @@ import java.util.NoSuchElementException;
 @Slf4j
 @Service
 @RequiredArgsConstructor
+@Transactional(readOnly = true)
 public class WebhookRuleService {
 
     private final WebhookRuleRepository repository;

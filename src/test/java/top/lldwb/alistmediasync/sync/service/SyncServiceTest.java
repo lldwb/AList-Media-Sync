@@ -120,6 +120,8 @@ class SyncServiceTest {
         when(taskExecutionRepository.findByStatusAndTaskType(any(), any()))
             .thenReturn(List.of());
         when(syncTaskRepository.save(any(SyncTask.class))).thenReturn(syncTask);
+        // 异步方法内部按 ID 重新加载任务（修复 LazyInitializationException）
+        when(syncTaskRepository.findById(syncTask.getId())).thenReturn(Optional.of(syncTask));
         when(objectMapper.writeValueAsString(any())).thenReturn("[]");
     }
 

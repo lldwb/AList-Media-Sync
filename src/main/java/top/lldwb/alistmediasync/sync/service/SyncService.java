@@ -63,11 +63,17 @@ public class SyncService {
     /**
      * 执行同步任务（异步）
      *
-     * @param task 同步任务实体
+     * @param task 同步任务实体（仅使用其 ID，方法内通过 Repository 重新加载以避免 LazyInitializationException）
      */
     @Async
     @Transactional
     public void executeSyncTask(SyncTask task) {
+        // 异步线程独立 Session：必须按 ID 重新加载，确保 @ManyToOne(LAZY) 关联（sourceEngine/targetEngine）
+        // 在当前事务 Session 内可被初始化，避免 detached 代理触发 LazyInitializationException
+        final Long taskId = task.getId();
+        task = syncTaskRepository.findById(taskId)
+            .orElseThrow(() -> new NoSuchElementException("同步任务不存在：id=" + taskId));
+
         // 冲突检测：是否有其他 SyncTask 向同一目标路径写入且正在运行中
         List<TaskExecution> conflicting = taskExecutionRepository.findByStatusAndTaskType(
             TaskExecution.ExecutionStatus.RUNNING, TaskExecution.TaskType.SYNC);
