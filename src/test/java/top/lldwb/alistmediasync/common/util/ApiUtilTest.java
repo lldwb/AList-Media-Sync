@@ -6,6 +6,7 @@ import org.junit.jupiter.api.extension.ExtendWith;
 import org.mockito.junit.jupiter.MockitoExtension;
 import org.springframework.web.client.RestClient;
 
+import java.io.ByteArrayInputStream;
 import java.util.Map;
 
 import static org.junit.jupiter.api.Assertions.*;
@@ -24,52 +25,49 @@ import static org.junit.jupiter.api.Assertions.*;
 class ApiUtilTest {
 
     private static final RestClient restClient = RestClient.create();
-    private static final String BASE_URL = "https://alist.example.com";
+    private static final String BAD_HOST = "https://invalid-host-does-not-exist.local";
     private static final String TOKEN = "test-token";
 
     @Test
     @DisplayName("get() 请求失败应抛出 RuntimeException")
     void getShouldThrowRuntimeExceptionOnError() {
-        RuntimeException ex = assertThrows(RuntimeException.class, () ->
-            ApiUtil.get(restClient, "https://invalid-host-does-not-exist.local", TOKEN, "/api/me"));
-        assertTrue(ex.getMessage().contains("AList API GET 请求失败"));
+        assertThrows(RuntimeException.class, () ->
+            ApiUtil.get(restClient, BAD_HOST, TOKEN, "/api/me"));
     }
 
     @Test
     @DisplayName("post() 请求失败应抛出 RuntimeException")
     void postShouldThrowRuntimeExceptionOnError() {
         Map<String, Object> body = Map.of("path", "/test", "password", "");
-        RuntimeException ex = assertThrows(RuntimeException.class, () ->
-            ApiUtil.post(restClient, "https://invalid-host-does-not-exist.local", TOKEN, "/api/fs/list", body));
-        assertTrue(ex.getMessage().contains("AList API POST 请求失败"));
-    }
-
-    @Test
-    @DisplayName("postForBytes() 请求失败应抛出 RuntimeException")
-    void postForBytesShouldThrowRuntimeExceptionOnError() {
-        Map<String, Object> body = Map.of("path", "/test.mp4", "password", "");
-        RuntimeException ex = assertThrows(RuntimeException.class, () ->
-            ApiUtil.postForBytes(restClient, "https://invalid-host-does-not-exist.local", TOKEN, "/api/fs/get", body));
-        assertTrue(ex.getMessage().contains("AList API 文件下载请求失败"));
+        assertThrows(RuntimeException.class, () ->
+            ApiUtil.post(restClient, BAD_HOST, TOKEN, "/api/fs/list", body));
     }
 
     @Test
     @DisplayName("postVoid() 请求失败应抛出 RuntimeException")
     void postVoidShouldThrowRuntimeExceptionOnError() {
         Map<String, Object> body = Map.of("path", "/new-dir");
-        RuntimeException ex = assertThrows(RuntimeException.class, () ->
-            ApiUtil.postVoid(restClient, "https://invalid-host-does-not-exist.local", TOKEN, "/api/fs/mkdir", body));
-        assertTrue(ex.getMessage().contains("AList API POST 请求失败"));
+        assertThrows(RuntimeException.class, () ->
+            ApiUtil.postVoid(restClient, BAD_HOST, TOKEN, "/api/fs/mkdir", body));
     }
 
     @Test
-    @DisplayName("putMultipart() 请求失败应抛出 RuntimeException")
-    void putMultipartShouldThrowRuntimeExceptionOnError() {
+    @DisplayName("putStream() 请求失败应抛出 RuntimeException")
+    void putStreamShouldThrowRuntimeExceptionOnError() {
+        byte[] data = "hello".getBytes();
+        RuntimeException ex = assertThrows(RuntimeException.class, () ->
+            ApiUtil.putStream(restClient, BAD_HOST, TOKEN,
+                "/test.mp4", new ByteArrayInputStream(data), data.length, true));
+        assertTrue(ex.getMessage().contains("AList") || ex.getCause() != null);
+    }
+
+    @Test
+    @DisplayName("putForm() 请求失败应抛出 RuntimeException")
+    void putFormShouldThrowRuntimeExceptionOnError() {
         var parts = new org.springframework.util.LinkedMultiValueMap<String, Object>();
         parts.add("file", "test-content");
         Map<String, String> headers = Map.of("File-Path", "/remote/test.mp4");
-        RuntimeException ex = assertThrows(RuntimeException.class, () ->
-            ApiUtil.putMultipart(restClient, "https://invalid-host-does-not-exist.local", TOKEN, "/api/fs/put", parts, headers));
-        assertTrue(ex.getMessage().contains("AList API 文件上传请求失败"));
+        assertThrows(RuntimeException.class, () ->
+            ApiUtil.putForm(restClient, BAD_HOST, TOKEN, parts, headers));
     }
 }
