@@ -134,6 +134,11 @@ class SyncServiceTest {
         return new FileEntry(name, "/test/" + name, false, size, LocalDateTime.now());
     }
 
+    /** 构建指定路径的 FileEntry 文件 */
+    private FileEntry file(String name, String path, long size) {
+        return new FileEntry(name, path, false, size, LocalDateTime.now());
+    }
+
     /** 构建 FileEntry 目录 */
     private FileEntry dir(String name) {
         return new FileEntry(name, "/test/" + name, true, 0, LocalDateTime.now());
@@ -195,6 +200,25 @@ class SyncServiceTest {
         // 不应下载或上传
         verify(sourceStrategy, never()).downloadFile(any(StorageEngine.class), anyString());
         verify(targetStrategy, never()).uploadFile(any(StorageEngine.class), anyString(), any(InputStream.class), anyLong());
+    }
+
+    @Test
+    @DisplayName("NEW_ONLY 模式 — 递归子目录同步时保留相对路径")
+    void shouldKeepRelativePathWhenSyncingNestedFiles() {
+        when(sourceStrategy.listFiles(eq(sourceEngine), eq("/videos"), anyInt(), eq(100)))
+            .thenReturn(List.of(dir("归档")));
+        when(sourceStrategy.listFiles(eq(sourceEngine), eq("/videos/归档"), anyInt(), eq(100)))
+            .thenReturn(List.of(file("video.flv", "/videos/归档/video.flv", 1000L)));
+        mockEmptyTarget();
+
+        when(sourceStrategy.downloadFile(eq(sourceEngine), anyString()))
+            .thenReturn(new ByteArrayInputStream(new byte[0]));
+        doNothing().when(targetStrategy).uploadFile(eq(targetEngine), anyString(), any(InputStream.class), anyLong());
+
+        service.executeSyncTask(syncTask);
+
+        verify(sourceStrategy).downloadFile(sourceEngine, "/videos/归档/video.flv");
+        verify(targetStrategy).uploadFile(eq(targetEngine), eq("/backup/归档/video.flv"), any(InputStream.class), eq(1000L));
     }
 
     @Test
