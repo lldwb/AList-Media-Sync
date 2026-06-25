@@ -1,27 +1,34 @@
 package top.lldwb.alistmediasync.common.util;
 
 import lombok.extern.slf4j.Slf4j;
+import org.springframework.core.io.InputStreamResource;
 import org.springframework.http.MediaType;
 import org.springframework.util.MultiValueMap;
 import org.springframework.web.client.RestClient;
 
+import java.io.InputStream;
+import java.nio.charset.StandardCharsets;
 import java.util.Map;
 
 /**
- * AList API 请求工具类
+ * AList REST API 请求工具类
  * <p>
- * 提供静态方法封装 AList REST API 的 HTTP 请求发送、完整日志输出和异常处理。
- * 所有方法均遵循 constitution 原则 VII：DEBUG 级别记录请求入参和响应出参（含完整返回值），
- * ERROR 级别记录失败详情（含完整上下文）。
+ * 严格按 {@code md/alist/} 下的官方对接文档封装 HTTP 调用。
+ * 所有方法都会：
+ * <ol>
+ *   <li>设置 {@code Authorization} 头（无 token 时跳过，用于 /ping 等公共接口）</li>
+ *   <li>校验响应中的 {@code code} 字段——AList 始终返回 HTTP 200，业务错误通过
+ *       {@code code != 200} 表达，并在 {@code message} 中携带原因，所以必须解析后再判断</li>
+ *   <li>DEBUG 记录入参/出参，ERROR 记录失败上下文，token 永不入日志</li>
+ * </ol>
  * </p>
  *
- * <h3>设计说明</h3>
+ * <h3>对应 AList 端点</h3>
  * <ul>
- *   <li>提供 5 个公共静态方法，覆盖 AList API 的 6 种调用模式</li>
- *   <li>Token 仅用于设置 Authorization 请求头，不出现在日志中</li>
- *   <li>异常统一包装为 RuntimeException 向上抛出，由业务层决定处理方式</li>
- *   <li>遵循 KISS 原则：纯静态工具类，不创建接口抽象，不引入自定义异常类</li>
- *   <li>每个方法要求传入 {@link RestClient} 实例，由调用方通过依赖注入获取</li>
+ *   <li>{@link #get} — GET 公共/带鉴权端点，如 {@code /ping}、{@code /api/me}</li>
+ *   <li>{@link #post} — POST JSON 端点，如 {@code /api/fs/list}、{@code /api/fs/get}</li>
+ *   <li>{@link #postVoid} — POST JSON 端点但忽略 data，如 {@code /api/fs/mkdir}、{@code /api/fs/copy}、{@code /api/fs/remove}</li>
+ *   <li>{@link #putStream} — PUT 流式上传，对接 {@code PUT /api/fs/put}（请求体为 octet-stream）</li>
  * </ul>
  *
  * @author AList-Media-Sync
@@ -29,54 +36,55 @@ import java.util.Map;
 @Slf4j
 public final class ApiUtil {
 
+    /** AList 业务成功状态码 */
+    public static final int CODE_SUCCESS = 200;
+
     private ApiUtil() {
         // 工具类，禁止实例化
     }
 
     /**
-     * GET 请求，返回 JSON Map 响应体
-     * <p>
-     * 用于 AList API 的 GET 端点（如 GET /api/me 连接测试）。
-     * </p>
+     * GET 请求，校验 AList 业务码后返回 data 全量 Map（含 code/message/data 三个字段）
      *
      * @param restClient 已配置的 RestClient 实例
-     * @param baseUrl    AList 服务器基础 URL
-     * @param token      AList API 认证令牌
-     * @param uri        API 路径（如 /api/me）
-     * @return 响应体解析为 Map，键为字符串，值为任意类型
-     * @throws RuntimeException 请求失败时抛出（含 ERROR 日志）
+     * @param baseUrl    AList 服务器基础 URL（无尾部 /）
+     * @param token      AList token；可为 null/空（用于 /ping 等无鉴权端点）
+     * @param uri        API 路径
+     * @return 解析后的响应 Map
+     * @throws RuntimeException 网络异常、HTTP 非 2xx、或业务 code != 200 时抛出
      */
     @SuppressWarnings("unchecked")
     public static Map<String, Object> get(RestClient restClient, String baseUrl, String token, String uri) {
         String fullUrl = baseUrl + uri;
-        log.debug("AList API 请求：GET {} — 无请求体", fullUrl);
+        log.debug("AList API 请求：GET {}", fullUrl);
         try {
-            Map<String, Object> result = restClient.get()
-                .uri(fullUrl)
-                .header("Authorization", token)
-                .retrieve()
-                .body(Map.class);
-            log.debug("AList API 响应：GET {} — 状态码=200, result={}", fullUrl, result);
+            RestClient.RequestHeadersSpec<?> spec = restClient.get().uri(fullUrl);
+            if (token != null && !token.isEmpty()) {
+                spec = spec.header("Authorization", token);
+            }
+            Map<String, Object> result = spec.retrieve().body(Map.class);
+            log.debug("AList API 响应：GET {} — result={}", fullUrl, result);
+            verifyBusinessCode(fullUrl, result);
             return result;
+        } catch (RuntimeException e) {
+            log.error("AList API 调用失败：GET {} — {}", fullUrl, e.getMessage());
+            throw e;
         } catch (Exception e) {
-            log.error("AList API 调用失败：GET {} — 原因：{}", fullUrl, e.getMessage(), e);
+            log.error("AList API 调用失败：GET {} — {}", fullUrl, e.getMessage(), e);
             throw new RuntimeException("AList API GET 请求失败：" + fullUrl, e);
         }
     }
 
     /**
-     * POST JSON 请求，返回 JSON Map 响应体
-     * <p>
-     * 用于 AList API 的 POST 端点（如 POST /api/fs/list、POST /api/fs/get 获取元数据）。
-     * </p>
+     * POST JSON 请求，校验 AList 业务码后返回响应 Map
      *
      * @param restClient 已配置的 RestClient 实例
      * @param baseUrl    AList 服务器基础 URL
-     * @param token      AList API 认证令牌
-     * @param uri        API 路径（如 /api/fs/list）
+     * @param token      AList token
+     * @param uri        API 路径（如 {@code /api/fs/list}）
      * @param body       请求体（JSON Map）
-     * @return 响应体解析为 Map
-     * @throws RuntimeException 请求失败时抛出（含 ERROR 日志）
+     * @return 解析后的响应 Map
+     * @throws RuntimeException 网络异常、HTTP 非 2xx、或业务 code != 200 时抛出
      */
     @SuppressWarnings("unchecked")
     public static Map<String, Object> post(RestClient restClient, String baseUrl, String token, String uri,
@@ -91,127 +99,122 @@ public final class ApiUtil {
                 .body(body)
                 .retrieve()
                 .body(Map.class);
-            log.debug("AList API 响应：POST {} — 状态码=200, result={}", fullUrl, result);
+            log.debug("AList API 响应：POST {} — result={}", fullUrl, result);
+            verifyBusinessCode(fullUrl, result);
             return result;
+        } catch (RuntimeException e) {
+            log.error("AList API 调用失败：POST {} — body={}, {}", fullUrl, summarizeBody(body), e.getMessage());
+            throw e;
         } catch (Exception e) {
-            log.error("AList API 调用失败：POST {} — body={}, 原因：{}", fullUrl, summarizeBody(body),
-                e.getMessage(), e);
+            log.error("AList API 调用失败：POST {} — body={}, {}", fullUrl, summarizeBody(body), e.getMessage(), e);
             throw new RuntimeException("AList API POST 请求失败：" + fullUrl, e);
         }
     }
 
     /**
-     * POST JSON 请求，返回二进制字节数组
+     * POST JSON 请求，校验 AList 业务码后丢弃 data
      * <p>
-     * 通用的 POST 取二进制响应工具方法。
-     * </p>
-     * <p>
-     * 注意：AList 的 {@code /api/fs/get} 返回 JSON 元数据（含 raw_url 直链），
-     * 不直接返回文件字节流。下载真实文件应先解析 raw_url 再通过 HTTP GET 流式拉取，
-     * 不要用本方法对接 {@code /api/fs/get}。
+     * 用于 {@code data: null} 的端点（如 /api/fs/mkdir、/api/fs/remove、/api/fs/copy、/api/fs/move）。
      * </p>
      *
      * @param restClient 已配置的 RestClient 实例
      * @param baseUrl    AList 服务器基础 URL
-     * @param token      AList API 认证令牌
-     * @param uri        API 路径（如 /api/fs/get）
-     * @param body       请求体（JSON Map，含 path 等信息）
-     * @return 响应体字节数组，可能为 null
-     * @throws RuntimeException 请求失败时抛出（含 ERROR 日志）
-     */
-    public static byte[] postForBytes(RestClient restClient, String baseUrl, String token, String uri,
-                                      Map<String, Object> body) {
-        String fullUrl = baseUrl + uri;
-        log.debug("AList API 请求：POST {} (下载) — path={}", fullUrl, body.get("path"));
-        try {
-            byte[] result = restClient.post()
-                .uri(fullUrl)
-                .header("Authorization", token)
-                .contentType(MediaType.APPLICATION_JSON)
-                .body(body)
-                .accept(MediaType.APPLICATION_OCTET_STREAM)
-                .retrieve()
-                .body(byte[].class);
-            log.debug("AList API 响应：POST {} (下载) — 状态码=200, 文件大小={}bytes, 字节数组前16位(hex)={}",
-                fullUrl,
-                result != null ? result.length : 0,
-                result != null ? toHexPrefix(result, 16) : "null");
-            return result;
-        } catch (Exception e) {
-            log.error("AList API 调用失败：POST {} (下载) — path={}, 原因：{}", fullUrl,
-                body.get("path"), e.getMessage(), e);
-            throw new RuntimeException("AList API 文件下载请求失败：" + fullUrl, e);
-        }
-    }
-
-    /**
-     * POST JSON 请求，无返回值（Bodiless）
-     * <p>
-     * 用于 AList API 的无响应体端点（如 POST /api/fs/mkdir、POST /api/fs/remove）。
-     * </p>
-     *
-     * @param restClient 已配置的 RestClient 实例
-     * @param baseUrl    AList 服务器基础 URL
-     * @param token      AList API 认证令牌
-     * @param uri        API 路径（如 /api/fs/mkdir）
-     * @param body       请求体（JSON Map）
-     * @throws RuntimeException 请求失败时抛出（含 ERROR 日志）
+     * @param token      AList token
+     * @param uri        API 路径
+     * @param body       请求体
+     * @throws RuntimeException 业务 code != 200 时抛出
      */
     public static void postVoid(RestClient restClient, String baseUrl, String token, String uri,
                                 Map<String, Object> body) {
-        String fullUrl = baseUrl + uri;
-        log.debug("AList API 请求：POST {} (void) — body={}", fullUrl, summarizeBody(body));
-        try {
-            restClient.post()
-                .uri(fullUrl)
-                .header("Authorization", token)
-                .contentType(MediaType.APPLICATION_JSON)
-                .body(body)
-                .retrieve()
-                .toBodilessEntity();
-            log.debug("AList API 响应：POST {} (void) — 状态码=200, 无响应体", fullUrl);
-        } catch (Exception e) {
-            log.error("AList API 调用失败：POST {} (void) — body={}, 原因：{}", fullUrl,
-                summarizeBody(body), e.getMessage(), e);
-            throw new RuntimeException("AList API POST 请求失败：" + fullUrl, e);
-        }
+        post(restClient, baseUrl, token, uri, body);
     }
 
     /**
-     * PUT multipart/form-data 请求，无返回值
+     * 流式 PUT 上传文件，对接 {@code PUT /api/fs/put}（octet-stream）
      * <p>
-     * 用于 AList API 的文件上传端点（PUT /api/fs/put）。
+     * 严格按 {@code md/alist/fs/流式上传文件.md} 实现：请求体直接是文件字节流，
+     * 通过 {@code File-Path}（URL-encoded）、{@code As-Task}、{@code Content-Length}
+     * header 携带元数据。相比 multipart 形式，无需在内存中组装表单边界，对大文件更友好。
      * </p>
      *
      * @param restClient   已配置的 RestClient 实例
      * @param baseUrl      AList 服务器基础 URL
-     * @param token        AList API 认证令牌
-     * @param uri          API 路径（如 /api/fs/put）
-     * @param parts        multipart 表单数据
-     * @param extraHeaders 额外的请求头（如 File-Path、As-Task）
-     * @throws RuntimeException 请求失败时抛出（含 ERROR 日志）
+     * @param token        AList token
+     * @param remotePath   目标文件绝对路径（原始字符串，方法内部做 URL 编码）
+     * @param inputStream  文件内容输入流，调用方负责事先备好（关闭由 RestClient 接管）
+     * @param fileSize     文件大小（字节），用于 Content-Length；&lt;0 表示未知
+     * @param asTask       true 时 AList 异步任务化处理，false 时同步等待
+     * @throws RuntimeException 业务 code != 200 或网络异常时抛出
      */
-    public static void putMultipart(RestClient restClient, String baseUrl, String token, String uri,
-                                    MultiValueMap<String, Object> parts,
-                                    Map<String, String> extraHeaders) {
-        String fullUrl = baseUrl + uri;
-        log.debug("AList API 请求：PUT {} (上传) — headers={}", fullUrl, extraHeaders);
+    public static void putStream(RestClient restClient, String baseUrl, String token,
+                                  String remotePath, InputStream inputStream, long fileSize, boolean asTask) {
+        String fullUrl = baseUrl + "/api/fs/put";
+        String encodedPath = encodePath(remotePath);
+        log.debug("AList API 请求：PUT {} (流式上传) — remotePath={}, size={}bytes, asTask={}",
+            fullUrl, remotePath, fileSize, asTask);
         try {
-            var requestBuilder = restClient.put()
+            // InputStreamResource 携带 contentLength，RestClient 会自动写入 Content-Length 头
+            InputStreamResource resource = new InputStreamResource(inputStream) {
+                @Override
+                public long contentLength() {
+                    return fileSize >= 0 ? fileSize : -1;
+                }
+            };
+            @SuppressWarnings("unchecked")
+            Map<String, Object> result = restClient.put()
+                .uri(fullUrl)
+                .header("Authorization", token)
+                .header("File-Path", encodedPath)
+                .header("As-Task", String.valueOf(asTask))
+                .contentType(MediaType.APPLICATION_OCTET_STREAM)
+                .body(resource)
+                .retrieve()
+                .body(Map.class);
+            log.debug("AList API 响应：PUT {} — result={}", fullUrl, result);
+            verifyBusinessCode(fullUrl, result);
+        } catch (RuntimeException e) {
+            log.error("AList API 调用失败：PUT {} — remotePath={}, {}", fullUrl, remotePath, e.getMessage());
+            throw e;
+        } catch (Exception e) {
+            log.error("AList API 调用失败：PUT {} — remotePath={}, {}", fullUrl, remotePath, e.getMessage(), e);
+            throw new RuntimeException("AList API 文件上传请求失败：" + fullUrl, e);
+        }
+    }
+
+    /**
+     * PUT multipart/form-data 上传文件，对接 {@code PUT /api/fs/form}
+     * <p>
+     * 备用通道：当目标 AList 实例的流式 PUT 不可用时回退使用。当前主路径优先 {@link #putStream}。
+     * </p>
+     *
+     * @param restClient   已配置的 RestClient 实例
+     * @param baseUrl      AList 服务器基础 URL
+     * @param token        AList token
+     * @param parts        multipart 表单数据（必须包含名为 {@code file} 的二进制部分）
+     * @param extraHeaders 额外请求头（{@code File-Path}、{@code As-Task} 等）
+     * @throws RuntimeException 业务 code != 200 或网络异常时抛出
+     */
+    public static void putForm(RestClient restClient, String baseUrl, String token,
+                                MultiValueMap<String, Object> parts, Map<String, String> extraHeaders) {
+        String fullUrl = baseUrl + "/api/fs/form";
+        log.debug("AList API 请求：PUT {} (multipart 上传) — headers={}", fullUrl, extraHeaders);
+        try {
+            var builder = restClient.put()
                 .uri(fullUrl)
                 .header("Authorization", token)
                 .contentType(MediaType.MULTIPART_FORM_DATA);
-            // 添加额外请求头
             if (extraHeaders != null) {
-                extraHeaders.forEach(requestBuilder::header);
+                extraHeaders.forEach(builder::header);
             }
-            requestBuilder.body(parts)
-                .retrieve()
-                .toBodilessEntity();
-            log.debug("AList API 响应：PUT {} (上传) — 状态码=200, 无响应体", fullUrl);
+            @SuppressWarnings("unchecked")
+            Map<String, Object> result = builder.body(parts).retrieve().body(Map.class);
+            log.debug("AList API 响应：PUT {} — result={}", fullUrl, result);
+            verifyBusinessCode(fullUrl, result);
+        } catch (RuntimeException e) {
+            log.error("AList API 调用失败：PUT {} — {}", fullUrl, e.getMessage());
+            throw e;
         } catch (Exception e) {
-            log.error("AList API 调用失败：PUT {} (上传) — headers={}, 原因：{}", fullUrl,
-                extraHeaders, e.getMessage(), e);
+            log.error("AList API 调用失败：PUT {} — {}", fullUrl, e.getMessage(), e);
             throw new RuntimeException("AList API 文件上传请求失败：" + fullUrl, e);
         }
     }
@@ -219,53 +222,75 @@ public final class ApiUtil {
     // ==================== 私有辅助方法 ====================
 
     /**
-     * 请求体摘要：避免日志中输出完整的请求体内容
+     * 校验 AList 响应的业务 code 字段
      * <p>
-     * 对于敏感或过大的请求体字段进行摘要处理，仅保留关键业务字段。
+     * AList 永远返回 HTTP 200，业务错误通过 {@code code} 表达：
+     * <ul>
+     *   <li>200 — 成功</li>
+     *   <li>401 — token 失效</li>
+     *   <li>403 — 无权限</li>
+     *   <li>404 — 路径不存在</li>
+     *   <li>500 — 服务端内部错误</li>
+     * </ul>
+     * 任何非 200 业务码都被视为失败，抛出包含 {@code code} 与 {@code message} 的异常。
      * </p>
      */
-    private static String summarizeBody(Map<String, Object> body) {
-        if (body == null) {
-            return "null";
+    private static void verifyBusinessCode(String fullUrl, Map<String, Object> result) {
+        if (result == null) {
+            throw new RuntimeException("AList API 响应为空：" + fullUrl);
         }
-        // 对于 list/get 请求，仅记录 path/page/perPage/password 等关键字段
-        if (body.containsKey("path")) {
-            StringBuilder sb = new StringBuilder("{path=").append(body.get("path"));
-            if (body.containsKey("page")) {
-                sb.append(", page=").append(body.get("page"));
-            }
-            if (body.containsKey("per_page")) {
-                sb.append(", per_page=").append(body.get("per_page"));
-            }
-            sb.append("}");
-            return sb.toString();
+        Object codeObj = result.get("code");
+        if (!(codeObj instanceof Number num)) {
+            // 部分公共端点（如 /ping）返回纯字符串 "pong"，没有 code 字段，调用方需自行处理
+            return;
         }
-        // 对于 delete 请求，记录 names 和 dir
-        if (body.containsKey("names")) {
-            return "{names=" + body.get("names") + ", dir=" + body.get("dir") + "}";
+        int code = num.intValue();
+        if (code != CODE_SUCCESS) {
+            String message = String.valueOf(result.get("message"));
+            throw new RuntimeException("AList API 业务失败：" + fullUrl + " — code=" + code + ", message=" + message);
         }
-        return body.toString();
     }
 
     /**
-     * 将字节数组前 N 位转换为十六进制字符串（用于日志，避免输出完整二进制内容）
-     *
-     * @param bytes 字节数组
-     * @param maxLen 最大显示的字节数
-     * @return 十六进制字符串
+     * 将 AList 路径中每段进行 URL 编码，用于 File-Path 请求头
+     * <p>
+     * 中文、全角符号、空格等必须编码，否则 AList 服务端会解析失败或路径错位。
+     * 编码遵循 RFC 3986，{@code java.net.URLEncoder} 默认会把空格编码为 {@code +}，
+     * 因此手动替换为 {@code %20}。
+     * </p>
      */
-    private static String toHexPrefix(byte[] bytes, int maxLen) {
-        if (bytes == null) {
-            return "null";
-        }
-        int len = Math.min(bytes.length, maxLen);
-        StringBuilder sb = new StringBuilder(len * 2);
-        for (int i = 0; i < len; i++) {
-            sb.append(String.format("%02x", bytes[i] & 0xFF));
-        }
-        if (bytes.length > maxLen) {
-            sb.append("...");
+    private static String encodePath(String path) {
+        if (path == null || path.isEmpty()) return path;
+        StringBuilder sb = new StringBuilder();
+        boolean first = true;
+        for (String segment : path.split("/", -1)) {
+            if (!first) sb.append('/');
+            first = false;
+            if (!segment.isEmpty()) {
+                sb.append(java.net.URLEncoder.encode(segment, StandardCharsets.UTF_8).replace("+", "%20"));
+            }
         }
         return sb.toString();
+    }
+
+    /**
+     * 请求体摘要（避免日志中输出过大或敏感的请求体）
+     */
+    private static String summarizeBody(Map<String, Object> body) {
+        if (body == null) return "null";
+        if (body.containsKey("path")) {
+            StringBuilder sb = new StringBuilder("{path=").append(body.get("path"));
+            if (body.containsKey("page")) sb.append(", page=").append(body.get("page"));
+            if (body.containsKey("per_page")) sb.append(", per_page=").append(body.get("per_page"));
+            if (body.containsKey("refresh")) sb.append(", refresh=").append(body.get("refresh"));
+            return sb.append("}").toString();
+        }
+        if (body.containsKey("names")) {
+            return "{names=" + body.get("names") + ", dir=" + body.get("dir")
+                + (body.containsKey("src_dir") ? ", src_dir=" + body.get("src_dir") : "")
+                + (body.containsKey("dst_dir") ? ", dst_dir=" + body.get("dst_dir") : "")
+                + "}";
+        }
+        return body.toString();
     }
 }
