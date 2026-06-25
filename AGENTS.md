@@ -412,5 +412,5 @@ docker run -d -p 8080:8080 -e ALIST_BASE_URL=... -e ALIST_TOKEN=... -v alist-dat
 - 存储引擎重构：`specs/006-storage-engine-refactor/plan.md`
 - 密码加密与代码组织：`specs/007-password-encryption-and-code-organization/plan.md`
 <!-- SPECKIT START -->
-- 转码与同步优化：`specs/008-transcode-sync-optimization/plan.md`
+- 轻量诊断系统：`specs/009-lightweight-diagnostics/plan.md`
 <!-- SPECKIT END -->
