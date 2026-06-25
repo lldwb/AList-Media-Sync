@@ -104,29 +104,32 @@ public class SyncService {
         List<String> failedFiles = new ArrayList<>();
         int completedCount = 0;
 
+        String sourceRootPath = task.getSourcePath();
+        String targetRootPath = task.getTargetPath();
+
         try {
             log.info("同步任务开始执行：{} (模式: {}, {} -> {}, 同引擎: {})",
-                task.getName(), task.getSyncMode(), task.getSourcePath(), task.getTargetPath(), sameEngine);
+                task.getName(), task.getSyncMode(), sourceRootPath, targetRootPath, sameEngine);
 
             // 阶段 1：扫描源目录
             List<FileInfo> sourceFiles = scanDirectory(
-                sourceEngine, sourceStrategy, task.getSourcePath(), task.getExcludePatterns());
+                sourceEngine, sourceStrategy, sourceRootPath, task.getExcludePatterns());
             log.info("扫描完成，发现 {} 个文件", sourceFiles.size());
 
             // 阶段 2：扫描目标目录并计算差异
             List<FileInfo> destFiles = sameEngine ? sourceFiles : scanDirectory(
-                targetEngine, targetStrategy, task.getTargetPath(), null);
+                targetEngine, targetStrategy, targetRootPath, null);
 
-            // 构建目标文件名集合（快速查找）
-            Set<String> destFileNames = new HashSet<>();
+            // 构建目标文件相对路径集合（快速查找）
+            Set<String> destRelativePaths = new HashSet<>();
             for (FileInfo f : destFiles) {
-                destFileNames.add(f.name);
+                destRelativePaths.add(relativePath(targetRootPath, f.path));
             }
 
             List<FileInfo> toSync;
             if (task.getSyncMode() == SyncTask.SyncMode.NEW_ONLY) {
                 toSync = sourceFiles.stream()
-                    .filter(f -> !destFileNames.contains(f.name))
+                    .filter(f -> !destRelativePaths.contains(relativePath(sourceRootPath, f.path)))
                     .toList();
             } else {
                 toSync = new ArrayList<>(sourceFiles);
@@ -134,16 +137,16 @@ public class SyncService {
 
             // 阶段 2b：FULL 模式 - 删除目标多余文件
             if (task.getSyncMode() == SyncTask.SyncMode.FULL) {
-                Set<String> sourceFileNames = new HashSet<>();
-                sourceFiles.forEach(f -> sourceFileNames.add(f.name));
+                Set<String> sourceRelativePaths = new HashSet<>();
+                sourceFiles.forEach(f -> sourceRelativePaths.add(relativePath(sourceRootPath, f.path)));
                 for (FileInfo f : destFiles) {
-                    if (!sourceFileNames.contains(f.name)) {
+                    String destRelativePath = relativePath(targetRootPath, f.path);
+                    if (!sourceRelativePaths.contains(destRelativePath)) {
                         try {
-                            String destPath = concatPath(task.getTargetPath(), f.name);
-                            targetStrategy.deleteFile(targetEngine, destPath);
-                            log.debug("已删除目标多余文件：{}", destPath);
+                            targetStrategy.deleteFile(targetEngine, f.path);
+                            log.debug("已删除目标多余文件：{}", f.path);
                         } catch (Exception e) {
-                            log.warn("删除目标文件失败：{}，原因：{}", f.name, e.getMessage());
+                            log.warn("删除目标文件失败：{}，原因：{}", f.path, e.getMessage());
                         }
                     }
                 }
@@ -153,21 +156,21 @@ public class SyncService {
             execution.setTotalFiles(toSync.size());
 
             for (FileInfo file : toSync) {
+                String fileRelativePath = relativePath(sourceRootPath, file.path);
                 try {
-                    String sourceFilePath = concatPath(task.getSourcePath(), file.name);
-                    String targetFilePath = concatPath(task.getTargetPath(), file.name);
+                    String sourceFilePath = file.path;
+                    String targetFilePath = concatPath(targetRootPath, fileRelativePath);
 
                     // 检查目标是否已存在（冲突策略）
-                    if (destFileNames.contains(file.name)) {
+                    if (destRelativePaths.contains(fileRelativePath)) {
                         switch (task.getConflictStrategy()) {
                             case SKIP -> {
-                                log.debug("跳过已存在文件：{}", file.name);
+                                log.debug("跳过已存在文件：{}", fileRelativePath);
                                 completedCount++;
                                 continue;
                             }
-                            case RENAME -> {
-                                targetFilePath = generateUniqueName(targetFilePath, destFileNames);
-                            }
+                            case RENAME -> targetFilePath = generateUniqueName(
+                                targetFilePath, targetRootPath, destRelativePaths);
                             // OVERWRITE：继续执行覆盖
                         }
                     }
@@ -219,8 +222,8 @@ public class SyncService {
                     log.debug("文件已同步：{} -> {} ({}/{})",
                         sourceFilePath, targetFilePath, completedCount, toSync.size());
                 } catch (Exception e) {
-                    log.error("同步文件失败：{}，原因：{}", file.name, e.getMessage(), e);
-                    failedFiles.add(file.name + ": " + e.getMessage());
+                    log.error("同步文件失败：{}，原因：{}", fileRelativePath, e.getMessage(), e);
+                    failedFiles.add(fileRelativePath + ": " + e.getMessage());
                     execution.setFailedFiles(execution.getFailedFiles() + 1);
                 }
             }
@@ -375,12 +378,42 @@ public class SyncService {
 
     /** 路径拼接 */
     private String concatPath(String dir, String name) {
-        if (dir.endsWith("/")) return dir + name;
-        return dir + "/" + name;
+        if (dir == null || dir.isEmpty() || dir.equals("/")) return "/" + trimLeadingSlash(name);
+        return dir.endsWith("/") ? dir + trimLeadingSlash(name) : dir + "/" + trimLeadingSlash(name);
+    }
+
+    /** 计算文件相对根目录的路径 */
+    private String relativePath(String rootPath, String filePath) {
+        String normalizedRoot = normalizePath(rootPath);
+        String normalizedFile = normalizePath(filePath);
+        if (normalizedFile.equals(normalizedRoot)) return "";
+        String prefix = normalizedRoot.equals("/") ? "/" : normalizedRoot + "/";
+        if (normalizedFile.startsWith(prefix)) {
+            return normalizedFile.substring(prefix.length());
+        }
+        return trimLeadingSlash(normalizedFile.substring(normalizedFile.lastIndexOf('/') + 1));
+    }
+
+    private String normalizePath(String path) {
+        if (path == null || path.isBlank()) return "/";
+        String normalized = path.replace('\\', '/');
+        while (normalized.length() > 1 && normalized.endsWith("/")) {
+            normalized = normalized.substring(0, normalized.length() - 1);
+        }
+        return normalized.startsWith("/") ? normalized : "/" + normalized;
+    }
+
+    private String trimLeadingSlash(String path) {
+        if (path == null) return "";
+        int index = 0;
+        while (index < path.length() && path.charAt(index) == '/') {
+            index++;
+        }
+        return path.substring(index);
     }
 
     /** 生成不重名的目标路径 */
-    private String generateUniqueName(String path, Set<String> existingNames) {
+    private String generateUniqueName(String path, String rootPath, Set<String> existingRelativePaths) {
         int idx = path.lastIndexOf('.');
         String base = idx > 0 ? path.substring(0, idx) : path;
         String ext = idx > 0 ? path.substring(idx) : "";
@@ -389,7 +422,7 @@ public class SyncService {
         do {
             newPath = base + " (" + counter + ")" + ext;
             counter++;
-        } while (existingNames.contains(newPath.substring(newPath.lastIndexOf('/') + 1)));
+        } while (existingRelativePaths.contains(relativePath(rootPath, newPath)));
         return newPath;
     }
 
