@@ -87,84 +87,73 @@ public class AListStorageStrategy implements StorageEngineStrategy {
     }
 
     /**
-     * 下载文件（走 AList 下载端点 {@code GET /d{path}}）
+     * 下载文件（走 AList 下载端点）
      * <p>
-     * 不走 {@code /api/fs/get} + raw_url 两步：部分挂载驱动（如 Synology SMB）对单文件
-     * fs/get 实现有缺陷，会返回 {@code code=500, message="object not found"}，即便 list 能列出。
-     * {@code /d} 端点由 AList 服务端内部解析路径并 302 跳到真实直链，更稳。
+     * 按 {@code md/alist/fs/获取某个文件_目录信息.md} 的方案：先通过
+     * {@code POST /api/fs/get} 获取文件的 {@code raw_url}（已内置 sign 鉴权），
+     * 再对 raw_url 发起 GET 请求获取文件流。
+     * </p>
+     * <p>
+     * 旧实现直接构造 {@code /d{path}} URL 下载，但 AList v3 的 /d 端点需要 sign 参数
+     * 做签名校验，缺少 sign 会导致返回 JSON 错误（<em>401 need sign</em>）而非文件内容。
+     * raw_url 由 AList 服务端生成时已嵌入 sign，无需客户端自行拼接。
      * </p>
      */
     @Override
     public InputStream downloadFile(StorageEngine engine, String path) {
         log.debug("下载文件：引擎={}, path={}", engine.getName(), path);
-        String downloadUrl = buildDownloadUrl(engine.getBaseUrl(), path);
+        String rawUrl = fetchRawUrl(engine, path);
+        log.debug("获取直链成功：path={}, rawUrl={}", path, rawUrl);
         try {
-            InputStream in = openWithAuthRedirects(downloadUrl, engine.getEncryptedToken(), 5);
-            log.debug("文件下载流已打开：path={}, url={}", path, downloadUrl);
-            return in;
-        } catch (Exception e) {
-            log.error("下载文件失败：path={}, url={}, 原因：{}", path, downloadUrl, e.getMessage(), e);
-            throw new RuntimeException("AList 文件下载失败：" + path, e);
-        }
-    }
-
-    /**
-     * 构造 AList 下载端点 URL：{@code {baseUrl}/d{path}}。
-     * <p>对 path 中每个段做 URL 编码，正确处理中文、全角符号、空格。</p>
-     */
-    private String buildDownloadUrl(String baseUrl, String path) {
-        String trimmedBase = baseUrl.endsWith("/") ? baseUrl.substring(0, baseUrl.length() - 1) : baseUrl;
-        StringBuilder sb = new StringBuilder(trimmedBase).append("/d");
-        for (String segment : path.split("/")) {
-            if (segment.isEmpty()) continue;
-            sb.append('/').append(
-                java.net.URLEncoder.encode(segment, java.nio.charset.StandardCharsets.UTF_8)
-                    .replace("+", "%20")
-            );
-        }
-        return sb.toString();
-    }
-
-    /**
-     * 打开 HTTP 输入流并手动跟随重定向。
-     * <p>
-     * Java {@link java.net.HttpURLConnection} 默认不跨协议（http↔https）自动跟随 302，
-     * AList 的 /d 端点常会 302 跳转到第三方对象存储（OSS/S3 等）的 https 直链。
-     * 出于安全考虑，重定向后不再携带 Authorization 头——避免泄露 AList token；
-     * 目标 URL 通常已自带 sign 鉴权。
-     * </p>
-     */
-    private InputStream openWithAuthRedirects(String url, String token, int maxRedirects) throws java.io.IOException {
-        String current = url;
-        for (int i = 0; i <= maxRedirects; i++) {
-            java.net.URL u = new java.net.URL(current);
+            java.net.URL u = new java.net.URL(rawUrl);
             java.net.HttpURLConnection conn = (java.net.HttpURLConnection) u.openConnection();
-            conn.setInstanceFollowRedirects(false);
-            if (i == 0 && token != null && !token.isEmpty()) {
-                conn.setRequestProperty("Authorization", token);
-            }
+            conn.setInstanceFollowRedirects(true);
             conn.setConnectTimeout(30_000);
             conn.setReadTimeout(60_000);
             conn.connect();
             int code = conn.getResponseCode();
-            if (code >= 300 && code < 400) {
-                String location = conn.getHeaderField("Location");
-                conn.disconnect();
-                if (location == null || location.isEmpty()) {
-                    throw new java.io.IOException("重定向缺少 Location 头：HTTP " + code);
-                }
-                current = location;
-                continue;
-            }
             if (code != 200) {
                 java.io.InputStream err = conn.getErrorStream();
                 String body = err != null ? new String(err.readAllBytes(), java.nio.charset.StandardCharsets.UTF_8) : "";
                 conn.disconnect();
                 throw new java.io.IOException("HTTP " + code + " — " + body);
             }
+            log.debug("文件下载流已打开：path={}, size={}bytes", path, conn.getContentLengthLong());
             return conn.getInputStream();
+        } catch (java.io.IOException e) {
+            log.error("下载文件失败：path={}, rawUrl={}, 原因：{}", path, rawUrl, e.getMessage(), e);
+            throw new RuntimeException("AList 文件下载失败：" + path, e);
         }
-        throw new java.io.IOException("重定向次数超过上限（" + maxRedirects + "）");
+    }
+
+    /**
+     * 通过 {@code POST /api/fs/get} 获取文件的 {@code raw_url}（直链，含签名）
+     * <p>
+     * 对应 {@code md/alist/fs/获取某个文件_目录信息.md}，响应 data 中包含
+     * {@code raw_url} 字段，是 AList 生成的直接下载链接，已内置 sign 鉴权参数。
+     * </p>
+     *
+     * @param engine 存储引擎
+     * @param path   文件在 AList 中的虚拟路径
+     * @return 带签名的直链 URL
+     */
+    @SuppressWarnings("unchecked")
+    private String fetchRawUrl(StorageEngine engine, String path) {
+        Map<String, Object> body = Map.of(
+            "path", path,
+            "password", "",
+            "refresh", false
+        );
+        Map<String, Object> result = ApiUtil.post(
+            restClient, engine.getBaseUrl(), engine.getEncryptedToken(), "/api/fs/get", body);
+        if (result == null || !(result.get("data") instanceof Map<?, ?> data)) {
+            throw new RuntimeException("AList /api/fs/get 返回 data 为空：path=" + path);
+        }
+        String rawUrl = (String) ((Map<String, Object>) data).get("raw_url");
+        if (rawUrl == null || rawUrl.isEmpty()) {
+            throw new RuntimeException("AList /api/fs/get 返回 raw_url 为空：path=" + path);
+        }
+        return rawUrl;
     }
 
     /**
