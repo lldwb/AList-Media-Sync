@@ -32,7 +32,7 @@
 | traceId | 字符串 | 是 | 来自 TraceContext |
 | message | 字符串 | 是 | 中文日志消息 |
 | errorType | 字符串 | 错误时必填 | 异常类别或失败分类 |
-| context | 键值集合 | 否 | 非敏感上下文信息 |
+| context | 键值集合 | 否 | 非敏感上下文信息。建议包含的最小键集合：`filePath`（文件路径）、`targetPath`（目标路径）、`duration`（操作耗时 ms）、`retryCount`（重试次数）、`cause`（异常原因摘要） |
 
 **验证规则**：
 - ERROR 日志必须包含 traceId、errorType、message 和足够定位失败的上下文。

@@ -59,6 +59,8 @@
 
 **目标**：用户通过一次明确操作生成 `diagnostics/latest/summary.md` 和关键证据文件，AI 可直接读取诊断包排查问题。
 
+**入口优先级**：脚本（`diagnose.sh`/`diagnose.bat`）为独立入口，应用不可用时仍可收集文件和环境信息；后端端点（`POST /api/diagnostics/run`）为运行时补充，复用脱敏与摘要生成逻辑。两者互为 fallback：脚本可独立运行，端点提供更精确的应用内上下文。
+
 **独立测试**：触发或模拟一次失败后运行诊断命令，确认 `diagnostics/latest/summary.md` 存在，包含最近失败、traceId、关键证据、缺失信息和下一步建议；生成耗时 ≤ 30 秒（SC-001）。
 
 ### 用户故事 1 的测试
@@ -81,7 +83,7 @@
 - [ ] T029 [US1] 在 `scripts/diagnose.bat` 实现 Windows 与一体化启动包诊断入口，支持 `--output`、`--trace-id`、`--max-lines`
 - [ ] T030 [US1] 在 `scripts/start.sh` 添加诊断命令提示和诊断目录变量传递，不改变原启动流程
 - [ ] T031 [US1] 在 `scripts/start.bat` 添加诊断命令提示和诊断目录变量传递，不改变原启动流程
-- [ ] T032 [US1] 在 `docker-compose.yml` 确认或补充 `logs/` 与 `diagnostics/` 的可访问挂载或说明配置
+- [ ] T032 [US1] 在 `docker-compose.yml` 中补充 `logs/` 与 `diagnostics/` 目录的挂载配置：在现有 `alist-media-sync-data:/app/data` 卷基础上，新增 `./logs:/app/logs` 和 `./diagnostics:/app/diagnostics` 绑定挂载（或确认 data 卷已覆盖这些路径），确保宿主机可直接读取诊断包
 - [ ] T033 [US1] 运行 `./mvnw -Dtest=DiagnosticServiceTest,DiagnosticControllerTest,DiagnosticServicePerformanceTest,DiagnosticServiceSideEffectTest test` 验证诊断服务、端点、SC-001 性能门禁与 FR-012 副作用断言
 
 **检查点**：用户故事 1 可独立交付；生成耗时 ≤ 30 秒；诊断过程零业务副作用；用户可以把 `summary.md` 交给 AI 排查。
@@ -106,12 +108,12 @@
 
 ### 用户故事 2 的实现
 
-- [ ] T041 [US2] 在 `src/main/java/top/lldwb/alistmediasync/sync/service/SyncService.java` 为手动触发和定时触发同步任务设置任务级 traceId 并在结束后清理上下文，关键日志统一包含 `module=sync`、`operation`、`errorType`（失败时）
+- [ ] T041 [US2] 在 `src/main/java/top/lldwb/alistmediasync/sync/service/SyncService.java` 为手动触发和定时触发（含 `ScheduleService` CRON/INTERVAL 调度路径）同步任务设置任务级 traceId 并在结束后清理上下文，关键日志统一包含 `module=sync`、`operation`、`errorType`（失败时）
 - [ ] T042 [US2] 在 `src/main/java/top/lldwb/alistmediasync/transcode/service/TranscodeService.java` 为转码任务创建、执行、重试和失败路径设置任务级 traceId，并补全 SC-005 要求的结构化字段
 - [ ] T043 [US2] 在 `src/main/java/top/lldwb/alistmediasync/transcode/service/TranscodeFileProcessor.java` 将转码单文件处理日志纳入当前 traceId 上下文
 - [ ] T044 [US2] 在 `src/main/java/top/lldwb/alistmediasync/webhook/service/WebhookService.java` 为 Webhook 事件接收、去重、规则匹配和异步处理设置 traceId，并补全 `errorType` 与 `context.cause`
 - [ ] T045 [US2] 在 `src/main/java/top/lldwb/alistmediasync/common/config/GlobalExceptionHandler.java` 确保异常处理日志包含 traceId、errorType、可定位原因，并保留 `X-Trace-Id` 响应头
-- [ ] T046 [US2] 在 `src/main/java/top/lldwb/alistmediasync/common/config/RestClientConfig.java` 确保外部 AList 请求日志包含当前 traceId 且不记录敏感头原文
+- [ ] T046 [US2] 在 `src/main/java/top/lldwb/alistmediasync/common/config/RestClientConfig.java` 中为 RestClient 配置请求/响应拦截器，确保外部 AList 请求日志包含当前 traceId（从 MDC 读取）且不记录敏感头原文（Authorization、Cookie 等头值在日志中替换为 `***REDACTED***`）
 - [ ] T047 [US2] 在 `src/main/frontend/src/api/client.ts` 读取响应头 `X-Trace-Id`，在请求失败时附加到前端错误对象或错误提示上下文
 - [ ] T048 [US2] 在 `src/main/frontend/src/types/api.ts` 增加前端错误上下文中的 traceId 类型字段
 - [ ] T049 [US2] 运行 `./mvnw -Dtest=SyncServiceTest,TranscodeServiceTest,WebhookServiceTest,GlobalExceptionHandlerTest,StructuredErrorCoverageTest,TraceLookupLatencyTest test` 验证任务 traceId 链路、SC-005 覆盖率门禁与 SC-002 可定位性门禁
@@ -153,7 +155,7 @@
 
 - [ ] T061 [P] 在 `README.md` 更新诊断系统使用说明、`X-Trace-Id` 响应头说明、日志路径和诊断命令示例
 - [ ] T062 [P] 在 `src/main/resources/application.template.yaml` 同步新增日志与诊断相关配置说明
-- [ ] T063 [P] 在 `Dockerfile` 确认诊断脚本进入一体化/容器产物并具备可执行权限
+- [ ] T063 [P] 在 `assembly/bootstrap.xml` 的启动脚本 fileSet 中新增 `diagnose.sh` 和 `diagnose.bat` 包含规则；在 `Dockerfile` 的 COPY 指令中新增 `scripts/diagnose.sh` 复制并确保可执行权限（`chmod +x`）
 - [ ] T064 在 `scripts/verify-build.sh` 增加 `diagnose.sh`、`diagnose.bat`、日志配置文件、`logs/`、`diagnostics/` 产物存在性检查
 - [ ] T065 运行 `./mvnw test` 完成后端全量测试
 - [ ] T066 在 T028 完成后运行 `scripts/diagnose-smoke-test.sh` 验证 Linux/Docker 诊断入口

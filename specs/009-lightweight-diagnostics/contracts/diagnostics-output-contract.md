@@ -6,8 +6,8 @@
 diagnostics/latest/
 ├── summary.md
 ├── logs/
-│   ├── error.log
-│   └── app.log
+│   ├── error.log        # 错误日志摘录（完整文件，受 --max-lines 限制）
+│   └── app.log           # 应用日志摘录（最近 N 行，默认受 --max-lines 限制）
 ├── config/
 │   └── config.redacted.json
 ├── environment.txt
