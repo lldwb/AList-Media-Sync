@@ -109,7 +109,9 @@ verify_archive() {
     echo "  检查关键文件："
     check_file "$ROOT_DIR/start.sh" "Linux 启动脚本"
     check_file "$ROOT_DIR/start.bat" "Windows 启动脚本"
-    check_file "$ROOT_DIR/config/.yaml" "配置文件"
+    check_file "$ROOT_DIR/diagnose.sh" "Linux 诊断脚本"
+    check_file "$ROOT_DIR/diagnose.bat" "Windows 诊断脚本"
+    check_file "$ROOT_DIR/config/application.yaml" "配置文件"
     check_file "$ROOT_DIR/config/application.template.yaml" "配置模板"
     check_file "$ROOT_DIR/lib/"*.jar "应用 JAR 文件"
 

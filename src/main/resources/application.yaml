@@ -55,6 +55,15 @@ logging:
     # 浏览器缓存旧版构建产物、Chrome DevTools 探测请求均会触发此异常
     # 将 Spring MVC 资源映射层的日志级别设为 WARN，跳过 404 堆栈输出
     org.springframework.web.servlet.resource: WARN
+  # 日志输出目录与文件由 logback-spring.xml 接管，仅在此处暴露目录变量供外部覆盖
+  # LOG_PATH 环境变量可重定向日志输出目录（默认 ./logs）
+  file:
+    path: ${LOG_PATH:./logs}
+  # 控制台与文件 pattern：增加 traceId、module、operation、errorType 结构化字段
+  # 若 MDC 中缺失对应键，则输出空字符串，避免日志噪音
+  pattern:
+    console: "%d{yyyy-MM-dd HH:mm:ss.SSS} %-5level [%thread] [traceId=%X{traceId:-}] [module=%X{module:-}] [operation=%X{operation:-}] [errorType=%X{errorType:-}] %logger{36} - %msg%n"
+    file: "%d{yyyy-MM-dd HH:mm:ss.SSS} %-5level [%thread] [traceId=%X{traceId:-}] [module=%X{module:-}] [operation=%X{operation:-}] [errorType=%X{errorType:-}] %logger{36} - %msg%n"
 
 # AList 连接配置（必填，由环境变量注入）
 alist:

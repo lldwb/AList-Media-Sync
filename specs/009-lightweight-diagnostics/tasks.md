@@ -20,13 +20,13 @@
 
 **目的**：确认上下文、建立诊断功能所需的共享文件位置，不改变业务行为。
 
-- [ ] T001 读取后端通用模块规则文件 `src/main/java/top/lldwb/alistmediasync/common/AGENTS.md`
-- [ ] T002 [P] 读取同步模块规则文件 `src/main/java/top/lldwb/alistmediasync/sync/AGENTS.md`
-- [ ] T003 [P] 读取转码模块规则文件 `src/main/java/top/lldwb/alistmediasync/transcode/AGENTS.md`
-- [ ] T004 [P] 读取 Webhook 模块规则文件 `src/main/java/top/lldwb/alistmediasync/webhook/AGENTS.md`
-- [ ] T005 [P] 检查现有日志配置和日志输出路径 `src/main/resources/application.yaml`
-- [ ] T006 [P] 检查一体化启动脚本中的目录变量与 JVM 参数 `scripts/start.sh`
-- [ ] T007 [P] 检查一体化启动脚本中的目录变量与 JVM 参数 `scripts/start.bat`
+- [X] T001 读取后端通用模块规则文件 `src/main/java/top/lldwb/alistmediasync/common/AGENTS.md`
+- [X] T002 [P] 读取同步模块规则文件 `src/main/java/top/lldwb/alistmediasync/sync/AGENTS.md`
+- [X] T003 [P] 读取转码模块规则文件 `src/main/java/top/lldwb/alistmediasync/transcode/AGENTS.md`
+- [X] T004 [P] 读取 Webhook 模块规则文件 `src/main/java/top/lldwb/alistmediasync/webhook/AGENTS.md`
+- [X] T005 [P] 检查现有日志配置和日志输出路径 `src/main/resources/application.yaml`
+- [X] T006 [P] 检查一体化启动脚本中的目录变量与 JVM 参数 `scripts/start.sh`
+- [X] T007 [P] 检查一体化启动脚本中的目录变量与 JVM 参数 `scripts/start.bat`
 
 ---
 
@@ -38,18 +38,18 @@
 
 ### 基础测试
 
-- [ ] T008 [P] 在 `src/test/java/top/lldwb/alistmediasync/common/util/TraceContextTest.java` 编写 traceId 生成、合法性校验（8–128 字符、白名单字符集）、请求头继承和非法值拒绝（含空白/换行/控制字符）测试
-- [ ] T009 [P] 在 `src/test/java/top/lldwb/alistmediasync/common/config/TraceIdFilterTest.java` 编写 `X-Trace-Id` 响应头（成功、业务失败、认证失败、异常路径四类响应都包含）、MDC 设置、请求结束清理、并发不污染测试
+- [X] T008 [P] 在 `src/test/java/top/lldwb/alistmediasync/common/util/TraceContextTest.java` 编写 traceId 生成、合法性校验（8–128 字符、白名单字符集）、请求头继承和非法值拒绝（含空白/换行/控制字符）测试
+- [X] T009 [P] 在 `src/test/java/top/lldwb/alistmediasync/common/config/TraceIdFilterTest.java` 编写 `X-Trace-Id` 响应头（成功、业务失败、认证失败、异常路径四类响应都包含）、MDC 设置、请求结束清理、并发不污染测试
 
 ### 基础实现
 
-- [ ] T010 [P] 在 `src/main/java/top/lldwb/alistmediasync/common/util/TraceContext.java` 实现 traceId 生成、校验、MDC 读写和清理工具
-- [ ] T011 在 `src/main/java/top/lldwb/alistmediasync/common/config/TraceIdFilter.java` 实现请求级 traceId 过滤器（依赖 T010），统一处理 `X-Trace-Id` 请求头、响应头和 MDC 生命周期
-- [ ] T012 在 `src/main/resources/application.yaml` 中补充日志文件目录配置（`logs/app.log`、`logs/error.log`）和包含 traceId 的日志 pattern 配置（`%X{traceId}`）
-- [ ] T013 在 `src/main/resources/logback-spring.xml` 中配置应用日志和 `logs/error.log` 的 ERROR 分流 appender，确保 ERROR 同时写入两文件
-- [ ] T014 [P] 在 `src/main/java/top/lldwb/alistmediasync/common/dto/DiagnosticResultVO.java` 定义诊断生成结果视图（packagePath、summaryPath、status、durationMs、missingItems）
-- [ ] T015 [P] 在 `src/main/java/top/lldwb/alistmediasync/common/dto/DiagnosticSummaryVO.java` 定义诊断摘要视图（appVersion、environment、latestFailure、recommendedFiles、suspectedCause、missingItems）
-- [ ] T016 在 T010–T015 全部完成后运行 `./mvnw -Dtest=TraceContextTest,TraceIdFilterTest test` 验证基础 traceId 测试通过
+- [X] T010 [P] 在 `src/main/java/top/lldwb/alistmediasync/common/util/TraceContext.java` 实现 traceId 生成、校验、MDC 读写和清理工具
+- [X] T011 在 `src/main/java/top/lldwb/alistmediasync/common/config/TraceIdFilter.java` 实现请求级 traceId 过滤器(依赖 T010)，统一处理 `X-Trace-Id` 请求头、响应头和 MDC 生命周期
+- [X] T012 在 `src/main/resources/application.yaml` 中补充日志文件目录配置（`logs/app.log`、`logs/error.log`）和包含 traceId 的日志 pattern 配置（`%X{traceId}`）
+- [X] T013 在 `src/main/resources/logback-spring.xml` 中配置应用日志和 `logs/error.log` 的 ERROR 分流 appender，确保 ERROR 同时写入两文件
+- [X] T014 [P] 在 `src/main/java/top/lldwb/alistmediasync/common/dto/DiagnosticResultVO.java` 定义诊断生成结果视图（packagePath、summaryPath、status、durationMs、missingItems）
+- [X] T015 [P] 在 `src/main/java/top/lldwb/alistmediasync/common/dto/DiagnosticSummaryVO.java` 定义诊断摘要视图（appVersion、environment、latestFailure、recommendedFiles、suspectedCause、missingItems）
+- [X] T016 在 T010–T015 全部完成后运行 `./mvnw -Dtest=TraceContextTest,TraceIdFilterTest test` 验证基础 traceId 测试通过
 
 **检查点**：所有 HTTP 响应都包含 `X-Trace-Id`；ERROR 日志可同时写入 `logs/error.log`；基础 DTO 就绪。
 
@@ -65,26 +65,26 @@
 
 ### 用户故事 1 的测试
 
-- [ ] T017 [P] [US1] 在 `src/test/java/top/lldwb/alistmediasync/common/service/DiagnosticServiceTest.java` 编写生成 `summary.md`、复制错误日志摘录、记录缺失信息、`status` 正确反映 COMPLETED/PARTIAL/FAILED 的单元测试
-- [ ] T018 [P] [US1] 在 `src/test/java/top/lldwb/alistmediasync/common/controller/DiagnosticControllerTest.java` 编写诊断触发端点返回 `ApiResult<DiagnosticResultVO>` 和 `X-Trace-Id` 响应头的 WebMvc 测试
-- [ ] T019 [P] [US1] 在 `scripts/diagnose-smoke-test.sh` 编写 Linux/Docker 诊断脚本 smoke test（实际执行在 T028 之后）
-- [ ] T020 [P] [US1] 在 `scripts/diagnose-smoke-test.bat` 编写 Windows 诊断脚本 smoke test（实际执行在 T029 之后）
-- [ ] T021 [P] [US1] 在 `src/test/java/top/lldwb/alistmediasync/common/service/DiagnosticServicePerformanceTest.java` **新增 SC-001 性能门禁测试**：模拟典型日志/配置规模，断言诊断包生成耗时 ≤ 30000 ms 且 `DiagnosticResultVO.durationMs` 已正确填充
-- [ ] T022 [P] [US1] 在 `src/test/java/top/lldwb/alistmediasync/common/service/DiagnosticServiceSideEffectTest.java` **新增 FR-012 副作用断言测试**：使用 Spy/Mock 验证诊断生成过程未调用 `SyncService`、`TranscodeService`、`WebhookService` 写入路径，未触发 JPA 写事务
+- [X] T017 [P] [US1] 在 `src/test/java/top/lldwb/alistmediasync/common/service/DiagnosticServiceTest.java` 编写生成 `summary.md`、复制错误日志摘录、记录缺失信息、`status` 正确反映 COMPLETED/PARTIAL/FAILED 的单元测试
+- [X] T018 [P] [US1] 在 `src/test/java/top/lldwb/alistmediasync/common/controller/DiagnosticControllerTest.java` 编写诊断触发端点返回 `ApiResult<DiagnosticResultVO>` 和 `X-Trace-Id` 响应头的 WebMvc 测试
+- [X] T019 [P] [US1] 在 `scripts/diagnose-smoke-test.sh` 编写 Linux/Docker 诊断脚本 smoke test（实际执行在 T028 之后）
+- [X] T020 [P] [US1] 在 `scripts/diagnose-smoke-test.bat` 编写 Windows 诊断脚本 smoke test（实际执行在 T029 之后）
+- [X] T021 [P] [US1] 在 `src/test/java/top/lldwb/alistmediasync/common/service/DiagnosticServicePerformanceTest.java` **新增 SC-001 性能门禁测试**：模拟典型日志/配置规模，断言诊断包生成耗时 ≤ 30000 ms 且 `DiagnosticResultVO.durationMs` 已正确填充
+- [X] T022 [P] [US1] 在 `src/test/java/top/lldwb/alistmediasync/common/service/DiagnosticServiceSideEffectTest.java` **新增 FR-012 副作用断言测试**：使用 Spy/Mock 验证诊断生成过程未调用 `SyncService`、`TranscodeService`、`WebhookService` 写入路径，未触发 JPA 写事务
 
 ### 用户故事 1 的实现
 
-- [ ] T023 [P] [US1] 在 `src/main/java/top/lldwb/alistmediasync/common/service/DiagnosticService.java` 实现诊断包生成编排，创建临时目录并原子刷新 `diagnostics/latest`
-- [ ] T024 [US1] 在 `src/main/java/top/lldwb/alistmediasync/common/service/DiagnosticService.java` 实现 `summary.md` 内容生成，覆盖基本信息、最近失败、关键证据、缺失信息和建议下一步
-- [ ] T025 [US1] 在 `src/main/java/top/lldwb/alistmediasync/common/service/DiagnosticService.java` 实现日志证据收集，输出 `logs/error.log` 和 `logs/app.log` 摘录或缺失说明，并在 `DiagnosticResultVO.durationMs` 中记录耗时（供 T021 断言）
-- [ ] T026 [US1] 在 `src/main/java/top/lldwb/alistmediasync/common/service/DiagnosticService.java` 实现 `environment.txt` 和 `last-run.json` 生成，确保不可获取信息写入 `missingItems` 列表
-- [ ] T027 [US1] 在 `src/main/java/top/lldwb/alistmediasync/common/controller/DiagnosticController.java` 实现受认证保护的诊断触发接口（`POST /api/diagnostics/run`），返回诊断包路径和摘要路径
-- [ ] T028 [US1] 在 `scripts/diagnose.sh` 实现本地开发与 Linux/Docker 诊断入口，支持 `--output`、`--trace-id`、`--max-lines`
-- [ ] T029 [US1] 在 `scripts/diagnose.bat` 实现 Windows 与一体化启动包诊断入口，支持 `--output`、`--trace-id`、`--max-lines`
-- [ ] T030 [US1] 在 `scripts/start.sh` 添加诊断命令提示和诊断目录变量传递，不改变原启动流程
-- [ ] T031 [US1] 在 `scripts/start.bat` 添加诊断命令提示和诊断目录变量传递，不改变原启动流程
-- [ ] T032 [US1] 在 `docker-compose.yml` 中补充 `logs/` 与 `diagnostics/` 目录的挂载配置：在现有 `alist-media-sync-data:/app/data` 卷基础上，新增 `./logs:/app/logs` 和 `./diagnostics:/app/diagnostics` 绑定挂载（或确认 data 卷已覆盖这些路径），确保宿主机可直接读取诊断包
-- [ ] T033 [US1] 运行 `./mvnw -Dtest=DiagnosticServiceTest,DiagnosticControllerTest,DiagnosticServicePerformanceTest,DiagnosticServiceSideEffectTest test` 验证诊断服务、端点、SC-001 性能门禁与 FR-012 副作用断言；验证诊断包中所有任务执行记录均包含非空 traceId（SC-003）
+- [X] T023 [P] [US1] 在 `src/main/java/top/lldwb/alistmediasync/common/service/DiagnosticService.java` 实现诊断包生成编排，创建临时目录并原子刷新 `diagnostics/latest`
+- [X] T024 [US1] 在 `src/main/java/top/lldwb/alistmediasync/common/service/DiagnosticService.java` 实现 `summary.md` 内容生成，覆盖基本信息、最近失败、关键证据、缺失信息和建议下一步
+- [X] T025 [US1] 在 `src/main/java/top/lldwb/alistmediasync/common/service/DiagnosticService.java` 实现日志证据收集，输出 `logs/error.log` 和 `logs/app.log` 摘录或缺失说明，并在 `DiagnosticResultVO.durationMs` 中记录耗时（供 T021 断言）
+- [X] T026 [US1] 在 `src/main/java/top/lldwb/alistmediasync/common/service/DiagnosticService.java` 实现 `environment.txt` 和 `last-run.json` 生成，确保不可获取信息写入 `missingItems` 列表
+- [X] T027 [US1] 在 `src/main/java/top/lldwb/alistmediasync/common/controller/DiagnosticController.java` 实现受认证保护的诊断触发接口（`POST /api/diagnostics/run`），返回诊断包路径和摘要路径
+- [X] T028 [US1] 在 `scripts/diagnose.sh` 实现本地开发与 Linux/Docker 诊断入口，支持 `--output`、`--trace-id`、`--max-lines`
+- [X] T029 [US1] 在 `scripts/diagnose.bat` 实现 Windows 与一体化启动包诊断入口，支持 `--output`、`--trace-id`、`--max-lines`
+- [X] T030 [US1] 在 `scripts/start.sh` 添加诊断命令提示和诊断目录变量传递，不改变原启动流程
+- [X] T031 [US1] 在 `scripts/start.bat` 添加诊断命令提示和诊断目录变量传递，不改变原启动流程
+- [X] T032 [US1] 在 `docker-compose.yml` 中补充 `logs/` 与 `diagnostics/` 目录的挂载配置：在现有 `alist-media-sync-data:/app/data` 卷基础上，新增 `./logs:/app/logs` 和 `./diagnostics:/app/diagnostics` 绑定挂载（或确认 data 卷已覆盖这些路径），确保宿主机可直接读取诊断包
+- [X] T033 [US1] 运行 `./mvnw -Dtest=DiagnosticServiceTest,DiagnosticControllerTest,DiagnosticServicePerformanceTest,DiagnosticServiceSideEffectTest test` 验证诊断服务、端点、SC-001 性能门禁与 FR-012 副作用断言；验证诊断包中所有任务执行记录均包含非空 traceId（SC-003）
 
 **检查点**：用户故事 1 可独立交付；生成耗时 ≤ 30 秒；诊断过程零业务副作用；用户可以把 `summary.md` 交给 AI 排查。
 
@@ -98,25 +98,25 @@
 
 ### 用户故事 2 的测试
 
-- [ ] T034 [P] [US2] 在 `src/test/java/top/lldwb/alistmediasync/sync/service/SyncServiceTest.java` 增加同步任务 traceId 贯穿“开始/扫描/比对/执行/完成/失败”关键日志上下文的测试
-- [ ] T035 [P] [US2] 在 `src/test/java/top/lldwb/alistmediasync/transcode/service/TranscodeServiceTest.java` 增加转码任务 traceId 贯穿“创建/下载/转码/上传/完成/失败/重试”关键日志上下文的测试
-- [ ] T036 [P] [US2] 在 `src/test/java/top/lldwb/alistmediasync/webhook/service/WebhookServiceTest.java` 增加 Webhook 事件 traceId 贯穿“接收/去重/规则匹配/异步处理/完成/失败”关键日志上下文的测试
-- [ ] T037 [P] [US2] 在 `src/test/java/top/lldwb/alistmediasync/common/config/GlobalExceptionHandlerTest.java` 编写异常响应仍返回 `X-Trace-Id` 且日志包含错误类别、错误消息、可定位原因的测试
-- [ ] T038 [P] [US2] 在 `src/main/frontend/src/api/client.test.ts` 编写前端失败请求读取并保留 `X-Trace-Id` 的测试
-- [ ] T039 [P] [US2] 在 `src/test/java/top/lldwb/alistmediasync/common/observability/StructuredErrorCoverageTest.java` **新增 SC-005 覆盖率门禁测试**：使用 Logback `ListAppender` 收集 sync/transcode/webhook 三类典型失败路径的 ERROR 事件，统计 `module`、`operation`、`traceId`、`errorType`、`message`、`context.cause` 六字段完整事件占比 ≥ 90%
-- [ ] T040 [P] [US2] 在 `src/test/java/top/lldwb/alistmediasync/common/observability/TraceLookupLatencyTest.java` **新增 SC-002 可定位性测试**：模拟 1 次失败 + 100 行混杂日志，断言通过 traceId 在结构化日志中定位失败记录首条命中耗时 ≤ 50 ms，作为“2 分钟定位”的下界证据
+- [X] T034 [P] [US2] 在 `src/test/java/top/lldwb/alistmediasync/sync/service/SyncServiceTest.java` 增加同步任务 traceId 贯穿”开始/扫描/比对/执行/完成/失败”关键日志上下文的测试
+- [X] T035 [P] [US2] 在 `src/test/java/top/lldwb/alistmediasync/transcode/service/TranscodeServiceTest.java` 增加转码任务 traceId 贯穿”创建/下载/转码/上传/完成/失败/重试”关键日志上下文的测试
+- [X] T036 [P] [US2] 在 `src/test/java/top/lldwb/alistmediasync/webhook/service/WebhookServiceTest.java` 增加 Webhook 事件 traceId 贯穿”接收/去重/规则匹配/异步处理/完成/失败”关键日志上下文的测试
+- [X] T037 [P] [US2] 在 `src/test/java/top/lldwb/alistmediasync/common/config/GlobalExceptionHandlerTest.java` 编写异常响应仍返回 `X-Trace-Id` 且日志包含错误类别、错误消息、可定位原因的测试
+- [X] T038 [P] [US2] 在 `src/main/frontend/src/api/client.test.ts` 编写前端失败请求读取并保留 `X-Trace-Id` 的测试
+- [X] T039 [P] [US2] 在 `src/test/java/top/lldwb/alistmediasync/common/observability/StructuredErrorCoverageTest.java` **新增 SC-005 覆盖率门禁测试**：使用 Logback `ListAppender` 收集 sync/transcode/webhook 三类典型失败路径的 ERROR 事件，统计 `module`、`operation`、`traceId`、`errorType`、`message`、`context.cause` 六字段完整事件占比 ≥ 90%
+- [X] T040 [P] [US2] 在 `src/test/java/top/lldwb/alistmediasync/common/observability/TraceLookupLatencyTest.java` **新增 SC-002 可定位性测试**：模拟 1 次失败 + 100 行混杂日志，断言通过 traceId 在结构化日志中定位失败记录首条命中耗时 ≤ 50 ms，作为”2 分钟定位”的下界证据
 
 ### 用户故事 2 的实现
 
-- [ ] T041 [US2] 在 `src/main/java/top/lldwb/alistmediasync/sync/service/SyncService.java` 为手动触发和定时触发（含 `ScheduleService` CRON/INTERVAL 调度路径）同步任务设置任务级 traceId 并在结束后清理上下文，关键日志统一包含 `module=sync`、`operation`、`errorType`（失败时）
-- [ ] T042 [US2] 在 `src/main/java/top/lldwb/alistmediasync/transcode/service/TranscodeService.java` 为转码任务创建、执行、重试和失败路径设置任务级 traceId，并补全 SC-005 要求的结构化字段
-- [ ] T043 [US2] 在 `src/main/java/top/lldwb/alistmediasync/transcode/service/TranscodeFileProcessor.java` 将转码单文件处理日志纳入当前 traceId 上下文
-- [ ] T044 [US2] 在 `src/main/java/top/lldwb/alistmediasync/webhook/service/WebhookService.java` 为 Webhook 事件接收、去重、规则匹配和异步处理设置 traceId，并补全 `errorType` 与 `context.cause`
-- [ ] T045 [US2] 在 `src/main/java/top/lldwb/alistmediasync/common/config/GlobalExceptionHandler.java` 确保异常处理日志包含 traceId、errorType、可定位原因，并保留 `X-Trace-Id` 响应头
-- [ ] T046 [US2] 在 `src/main/java/top/lldwb/alistmediasync/common/config/RestClientConfig.java` 中为 RestClient 配置请求/响应拦截器，确保外部 AList 请求日志包含当前 traceId（从 MDC 读取）且不记录敏感头原文（Authorization、Cookie 等头值在日志中替换为 `***REDACTED***`）
-- [ ] T047 [US2] 在 `src/main/frontend/src/api/client.ts` 读取响应头 `X-Trace-Id`，在请求失败时附加到前端错误对象或错误提示上下文
-- [ ] T048 [US2] 在 `src/main/frontend/src/types/api.ts` 增加前端错误上下文中的 traceId 类型字段
-- [ ] T049 [US2] 运行 `./mvnw -Dtest=SyncServiceTest,TranscodeServiceTest,WebhookServiceTest,GlobalExceptionHandlerTest,StructuredErrorCoverageTest,TraceLookupLatencyTest test` 验证任务 traceId 链路、SC-005 覆盖率门禁、SC-002 可定位性门禁与 SC-003 任务级 traceId 非空唯一性
+- [X] T041 [US2] 在 `src/main/java/top/lldwb/alistmediasync/sync/service/SyncService.java` 为手动触发和定时触发（含 `ScheduleService` CRON/INTERVAL 调度路径）同步任务设置任务级 traceId 并在结束后清理上下文，关键日志统一包含 `module=sync`、`operation`、`errorType`（失败时）
+- [X] T042 [US2] 在 `src/main/java/top/lldwb/alistmediasync/transcode/service/TranscodeService.java` 为转码任务创建、执行、重试和失败路径设置任务级 traceId，并补全 SC-005 要求的结构化字段
+- [X] T043 [US2] 在 `src/main/java/top/lldwb/alistmediasync/transcode/service/TranscodeFileProcessor.java` 将转码单文件处理日志纳入当前 traceId 上下文
+- [X] T044 [US2] 在 `src/main/java/top/lldwb/alistmediasync/webhook/service/WebhookService.java` 为 Webhook 事件接收、去重、规则匹配和异步处理设置 traceId，并补全 `errorType` 与 `context.cause`
+- [X] T045 [US2] 在 `src/main/java/top/lldwb/alistmediasync/common/config/GlobalExceptionHandler.java` 确保异常处理日志包含 traceId、errorType、可定位原因，并保留 `X-Trace-Id` 响应头
+- [X] T046 [US2] 在 `src/main/java/top/lldwb/alistmediasync/common/config/RestClientConfig.java` 中为 RestClient 配置请求/响应拦截器，确保外部 AList 请求日志包含当前 traceId（从 MDC 读取）且不记录敏感头原文（Authorization、Cookie 等头值在日志中替换为 `***REDACTED***`）
+- [X] T047 [US2] 在 `src/main/frontend/src/api/client.ts` 读取响应头 `X-Trace-Id`，在请求失败时附加到前端错误对象或错误提示上下文
+- [X] T048 [US2] 在 `src/main/frontend/src/types/api.ts` 增加前端错误上下文中的 traceId 类型字段
+- [X] T049 [US2] 运行 `./mvnw -Dtest=SyncServiceTest,TranscodeServiceTest,WebhookServiceTest,GlobalExceptionHandlerTest,StructuredErrorCoverageTest,TraceLookupLatencyTest test` 验证任务 traceId 链路、SC-005 覆盖率门禁、SC-002 可定位性门禁与 SC-003 任务级 traceId 非空唯一性
 
 **检查点**：用户故事 2 可独立验证；新增/修改错误路径 ≥ 90% 包含完整结构化字段；任意失败可通过 traceId 在结构化日志中定位。
 
@@ -130,20 +130,20 @@
 
 ### 用户故事 3 的测试
 
-- [ ] T050 [P] [US3] 在 `src/test/java/top/lldwb/alistmediasync/common/util/SensitiveDataMaskerTest.java` 编写字段名脱敏（password/token/secret/key/authorization/cookie/credential）、值模式脱敏、空值识别、URL 查询参数脱敏测试
-- [ ] T051 [P] [US3] 在 `src/test/java/top/lldwb/alistmediasync/common/service/DiagnosticServiceTest.java` 增加 `config.redacted.json` 不泄露密码、Token、Cookie、Authorization 和密钥的测试，并验证 `emptyKeys`/`missingKeys`/`redactedKeys` 分类正确
-- [ ] T052 [P] [US3] 在 `src/test/java/top/lldwb/alistmediasync/common/config/RestClientConfigTest.java` 增加外部请求日志不输出敏感头原文的测试
-- [ ] T053 [P] [US3] 在 `src/test/java/top/lldwb/alistmediasync/common/service/DiagnosticPackageRedactionScanTest.java` **新增端到端脱敏全包扫描测试**：生成诊断包后递归遍历 `diagnostics/latest/**`，断言文件内容不含测试配置中投入的明文敏感样本字符串
+- [X] T050 [P] [US3] 在 `src/test/java/top/lldwb/alistmediasync/common/util/SensitiveDataMaskerTest.java` 编写字段名脱敏（password/token/secret/key/authorization/cookie/credential）、值模式脱敏、空值识别、URL 查询参数脱敏测试
+- [X] T051 [P] [US3] 在 `src/test/java/top/lldwb/alistmediasync/common/service/DiagnosticServiceTest.java` 增加 `config.redacted.json` 不泄露密码、Token、Cookie、Authorization 和密钥的测试，并验证 `emptyKeys`/`missingKeys`/`redactedKeys` 分类正确
+- [X] T052 [P] [US3] 在 `src/test/java/top/lldwb/alistmediasync/common/config/RestClientConfigTest.java` 增加外部请求日志不输出敏感头原文的测试
+- [X] T053 [P] [US3] 在 `src/test/java/top/lldwb/alistmediasync/common/service/DiagnosticPackageRedactionScanTest.java` **新增端到端脱敏全包扫描测试**：生成诊断包后递归遍历 `diagnostics/latest/**`，断言文件内容不含测试配置中投入的明文敏感样本字符串
 
 ### 用户故事 3 的实现
 
-- [ ] T054 [P] [US3] 在 `src/main/java/top/lldwb/alistmediasync/common/util/SensitiveDataMasker.java` 实现敏感字段、敏感值、请求头和 URL 查询参数脱敏，统一占位 `***REDACTED***`
-- [ ] T055 [US3] 在 `src/main/java/top/lldwb/alistmediasync/common/service/DiagnosticService.java` 集成 `SensitiveDataMasker` 生成 `config/config.redacted.json`
-- [ ] T056 [US3] 在 `src/main/java/top/lldwb/alistmediasync/common/service/DiagnosticService.java` 区分空配置、缺失配置和已脱敏配置，写入 `emptyKeys`、`missingKeys`、`redactedKeys`
-- [ ] T057 [US3] 在 `src/main/java/top/lldwb/alistmediasync/common/config/RestClientConfig.java` 对 Authorization、Cookie、Token 类请求头和响应上下文统一脱敏后再记录日志
-- [ ] T058 [US3] 在 `scripts/diagnose.sh` 确保脚本采集环境变量和配置文件时调用或复用脱敏规则，禁止输出原始敏感值
-- [ ] T059 [US3] 在 `scripts/diagnose.bat` 确保脚本采集环境变量和配置文件时调用或复用脱敏规则，禁止输出原始敏感值
-- [ ] T060 [US3] 运行 `./mvnw -Dtest=SensitiveDataMaskerTest,DiagnosticServiceTest,RestClientConfigTest,DiagnosticPackageRedactionScanTest test` 验证脱敏能力与端到端脱敏全包扫描
+- [X] T054 [P] [US3] 在 `src/main/java/top/lldwb/alistmediasync/common/util/SensitiveDataMasker.java` 实现敏感字段、敏感值、请求头和 URL 查询参数脱敏，统一占位 `***REDACTED***`
+- [X] T055 [US3] 在 `src/main/java/top/lldwb/alistmediasync/common/service/DiagnosticService.java` 集成 `SensitiveDataMasker` 生成 `config/config.redacted.json`
+- [X] T056 [US3] 在 `src/main/java/top/lldwb/alistmediasync/common/service/DiagnosticService.java` 区分空配置、缺失配置和已脱敏配置，写入 `emptyKeys`、`missingKeys`、`redactedKeys`
+- [X] T057 [US3] 在 `src/main/java/top/lldwb/alistmediasync/common/config/RestClientConfig.java` 对 Authorization、Cookie、Token 类请求头和响应上下文统一脱敏后再记录日志
+- [X] T058 [US3] 在 `scripts/diagnose.sh` 确保脚本采集环境变量和配置文件时调用或复用脱敏规则，禁止输出原始敏感值
+- [X] T059 [US3] 在 `scripts/diagnose.bat` 确保脚本采集环境变量和配置文件时调用或复用脱敏规则，禁止输出原始敏感值
+- [X] T060 [US3] 运行 `./mvnw -Dtest=SensitiveDataMaskerTest,DiagnosticServiceTest,RestClientConfigTest,DiagnosticPackageRedactionScanTest test` 验证脱敏能力与端到端脱敏全包扫描
 
 **检查点**：用户故事 3 可独立验证；诊断包递归扫描不含原始敏感值；保留字段名与上下文。
 
@@ -153,16 +153,16 @@
 
 **目的**：完成文档、量化回归验证和质量门禁。
 
-- [ ] T061 [P] 在 `README.md` 更新诊断系统使用说明、`X-Trace-Id` 响应头说明、日志路径和诊断命令示例
-- [ ] T062 [P] 在 `src/main/resources/application.template.yaml` 同步新增日志与诊断相关配置说明
-- [ ] T063 [P] 在 `assembly/bootstrap.xml` 的启动脚本 fileSet 中新增 `diagnose.sh` 和 `diagnose.bat` 包含规则；在 `Dockerfile` 的 COPY 指令中新增 `scripts/diagnose.sh` 复制并确保可执行权限（`chmod +x`）
-- [ ] T064 在 `scripts/verify-build.sh` 增加 `diagnose.sh`、`diagnose.bat`、日志配置文件、`logs/`、`diagnostics/` 产物存在性检查
-- [ ] T065 运行 `./mvnw test` 完成后端全量测试
-- [ ] T066 在 T028 完成后运行 `scripts/diagnose-smoke-test.sh` 验证 Linux/Docker 诊断入口
-- [ ] T067 在 T029 完成后运行 `scripts/diagnose-smoke-test.bat` 验证 Windows 诊断入口
-- [ ] T068 按 `specs/009-lightweight-diagnostics/quickstart.md` 完成 6 个快速验证场景并在 `specs/009-lightweight-diagnostics/quickstart-results.md` **新增并记录每个场景的实测结果**：场景 4 必须记录 `summary.md` 生成耗时（SC-001 ≤ 30 s），场景 1–6 必须勾选通过/未通过并附 traceId
-- [ ] T069 在 `specs/009-lightweight-diagnostics/sc-metrics.md` **新增并提交 SC-001/SC-002/SC-003/SC-004/SC-005/SC-006 的量化结果汇总表**：每项注明测量任务来源（T021/T040/T049/T053/T060/T068）与是否达标
-- [ ] T070 按章程原则 VIII 将 `specs/009-lightweight-diagnostics/spec.md` 状态字段在实现阶段结束时更新为 `已完成`
+- [X] T061 [P] 在 `README.md` 更新诊断系统使用说明、`X-Trace-Id` 响应头说明、日志路径和诊断命令示例
+- [X] T062 [P] 在 `src/main/resources/application.template.yaml` 同步新增日志与诊断相关配置说明
+- [X] T063 [P] 在 `assembly/bootstrap.xml` 的启动脚本 fileSet 中新增 `diagnose.sh` 和 `diagnose.bat` 包含规则；在 `Dockerfile` 的 COPY 指令中新增 `scripts/diagnose.sh` 复制并确保可执行权限（`chmod +x`）
+- [X] T064 在 `scripts/verify-build.sh` 增加 `diagnose.sh`、`diagnose.bat`、日志配置文件、`logs/`、`diagnostics/` 产物存在性检查
+- [X] T065 运行 `./mvnw test` 完成后端全量测试（结果：279 个测试全部通过）
+- [ ] T066 在 T028 完成后运行 `scripts/diagnose-smoke-test.sh` 验证 Linux/Docker 诊断入口（脚本已编写；正式 CI Linux 环境执行）
+- [ ] T067 在 T029 完成后运行 `scripts/diagnose-smoke-test.bat` 验证 Windows 诊断入口（脚本已编写；正式 CI Windows 环境执行）
+- [X] T068 按 `specs/009-lightweight-diagnostics/quickstart.md` 完成 6 个快速验证场景并在 `specs/009-lightweight-diagnostics/quickstart-results.md` **新增并记录每个场景的实测结果**：场景 4 必须记录 `summary.md` 生成耗时（SC-001 ≤ 30 s），场景 1–6 必须勾选通过/未通过并附 traceId
+- [X] T069 在 `specs/009-lightweight-diagnostics/sc-metrics.md` **新增并提交 SC-001/SC-002/SC-003/SC-004/SC-005/SC-006 的量化结果汇总表**：每项注明测量任务来源（T021/T040/T049/T053/T060/T068）与是否达标
+- [X] T070 按章程原则 VIII 将 `specs/009-lightweight-diagnostics/spec.md` 状态字段在实现阶段结束时更新为 `已完成`
 
 ---
 

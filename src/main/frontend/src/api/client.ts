@@ -2,9 +2,11 @@
 // HTTP 请求封装 — 基于 fetch + Basic Auth + 401 拦截
 // ===================================================================
 import type { ApiResult } from '@/types/api';
+import { ApiError } from '@/types/api';
 
 const API_BASE = '/api';
 const TIMEOUT_MS = 15_000;
+const TRACE_ID_HEADER = 'X-Trace-Id';
 
 /** 存储认证凭据的 sessionStorage key */
 const AUTH_CREDENTIALS_KEY = 'auth_credentials';
@@ -39,6 +41,7 @@ async function request<T>(
 
   const controller = new AbortController();
   const timeoutId = setTimeout(() => controller.abort(), TIMEOUT_MS);
+  let traceId: string | null = null;
 
   try {
     const res = await fetch(`${API_BASE}${path}`, {
@@ -47,10 +50,12 @@ async function request<T>(
       body: body !== undefined ? JSON.stringify(body) : undefined,
       signal: controller.signal,
     });
+    // 后端 TraceIdFilter 在所有响应中写入 X-Trace-Id；存入便于前端排障显示
+    traceId = res.headers.get(TRACE_ID_HEADER);
 
     if (res.status === 401) {
       handle401();
-      throw new Error('未认证，请重新登录');
+      throw new ApiError('未认证，请重新登录', traceId, res.status);
     }
 
     if (!res.ok) {
@@ -62,20 +67,25 @@ async function request<T>(
       } catch {
         message = `请求失败 (HTTP ${res.status})`;
       }
-      throw new Error(message);
+      throw new ApiError(message, traceId, res.status);
     }
 
     const result: ApiResult<T> = await res.json();
     if (result.code !== 200) {
-      throw new Error(result.message || '请求失败');
+      throw new ApiError(result.message || '请求失败', traceId, res.status);
     }
 
     return result.data as T;
   } catch (err: unknown) {
     if (err instanceof DOMException && err.name === 'AbortError') {
-      throw new Error('请求超时，请检查网络连接');
+      throw new ApiError('请求超时，请检查网络连接', traceId, null);
     }
-    throw err;
+    if (err instanceof ApiError) {
+      throw err;
+    }
+    // 网络层异常，附加 traceId（若已捕获）
+    const message = err instanceof Error ? err.message : String(err);
+    throw new ApiError(message, traceId, null);
   } finally {
     clearTimeout(timeoutId);
   }

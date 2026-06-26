@@ -79,10 +79,16 @@ public class TranscodeFileProcessor {
             SyncTask syncTask,
             TaskExecution execution) {
 
+        // MdcTaskDecorator 已传递提交线程的 MDC（含 traceId、module、operation）
+        // 这里仅细化 operation 标识，便于排查具体文件处理路径
+        top.lldwb.alistmediasync.common.util.TraceContext.setModuleOperation(
+            "transcode", "单文件转码：" + candidate.name());
+
         try {
             semaphore.acquire();
         } catch (InterruptedException e) {
             Thread.currentThread().interrupt();
+            top.lldwb.alistmediasync.common.util.TraceContext.setErrorType("InterruptedException");
             return CompletableFuture.completedFuture(
                     new TranscodeResult(candidate.name(), false, "线程被中断"));
         }

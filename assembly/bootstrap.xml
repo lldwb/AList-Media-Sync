@@ -31,6 +31,8 @@
             <includes>
                 <include>start.sh</include>
                 <include>start.bat</include>
+                <include>diagnose.sh</include>
+                <include>diagnose.bat</include>
             </includes>
             <fileMode>0755</fileMode>
             <lineEnding>unix</lineEnding>
