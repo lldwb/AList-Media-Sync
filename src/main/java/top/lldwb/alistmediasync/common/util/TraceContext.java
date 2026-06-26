@@ -55,7 +55,8 @@ public final class TraceContext {
 
     /**
      * 生成新的 traceId
-     * <p>格式：{时间前缀}-{随机后缀}，总长度 23 个字符。</p>
+     * <p>格式：{时间前缀14位}{随机后缀8位}，总长度 22 个字符，全部为字母与数字，
+     * 不含连字符，便于在终端或 IDE 中双击整段复制。</p>
      *
      * @return 合法 traceId
      */
@@ -65,7 +66,7 @@ public final class TraceContext {
         for (int i = 0; i < 8; i++) {
             suffix.append(ALPHABET[RANDOM.nextInt(ALPHABET.length)]);
         }
-        return time + "-" + suffix;
+        return time + suffix;
     }
 
     /**
