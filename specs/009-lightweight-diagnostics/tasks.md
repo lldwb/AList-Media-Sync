@@ -84,7 +84,7 @@
 - [ ] T030 [US1] 在 `scripts/start.sh` 添加诊断命令提示和诊断目录变量传递，不改变原启动流程
 - [ ] T031 [US1] 在 `scripts/start.bat` 添加诊断命令提示和诊断目录变量传递，不改变原启动流程
 - [ ] T032 [US1] 在 `docker-compose.yml` 中补充 `logs/` 与 `diagnostics/` 目录的挂载配置：在现有 `alist-media-sync-data:/app/data` 卷基础上，新增 `./logs:/app/logs` 和 `./diagnostics:/app/diagnostics` 绑定挂载（或确认 data 卷已覆盖这些路径），确保宿主机可直接读取诊断包
-- [ ] T033 [US1] 运行 `./mvnw -Dtest=DiagnosticServiceTest,DiagnosticControllerTest,DiagnosticServicePerformanceTest,DiagnosticServiceSideEffectTest test` 验证诊断服务、端点、SC-001 性能门禁与 FR-012 副作用断言
+- [ ] T033 [US1] 运行 `./mvnw -Dtest=DiagnosticServiceTest,DiagnosticControllerTest,DiagnosticServicePerformanceTest,DiagnosticServiceSideEffectTest test` 验证诊断服务、端点、SC-001 性能门禁与 FR-012 副作用断言；验证诊断包中所有任务执行记录均包含非空 traceId（SC-003）
 
 **检查点**：用户故事 1 可独立交付；生成耗时 ≤ 30 秒；诊断过程零业务副作用；用户可以把 `summary.md` 交给 AI 排查。
 
@@ -116,7 +116,7 @@
 - [ ] T046 [US2] 在 `src/main/java/top/lldwb/alistmediasync/common/config/RestClientConfig.java` 中为 RestClient 配置请求/响应拦截器，确保外部 AList 请求日志包含当前 traceId（从 MDC 读取）且不记录敏感头原文（Authorization、Cookie 等头值在日志中替换为 `***REDACTED***`）
 - [ ] T047 [US2] 在 `src/main/frontend/src/api/client.ts` 读取响应头 `X-Trace-Id`，在请求失败时附加到前端错误对象或错误提示上下文
 - [ ] T048 [US2] 在 `src/main/frontend/src/types/api.ts` 增加前端错误上下文中的 traceId 类型字段
-- [ ] T049 [US2] 运行 `./mvnw -Dtest=SyncServiceTest,TranscodeServiceTest,WebhookServiceTest,GlobalExceptionHandlerTest,StructuredErrorCoverageTest,TraceLookupLatencyTest test` 验证任务 traceId 链路、SC-005 覆盖率门禁与 SC-002 可定位性门禁
+- [ ] T049 [US2] 运行 `./mvnw -Dtest=SyncServiceTest,TranscodeServiceTest,WebhookServiceTest,GlobalExceptionHandlerTest,StructuredErrorCoverageTest,TraceLookupLatencyTest test` 验证任务 traceId 链路、SC-005 覆盖率门禁、SC-002 可定位性门禁与 SC-003 任务级 traceId 非空唯一性
 
 **检查点**：用户故事 2 可独立验证；新增/修改错误路径 ≥ 90% 包含完整结构化字段；任意失败可通过 traceId 在结构化日志中定位。
 

@@ -16,6 +16,8 @@
 
 **技术方法**：复用 Spring Boot 内置 Filter、SLF4J MDC、Logback、现有分层架构与脚本体系；不引入新第三方依赖。诊断能力作为 `common` 基础设施实现，命令入口通过脚本或管理端点触发，保持只读、无业务副作用。
 
+**日志上下文传递**：模块（`module`）和操作（`operation`）字段通过 SLF4J MDC 传递，键名分别为 `mdc.module` 和 `mdc.operation`。业务服务在任务入口通过 `TraceContext.setModuleOperation(String module, String operation)` 设置，Logback pattern 通过 `%X{module}` 和 `%X{operation}` 输出。失败时通过 `TraceContext.setErrorType(String errorType)` 设置错误类别，pattern 通过 `%X{errorType}` 输出。
+
 ## 技术上下文
 
 **语言/版本**：Java 21 + TypeScript 5.x（strict 模式）+ Shell/Bat 脚本
@@ -33,7 +35,7 @@
 **性能目标**：
 - 诊断包在正常部署环境中 30 秒内生成
 - 任意同步、转码或 Webhook 失败可在 2 分钟内通过摘要定位 traceId 和关键错误日志
-- 100% 新后端 HTTP 响应包含 `X-Trace-Id`
+- 100% 新后端 HTTP 响应包含 `X-Trace-Id`（参见 spec.md FR-013）
 - 100% 新任务执行上下文包含非空唯一 traceId
 
 **约束**：
