@@ -14,7 +14,40 @@
 
 set -euo pipefail
 
-PROJECT_ROOT="$(pwd)"
+# 通过向上搜索 .specify 目录定位项目根（而非依赖 pwd）
+_find_project_root() {
+  local start="$1"
+  local cur
+  cur="$(cd "$start" 2>/dev/null && pwd -P || true)"
+  while [[ -n "$cur" ]]; do
+    if [[ -d "$cur/.specify" ]]; then
+      echo "$cur"
+      return 0
+    fi
+    local parent
+    parent="$(dirname "$cur")"
+    if [[ -z "$parent" || "$parent" == "$cur" ]]; then
+      return 1
+    fi
+    cur="$parent"
+  done
+  return 1
+}
+
+# 首选：从脚本自身位置向上查找（脚本嵌于 .specify/extensions/agent-context/scripts/bash/ 下）
+_script_dir="$(cd "$(dirname "${BASH_SOURCE[0]}")" 2>/dev/null && pwd -P || true)"
+PROJECT_ROOT=""
+if [[ -n "$_script_dir" ]]; then
+  PROJECT_ROOT="$(_find_project_root "$_script_dir" || true)"
+fi
+# 备选：从当前工作目录向上查找
+if [[ -z "$PROJECT_ROOT" ]]; then
+  PROJECT_ROOT="$(_find_project_root "$(pwd)" || true)"
+fi
+# 最后回退：当前工作目录
+if [[ -z "$PROJECT_ROOT" ]]; then
+  PROJECT_ROOT="$(pwd)"
+fi
 EXT_CONFIG="$PROJECT_ROOT/.specify/extensions/agent-context/agent-context-config.yml"
 DEFAULT_START="<!-- SPECKIT START -->"
 DEFAULT_END="<!-- SPECKIT END -->"

@@ -1,4 +1,4 @@
-#!/usr/bin/env pwsh
+﻿#!/usr/bin/env pwsh
 # 通用 PowerShell 函数，类似于 common.sh
 
 # 通过向上搜索 .specify 目录查找仓库根目录
@@ -39,14 +39,30 @@ function Get-RepoRoot {
 }
 
 function Get-CurrentBranch {
-    # 仅从显式状态返回功能名称。
-    # 功能状态由 SPECIFY_FEATURE（来自 create-new-feature 或
-    # git 扩展）或通过 .specify/feature.json 隐式设置。
+    # 返回当前功能名称。优先级：
+    #   1. SPECIFY_FEATURE 环境变量（显式覆盖）
+    #   2. .specify/feature.json 中 feature_directory 的叶子名（持久化的功能）
+    #   3. 空字符串表示"未知"
     if ($env:SPECIFY_FEATURE) {
         return $env:SPECIFY_FEATURE
     }
 
-    # 未设置显式功能 — 返回空以表示"未知"。
+    $repoRoot = Find-SpecifyRoot
+    if ($repoRoot) {
+        $featureJson = Join-Path $repoRoot '.specify/feature.json'
+        if (Test-Path -LiteralPath $featureJson -PathType Leaf) {
+            try {
+                $cfg = Get-Content -LiteralPath $featureJson -Raw | ConvertFrom-Json
+                if ($cfg.feature_directory) {
+                    $leaf = Split-Path -Leaf ([string]$cfg.feature_directory)
+                    if ($leaf) { return $leaf }
+                }
+            } catch {
+                # feature.json 损坏或无法解析 — 退回空值
+            }
+        }
+    }
+
     return ""
 }
 
@@ -116,7 +132,8 @@ function Get-FeaturePathsEnv {
             $featureDir = Join-Path $repoRoot $featureDir
         }
         # 持久化到 feature.json，使以后没有环境变量的会话仍然有效
-        Save-FeatureJson -RepoRoot $repoRoot -FeatureDirectory $env:SPECIFY_FEATURE_DIRECTORY
+        # 传入规范化后的绝对路径，保持写入形态一致
+        Save-FeatureJson -RepoRoot $repoRoot -FeatureDirectory $featureDir
     } elseif (Test-Path $featureJson) {
         $featureJsonRaw = Get-Content -LiteralPath $featureJson -Raw
         try {
