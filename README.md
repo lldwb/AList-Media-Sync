@@ -171,6 +171,56 @@ docker run --rm \
 ./mvnw test
 ```
 
+## 诊断系统
+
+应用内置轻量诊断系统，便于在出现同步/转码/Webhook 失败时快速将"问题摘要"交给 AI 或开发者排查。详细规格参见 [`specs/009-lightweight-diagnostics/`](./specs/009-lightweight-diagnostics/)。
+
+### 关键能力
+
+- **统一 traceId**：每次任务执行或 HTTP 请求都生成 traceId，关键日志、错误日志和响应头均携带；
+- **响应头 `X-Trace-Id`**：所有 `/api/**` 响应（成功、业务失败、认证失败、异常）都返回 `X-Trace-Id`，请求方可直接复制使用；如请求已携带合法值则沿用；
+- **结构化日志**：`logs/app.log` 和 `logs/error.log` 默认包含 traceId、module、operation、errorType 字段，ERROR 级日志同时写入 `logs/error.log`；
+- **一键诊断包**：脚本或后端端点生成 `diagnostics/latest/summary.md` 等关键证据；
+- **自动脱敏**：诊断包内所有密码、Token、Cookie、Authorization、密钥统一替换为 `***REDACTED***`，可放心交给 AI 或开发者。
+
+### 触发方式
+
+| 部署形态 | 命令 |
+|---|---|
+| 本地开发 / 一体化启动包（Linux） | `sh scripts/diagnose.sh` |
+| 本地开发 / 一体化启动包（Windows） | `scripts\diagnose.bat` |
+| Docker（应用运行中） | `curl -u admin:admin123 -X POST http://localhost:8080/api/diagnostics/run` |
+| Docker（容器内脚本） | `docker exec -it alist-media-sync sh /app/scripts/diagnose.sh` |
+
+脚本可选参数：
+
+- `--output <dir>`：指定诊断包输出目录（默认 `./diagnostics/latest`）
+- `--trace-id <id>`：指定优先收集的 traceId
+- `--max-lines <n>`：每个日志摘录最多保留行数（默认 2000）
+
+### 诊断包结构
+
+```text
+diagnostics/latest/
+├── summary.md              # 阅读入口：基本信息 / 最近失败 / 关键证据 / 缺失信息 / 建议下一步
+├── logs/
+│   ├── error.log           # 错误日志摘录（自动脱敏）
+│   └── app.log             # 应用日志摘录（自动脱敏）
+├── config/
+│   └── config.redacted.json  # 脱敏配置摘要（含 emptyKeys / missingKeys / redactedKeys）
+├── environment.txt         # 运行环境（JVM、OS、磁盘、内存）
+└── last-run.json           # 最近一次任务执行摘要
+```
+
+### 日志路径
+
+| 文件 | 内容 |
+|---|---|
+| `logs/app.log` | 所有级别的应用日志（按天滚动，单文件 ≤50MB，保留 30 天） |
+| `logs/error.log` | 仅 ERROR 级日志，便于诊断包快速采集（同样按天滚动） |
+
+可通过环境变量 `LOG_PATH` 重定向日志目录（默认 `./logs`）。
+
 ## 项目结构
 
 ```text

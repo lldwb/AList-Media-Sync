@@ -36,15 +36,20 @@ services:
     environment:
       - SERVER_PORT=${SERVER_PORT:-8080}
       - DATA_DIR=/app/data
+      - LOG_PATH=/app/logs
       - LOGGING_LEVEL=${LOGGING_LEVEL:-INFO}
       - ALIST_BASE_URL=${ALIST_BASE_URL}
       - ALIST_TOKEN=${ALIST_TOKEN}
       - ALIST_CRYPTO_KEY=${ALIST_CRYPTO_KEY}
       - JAVA_OPTS=${JAVA_OPTS:--Xms128m -Xmx256m}
 
-    # 数据卷挂载：H2 数据库文件持久化存储
+    # 数据卷挂载：
+    # - 命名卷持久化 H2 数据库
+    # - 绑定挂载 logs/ 与 diagnostics/，宿主机可直接读取日志与诊断包（轻量诊断系统 FR-005/FR-007）
     volumes:
       - alist-media-sync-data:/app/data
+      - ./logs:/app/logs
+      - ./diagnostics:/app/diagnostics
 
     # 重启策略：除非手动停止，否则自动重启
     restart: unless-stopped

@@ -6,6 +6,7 @@ import org.springframework.scheduling.TaskScheduler;
 import org.springframework.scheduling.concurrent.ThreadPoolTaskScheduler;
 import org.springframework.scheduling.support.CronTrigger;
 import org.springframework.stereotype.Service;
+import top.lldwb.alistmediasync.common.util.TraceContext;
 import top.lldwb.alistmediasync.sync.entity.SyncTask;
 import top.lldwb.alistmediasync.sync.entity.TaskExecution;
 import top.lldwb.alistmediasync.sync.repository.SyncTaskRepository;
@@ -78,8 +79,16 @@ public class ScheduleService {
         }
 
         Runnable runnable = () -> {
-            log.debug("定时触发同步任务：{}", task.getName());
-            syncService.executeSyncTask(task);
+            // 定时触发：分配新的 traceId，便于日志关联（SyncService 入口会沿用此值）
+            String traceId = TraceContext.generate();
+            try {
+                TraceContext.setTraceId(traceId);
+                TraceContext.setModuleOperation("sync", "定时调度触发");
+                log.debug("定时触发同步任务：{} (traceId={})", task.getName(), traceId);
+                syncService.executeSyncTask(task);
+            } finally {
+                TraceContext.clear();
+            }
         };
 
         ScheduledFuture<?> future;

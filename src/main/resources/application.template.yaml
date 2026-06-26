@@ -49,10 +49,21 @@ management:
 # 开发环境：将 LOGGING_LEVEL 设为 DEBUG 或保持默认 INFO
 # 生产环境：必须将 LOGGING_LEVEL 设为 WARN（通过环境变量或启动参数注入）
 #   业务包 top.lldwb.alistmediasync 单独设为 INFO，确保关键业务日志可见
+#
+# 轻量诊断系统说明（参见 specs/009-lightweight-diagnostics/）：
+# - logging.file.path 由环境变量 LOG_PATH 控制，默认 ./logs
+# - Logback 在该目录下生成 app.log（所有级别）和 error.log（仅 ERROR 级）
+# - 日志 pattern 自动注入 MDC 中的 traceId / module / operation / errorType 字段
+# - 所有 /api/** 响应都包含 X-Trace-Id 响应头，便于将一次请求与日志串联
 logging:
   level:
     root: ${LOGGING_LEVEL:INFO}
     top.lldwb.alistmediasync: ${LOGGING_LEVEL:INFO}
+  file:
+    path: ${LOG_PATH:./logs}             # 日志输出目录（环境变量 LOG_PATH）
+  pattern:
+    console: "%d{yyyy-MM-dd HH:mm:ss.SSS} %-5level [%thread] [traceId=%X{traceId:-}] [module=%X{module:-}] [operation=%X{operation:-}] [errorType=%X{errorType:-}] %logger{36} - %msg%n"
+    file: "%d{yyyy-MM-dd HH:mm:ss.SSS} %-5level [%thread] [traceId=%X{traceId:-}] [module=%X{module:-}] [operation=%X{operation:-}] [errorType=%X{errorType:-}] %logger{36} - %msg%n"
 
 # ============================================================
 # AList 连接配置（必填，由环境变量注入）

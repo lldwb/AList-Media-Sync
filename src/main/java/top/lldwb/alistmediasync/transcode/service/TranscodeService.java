@@ -6,6 +6,7 @@ import org.springframework.scheduling.annotation.Async;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 import top.lldwb.alistmediasync.common.config.AppProperties;
+import top.lldwb.alistmediasync.common.util.TraceContext;
 import top.lldwb.alistmediasync.sync.dto.sync.FileEntry;
 import top.lldwb.alistmediasync.sync.entity.SyncTask;
 import top.lldwb.alistmediasync.sync.entity.TaskExecution;
@@ -124,30 +125,53 @@ public class TranscodeService {
      */
     @Async("transcodeExecutor")
     public void executeAsync(TranscodeTask task) {
-        executeTask(task);
+        String traceId = TraceContext.getTraceId();
+        if (traceId == null) {
+            traceId = TraceContext.generate();
+        }
+        TraceContext.setTraceId(traceId);
+        TraceContext.setModuleOperation("transcode", "转码任务执行");
+        try {
+            executeTask(task);
+        } finally {
+            TraceContext.clear();
+        }
     }
 
     /**
      * 同步后置转码（由 SyncService 调用）
      */
     public void executePostSyncTranscode(SyncTask syncTask, TaskExecution syncExecution) {
-        log.info("同步后置转码开始：syncTask={}", syncTask.getName());
-        TaskExecution execution = new TaskExecution();
-        execution.setSyncTask(syncTask);
-        execution.setTaskType(TaskExecution.TaskType.TRANSCODE);
-        execution.setStartTime(java.time.LocalDateTime.now());
-        execution.setStatus(TaskExecution.ExecutionStatus.RUNNING);
-        execution = taskExecutionRepository.save(execution);
+        // 沿用同步任务的 traceId，便于将同步+转码视作同一次任务链路
+        boolean owns = false;
+        if (TraceContext.getTraceId() == null) {
+            TraceContext.setTraceId(TraceContext.generate());
+            owns = true;
+        }
+        TraceContext.setModuleOperation("transcode", "同步后置转码");
+        try {
+            log.info("同步后置转码开始：syncTask={}", syncTask.getName());
+            TaskExecution execution = new TaskExecution();
+            execution.setSyncTask(syncTask);
+            execution.setTaskType(TaskExecution.TaskType.TRANSCODE);
+            execution.setStartTime(java.time.LocalDateTime.now());
+            execution.setStatus(TaskExecution.ExecutionStatus.RUNNING);
+            execution = taskExecutionRepository.save(execution);
 
-        executeTaskInternal(syncTask.getSourceEngine(), syncTask.getTargetEngine(),
-            syncTask.getSourcePath(), syncTask.getTargetPath(),
-            syncTask.getTargetFormat().name(), syncTask.getConflictStrategy(),
-            syncTask, execution);
+            executeTaskInternal(syncTask.getSourceEngine(), syncTask.getTargetEngine(),
+                syncTask.getSourcePath(), syncTask.getTargetPath(),
+                syncTask.getTargetFormat().name(), syncTask.getConflictStrategy(),
+                syncTask, execution);
 
-        execution.setEndTime(java.time.LocalDateTime.now());
-        taskExecutionRepository.save(execution);
-        log.info("同步后置转码完成：syncTask={}, 成功 {} / 失败 {}",
-            syncTask.getName(), execution.getSuccessFiles(), execution.getFailedFiles());
+            execution.setEndTime(java.time.LocalDateTime.now());
+            taskExecutionRepository.save(execution);
+            log.info("同步后置转码完成：syncTask={}, 成功 {} / 失败 {}",
+                syncTask.getName(), execution.getSuccessFiles(), execution.getFailedFiles());
+        } finally {
+            if (owns) {
+                TraceContext.clear();
+            }
+        }
     }
 
     // ================================================================
@@ -235,6 +259,7 @@ public class TranscodeService {
                 managedTask.getSourceFilePath(), successCount,
                 candidates.size() - successCount);
         } catch (Exception e) {
+            TraceContext.setErrorType(e.getClass().getSimpleName());
             log.error("转码任务失败：{} — {}", managedTask.getSourceFilePath(), e.getMessage(), e);
             // 仅在非失败状态时设置（可能已在处理流程中设置具体失败状态）
             if (!isFailureStatus(managedTask.getStatus())) {

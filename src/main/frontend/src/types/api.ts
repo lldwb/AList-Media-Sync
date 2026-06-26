@@ -12,6 +12,21 @@ export interface ApiResult<T> {
   data: T | null;
 }
 
+/** 携带 X-Trace-Id 的前端错误，便于在 UI 与诊断包之间串联问题 */
+export class ApiError extends Error {
+  /** 后端返回的 X-Trace-Id 响应头（可能为 null） */
+  readonly traceId: string | null;
+  /** HTTP 状态码（若有） */
+  readonly status: number | null;
+
+  constructor(message: string, traceId: string | null, status: number | null) {
+    super(message);
+    this.name = 'ApiError';
+    this.traceId = traceId;
+    this.status = status;
+  }
+}
+
 /* ---- 存储引擎 ---- */
 
 export type EngineType = 'ALIST' | 'LOCAL';

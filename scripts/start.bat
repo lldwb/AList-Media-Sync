@@ -44,6 +44,10 @@ echo ========================================
 echo   AList-Media-Sync 一体化启动包
 echo ========================================
 echo.
+echo [信息] 应用启动后访问 http://localhost:%SERVER_PORT%/app/
+echo [信息] 如需排查问题，可运行：diagnose.bat
+echo [信息] 诊断包将输出至 .\diagnostics\latest\summary.md
+echo.
 
 set START_TIME=%TIME%
 
@@ -87,7 +91,7 @@ set PID_FILE=%DATA_DIR%\app.pid
 echo !PID! > "!PID_FILE!"
 
 REM 组装 JVM 参数
-set "JVM_ARGS=%JAVA_OPTS% -Dserver.port=%SERVER_PORT% -Dapp.data-dir=%DATA_DIR% -Dlogging.level.root=%LOGGING_LEVEL%"
+set "JVM_ARGS=%JAVA_OPTS% -Dserver.port=%SERVER_PORT% -Dapp.data-dir=%DATA_DIR% -Dlogging.level.root=%LOGGING_LEVEL% -Dlogging.file.path=%SCRIPT_DIR%\logs"
 
 REM 如果设置了 APP_AUTH_PASSWORD 环境变量，传递给 JVM
 if defined APP_AUTH_PASSWORD set "JVM_ARGS=%JVM_ARGS% -Dapp.auth.password=%APP_AUTH_PASSWORD%"

@@ -63,8 +63,13 @@ WORKDIR /app
 # 从构建阶段复制 JAR 文件
 COPY --from=builder /build/target/*.jar /app/app.jar
 
-# 创建数据目录并设置权限
-RUN mkdir -p /app/data && chown -R appuser:appgroup /app
+# 复制诊断脚本（轻量诊断系统：容器内 sh scripts/diagnose.sh 可生成诊断包）
+COPY scripts/diagnose.sh /app/scripts/diagnose.sh
+
+# 创建数据/日志/诊断目录并设置权限和脚本可执行位
+RUN mkdir -p /app/data /app/logs /app/diagnostics && \
+    chmod +x /app/scripts/diagnose.sh && \
+    chown -R appuser:appgroup /app
 
 # 切换到非 root 用户
 USER appuser

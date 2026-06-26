@@ -11,12 +11,17 @@ import org.springframework.http.client.ClientHttpResponse;
 import org.springframework.http.client.SimpleClientHttpRequestFactory;
 import org.springframework.web.client.RestClient;
 import top.lldwb.alistmediasync.common.util.ApiUtil;
+import top.lldwb.alistmediasync.common.util.SensitiveDataMasker;
+import top.lldwb.alistmediasync.common.util.TraceContext;
 
 import java.io.IOException;
 import java.time.Duration;
+import java.util.Arrays;
 import java.util.LinkedHashMap;
 import java.util.List;
+import java.util.Locale;
 import java.util.Map;
+import java.util.Set;
 
 /**
  * RestClient 配置
@@ -24,6 +29,14 @@ import java.util.Map;
  * Spring Boot 4.x 下 spring-boot-starter-webmvc 不会自动注册
  * RestClient.Builder Bean，需手动提供。
  * 同时配置连接超时、读取超时以及请求/响应日志拦截器。
+ * </p>
+ * <p>
+ * 日志拦截器在记录请求/响应时：
+ * <ul>
+ *   <li>从 MDC 读取当前 traceId，附加到日志上下文以串联外部 AList 调用；</li>
+ *   <li>对 Authorization、Cookie、X-API-Key 等敏感请求头统一脱敏为 {@code ***REDACTED***}；</li>
+ *   <li>对 URL 查询串中的敏感参数统一脱敏（与 {@link SensitiveDataMasker} 行为一致）。</li>
+ * </ul>
  * </p>
  *
  * @author AList-Media-Sync
@@ -37,12 +50,14 @@ public class RestClientConfig {
     /** 读取超时时间（秒） */
     private static final int READ_TIMEOUT_SECONDS = 30;
 
+    /** 请求头脱敏白名单（小写） */
+    private static final Set<String> SENSITIVE_HEADERS = Set.of(
+        "authorization", "cookie", "set-cookie",
+        "x-auth-token", "x-api-key", "proxy-authorization"
+    );
+
     /**
      * 配置好的 RestClient 实例（含超时和日志拦截器）
-     * <p>
-     * 供 {@link ApiUtil} 使用，所有通过此 RestClient 的 HTTP 调用
-     * 都会自动记录请求和响应日志。
-     * </p>
      */
     @Bean
     public RestClient restClient() {
@@ -54,10 +69,6 @@ public class RestClientConfig {
 
     /**
      * RestClient.Builder Bean（向后兼容）
-     * <p>
-     * 保留此 Bean 以兼容测试代码中 Mock RestClient.Builder 的场景。
-     * 新代码应优先使用 {@link #restClient()} 或 {@link ApiUtil}。
-     * </p>
      */
     @Bean
     public RestClient.Builder restClientBuilder() {
@@ -66,10 +77,6 @@ public class RestClientConfig {
 
     /**
      * HTTP 连接工厂：配置连接超时和读取超时
-     * <p>
-     * 使用 SimpleClientHttpRequestFactory（基于 java.net.HttpURLConnection），
-     * 支持连接超时和读取超时配置。
-     * </p>
      */
     private SimpleClientHttpRequestFactory clientHttpRequestFactory() {
         SimpleClientHttpRequestFactory factory = new SimpleClientHttpRequestFactory();
@@ -80,55 +87,65 @@ public class RestClientConfig {
 
     /**
      * HTTP 请求/响应日志拦截器
-     * <p>
-     * 实现 ClientHttpRequestInterceptor 接口，在每次 HTTP 调用前后记录：
-     * 请求方法、URI、请求头（Authorization 脱敏）、响应状态码、响应头。
-     * 日志级别为 DEBUG，生产环境可按需开启。
-     * </p>
      */
     static class LoggingInterceptor implements ClientHttpRequestInterceptor {
 
         @Override
         public ClientHttpResponse intercept(HttpRequest request, byte[] body,
                                             ClientHttpRequestExecution execution) throws IOException {
-            logRequest(request);
+            String traceId = TraceContext.getTraceId();
+            logRequest(request, traceId);
             long startTime = System.currentTimeMillis();
             try {
                 ClientHttpResponse response = execution.execute(request, body);
-                logResponse(request, response, startTime);
+                logResponse(request, response, startTime, traceId);
                 return response;
             } catch (IOException e) {
-                log.error("HTTP 请求失败：{} {} — 耗时={}ms, 原因：{}",
-                    request.getMethod(), request.getURI(),
-                    System.currentTimeMillis() - startTime, e.getMessage());
+                log.error("HTTP 请求失败：{} {} — 耗时={}ms, traceId={}, 原因：{}",
+                    request.getMethod(), SensitiveDataMasker.maskUrl(String.valueOf(request.getURI())),
+                    System.currentTimeMillis() - startTime, traceId, e.getMessage());
                 throw e;
             }
         }
 
         /**
-         * 记录 HTTP 请求信息（Authorization 头脱敏）
+         * 记录 HTTP 请求信息（敏感头统一脱敏；查询串敏感参数脱敏）
          */
-        private void logRequest(HttpRequest request) {
+        private void logRequest(HttpRequest request, String traceId) {
             Map<String, List<String>> sanitizedHeaders = new LinkedHashMap<>();
             request.getHeaders().forEach((key, values) -> {
-                if (HttpHeaders.AUTHORIZATION.equalsIgnoreCase(key)) {
-                    sanitizedHeaders.put(key, List.of("***"));
+                if (SENSITIVE_HEADERS.contains(key.toLowerCase(Locale.ROOT))) {
+                    sanitizedHeaders.put(key, List.of(SensitiveDataMasker.REDACTED));
                 } else {
                     sanitizedHeaders.put(key, values);
                 }
             });
-            log.debug("HTTP 请求：{} {} — headers={}", request.getMethod(), request.getURI(), sanitizedHeaders);
+            log.debug("HTTP 请求：{} {} — traceId={}, headers={}",
+                request.getMethod(),
+                SensitiveDataMasker.maskUrl(String.valueOf(request.getURI())),
+                traceId,
+                sanitizedHeaders);
         }
 
         /**
-         * 记录 HTTP 响应信息
+         * 记录 HTTP 响应信息（敏感响应头也脱敏）
          */
-        private void logResponse(HttpRequest request, ClientHttpResponse response, long startTime) throws IOException {
-            log.debug("HTTP 响应：{} {} — 状态码={}, headers={}, 耗时={}ms",
+        private void logResponse(HttpRequest request, ClientHttpResponse response,
+                                 long startTime, String traceId) throws IOException {
+            Map<String, List<String>> sanitizedHeaders = new LinkedHashMap<>();
+            response.getHeaders().forEach((key, values) -> {
+                if (SENSITIVE_HEADERS.contains(key.toLowerCase(Locale.ROOT))) {
+                    sanitizedHeaders.put(key, List.of(SensitiveDataMasker.REDACTED));
+                } else {
+                    sanitizedHeaders.put(key, values);
+                }
+            });
+            log.debug("HTTP 响应：{} {} — 状态码={}, traceId={}, headers={}, 耗时={}ms",
                 request.getMethod(),
-                request.getURI(),
+                SensitiveDataMasker.maskUrl(String.valueOf(request.getURI())),
                 response.getStatusCode(),
-                response.getHeaders(),
+                traceId,
+                sanitizedHeaders,
                 System.currentTimeMillis() - startTime);
         }
     }

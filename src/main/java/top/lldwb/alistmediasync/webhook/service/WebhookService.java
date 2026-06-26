@@ -65,6 +65,10 @@ public class WebhookService {
     @Transactional
     public WebhookEvent receiveWebhookEvent(String eventType, String eventId, String timestamp,
                                              Map<String, Object> eventData) {
+        // 设置 module/operation；traceId 由 TraceIdFilter 在请求入口已设置
+        top.lldwb.alistmediasync.common.util.TraceContext.setModuleOperation(
+            "webhook", "接收事件：" + eventType);
+
         // 1. EventId 去重
         if (eventId != null && !eventId.isEmpty()) {
             var existing = eventRepository.findByEventId(eventId);
@@ -106,22 +110,32 @@ public class WebhookService {
     }
 
     /**
+    /**
      * 异步处理 Webhook 事件
      */
     @Async
     @Transactional
     public void processWebhookEvent(WebhookEvent event) {
-        if (event.getStatus() == WebhookEvent.EventStatus.DUPLICATE) {
-            return; // 重复事件不处理
+        // 沿用接收线程的 traceId（receiveWebhookEvent 设置），跨线程通过 MdcTaskDecorator 传递
+        String traceId = top.lldwb.alistmediasync.common.util.TraceContext.getTraceId();
+        if (traceId == null) {
+            traceId = top.lldwb.alistmediasync.common.util.TraceContext.generate();
+            top.lldwb.alistmediasync.common.util.TraceContext.setTraceId(traceId);
         }
-
-        event.setStatus(WebhookEvent.EventStatus.PROCESSING);
-        event = eventRepository.save(event);
-
-        // WebSocket 推送 WEBHOOK_EVENT 消息
-        pushWebhookEvent(event);
+        top.lldwb.alistmediasync.common.util.TraceContext.setModuleOperation(
+            "webhook", "异步处理事件：" + event.getEventId());
 
         try {
+            if (event.getStatus() == WebhookEvent.EventStatus.DUPLICATE) {
+                return; // 重复事件不处理
+            }
+
+            event.setStatus(WebhookEvent.EventStatus.PROCESSING);
+            event = eventRepository.save(event);
+
+            // WebSocket 推送 WEBHOOK_EVENT 消息
+            pushWebhookEvent(event);
+
             log.info("正在处理 Webhook 事件：EventId={}, Type={}", event.getEventId(), event.getEventType());
 
             // 仅处理 FILE_CLOSED 和 SESSION_ENDED 事件
@@ -168,6 +182,7 @@ public class WebhookService {
             log.info("Webhook 事件处理完成：EventId={}", event.getEventId());
 
         } catch (Exception e) {
+            top.lldwb.alistmediasync.common.util.TraceContext.setErrorType(e.getClass().getSimpleName());
             log.error("Webhook 事件处理失败：EventId={} — {}", event.getEventId(), e.getMessage(), e);
             event.setStatus(WebhookEvent.EventStatus.FAILED);
             eventRepository.save(event);
@@ -234,6 +249,7 @@ public class WebhookService {
 
             execution.setStatus(TaskExecution.ExecutionStatus.SUCCESS);
         } catch (Exception e) {
+            top.lldwb.alistmediasync.common.util.TraceContext.setErrorType(e.getClass().getSimpleName());
             log.error("规则执行失败：{} — {}", rule.getName(), e.getMessage(), e);
             execution.setStatus(TaskExecution.ExecutionStatus.FAILED);
             execution.setFailureDetails(e.getMessage());

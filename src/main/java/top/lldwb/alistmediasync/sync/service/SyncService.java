@@ -10,6 +10,7 @@ import org.springframework.transaction.annotation.Transactional;
 import top.lldwb.alistmediasync.storage.entity.StorageEngine;
 import top.lldwb.alistmediasync.storage.service.StorageEngineService;
 import top.lldwb.alistmediasync.common.service.WsSessionManager;
+import top.lldwb.alistmediasync.common.util.TraceContext;
 import top.lldwb.alistmediasync.sync.entity.SyncTask;
 import top.lldwb.alistmediasync.sync.entity.TaskExecution;
 import top.lldwb.alistmediasync.sync.repository.SyncTaskRepository;
@@ -68,13 +69,31 @@ public class SyncService {
     @Async
     @Transactional
     public void executeSyncTask(SyncTask task) {
-        // 异步线程独立 Session：必须按 ID 重新加载，确保 @ManyToOne(LAZY) 关联（sourceEngine/targetEngine）
-        // 在当前事务 Session 内可被初始化，避免 detached 代理触发 LazyInitializationException
-        final Long taskId = task.getId();
-        task = syncTaskRepository.findById(taskId)
-            .orElseThrow(() -> new NoSuchElementException("同步任务不存在：id=" + taskId));
+        // 任务级 traceId：HTTP 触发时继承 MDC 中的 traceId；定时/异步触发时生成新值
+        String traceId = TraceContext.getTraceId();
+        if (traceId == null) {
+            traceId = TraceContext.generate();
+        }
+        TraceContext.setTraceId(traceId);
+        TraceContext.setModuleOperation("sync", "同步任务执行");
 
-        // 冲突检测：是否有其他 SyncTask 向同一目标路径写入且正在运行中
+        try {
+            // 异步线程独立 Session：必须按 ID 重新加载，确保 @ManyToOne(LAZY) 关联（sourceEngine/targetEngine）
+            // 在当前事务 Session 内可被初始化，避免 detached 代理触发 LazyInitializationException
+            final Long taskId = task.getId();
+            task = syncTaskRepository.findById(taskId)
+                .orElseThrow(() -> new NoSuchElementException("同步任务不存在：id=" + taskId));
+
+            executeSyncTaskInternal(task);
+        } finally {
+            TraceContext.clear();
+        }
+    }
+
+    /**
+     * 同步任务执行内部逻辑（traceId 已由外层 {@link #executeSyncTask(SyncTask)} 设置）
+     */
+    private void executeSyncTaskInternal(SyncTask task) {        // 冲突检测：是否有其他 SyncTask 向同一目标路径写入且正在运行中
         List<TaskExecution> conflicting = taskExecutionRepository.findByStatusAndTaskType(
             TaskExecution.ExecutionStatus.RUNNING, TaskExecution.TaskType.SYNC);
         if (!conflicting.isEmpty()) {
@@ -262,6 +281,7 @@ public class SyncService {
             }
 
         } catch (Exception e) {
+            TraceContext.setErrorType(e.getClass().getSimpleName());
             log.error("同步任务执行异常：{} — {}", task.getName(), e.getMessage(), e);
             execution.setEndTime(LocalDateTime.now());
             execution.setStatus(TaskExecution.ExecutionStatus.FAILED);

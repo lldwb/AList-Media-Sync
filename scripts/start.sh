@@ -261,6 +261,10 @@ main() {
     print_banner "  AList-Media-Sync 一体化启动包"
     print_banner "========================================"
     echo ""
+    print_info "应用启动后访问 http://localhost:${SERVER_PORT}/app/"
+    print_info "如需排查问题，可在另一个终端运行：sh scripts/diagnose.sh"
+    print_info "诊断包将输出至 ./diagnostics/latest/summary.md"
+    echo ""
 
     # 执行预检查
     print_info "正在执行启动前检查..."
@@ -281,7 +285,7 @@ main() {
     echo $$ > "$DATA_DIR/app.pid"
 
     # 组装 JVM 参数
-    JVM_ARGS="$JAVA_OPTS -Dserver.port=$SERVER_PORT -Dapp.data-dir=$DATA_DIR -Dlogging.level.root=$LOGGING_LEVEL"
+    JVM_ARGS="$JAVA_OPTS -Dserver.port=$SERVER_PORT -Dapp.data-dir=$DATA_DIR -Dlogging.level.root=$LOGGING_LEVEL -Dlogging.file.path=$SCRIPT_DIR/logs"
 
     # 如果设置了 APP_AUTH_PASSWORD 环境变量，传递给 JVM
     if [ -n "$APP_AUTH_PASSWORD" ]; then
