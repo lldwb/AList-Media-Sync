@@ -1,4 +1,4 @@
-#!/usr/bin/env pwsh
+﻿#!/usr/bin/env pwsh
 
 [CmdletBinding()]
 param(
@@ -21,14 +21,14 @@ $paths = Get-FeaturePathsEnv
 
 if (-not (Test-Path $paths.IMPL_PLAN -PathType Leaf)) {
     [Console]::Error.WriteLine("错误：plan.md 未在 $($paths.FEATURE_DIR) 中找到")
-    $planCommand = '/speckit-plan'
+    $planCommand = Format-SpecKitCommand -CommandName 'plan' -RepoRoot $paths.REPO_ROOT
     [Console]::Error.WriteLine("请先运行 $planCommand 创建实现计划。")
     exit 1
 }
 
 if (-not (Test-Path $paths.FEATURE_SPEC -PathType Leaf)) {
     [Console]::Error.WriteLine("错误：spec.md 未在 $($paths.FEATURE_DIR) 中找到")
-    $specifyCommand = '/speckit-specify'
+    $specifyCommand = Format-SpecKitCommand -CommandName 'specify' -RepoRoot $paths.REPO_ROOT
     [Console]::Error.WriteLine("请先运行 $specifyCommand 创建功能结构。")
     exit 1
 }

@@ -1,4 +1,4 @@
-#!/usr/bin/env pwsh
+﻿#!/usr/bin/env pwsh
 
 # 统一前提条件检查脚本（PowerShell）
 #
@@ -84,14 +84,14 @@ if ($PathsOnly) {
 # 验证必需的目录和文件
 if (-not (Test-Path $paths.FEATURE_DIR -PathType Container)) {
     Write-Output "错误：功能目录未找到：$($paths.FEATURE_DIR)"
-    $specifyCommand = '/speckit-specify'
+    $specifyCommand = Format-SpecKitCommand -CommandName 'specify' -RepoRoot $paths.REPO_ROOT
     Write-Output "请先运行 $specifyCommand 创建功能结构。"
     exit 1
 }
 
 if (-not (Test-Path $paths.IMPL_PLAN -PathType Leaf)) {
     Write-Output "错误：plan.md 未在 $($paths.FEATURE_DIR) 中找到"
-    $planCommand = '/speckit-plan'
+    $planCommand = Format-SpecKitCommand -CommandName 'plan' -RepoRoot $paths.REPO_ROOT
     Write-Output "请先运行 $planCommand 创建实现计划。"
     exit 1
 }
@@ -99,7 +99,7 @@ if (-not (Test-Path $paths.IMPL_PLAN -PathType Leaf)) {
 # 如果需要 tasks.md 则检查
 if ($RequireTasks -and -not (Test-Path $paths.TASKS -PathType Leaf)) {
     Write-Output "错误：tasks.md 未在 $($paths.FEATURE_DIR) 中找到"
-    $tasksCommand = '/speckit-tasks'
+    $tasksCommand = Format-SpecKitCommand -CommandName 'tasks' -RepoRoot $paths.REPO_ROOT
     Write-Output "请先运行 $tasksCommand 创建任务列表。"
     exit 1
 }

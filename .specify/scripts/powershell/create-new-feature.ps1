@@ -1,4 +1,4 @@
-#!/usr/bin/env pwsh
+﻿#!/usr/bin/env pwsh
 # 创建新功能
 [CmdletBinding()]
 param(
@@ -117,9 +117,9 @@ function Get-BranchName {
         }
     }
 
-    # 如果有有意义的词，取前 3-4 个
+    # 如果有有意义的词，最多取 4 个（少于 4 个时全部保留）
     if ($meaningfulWords.Count -gt 0) {
-        $maxWords = if ($meaningfulWords.Count -eq 4) { 4 } else { 3 }
+        $maxWords = [Math]::Min($meaningfulWords.Count, 4)
         $result = ($meaningfulWords | Select-Object -First $maxWords) -join '-'
         return $result
     } else {

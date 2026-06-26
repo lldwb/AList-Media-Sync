@@ -1,4 +1,4 @@
-#!/usr/bin/env pwsh
+﻿#!/usr/bin/env pwsh
 # update-agent-context.ps1
 #
 # 刷新编码代理上下文文件（例如 CLAUDE.md、.github/copilot-instructions.md、AGENTS.md）
@@ -54,7 +54,34 @@ function Test-ConfigObject {
 $ErrorActionPreference = 'Stop'
 $DefaultStart = '<!-- SPECKIT START -->'
 $DefaultEnd   = '<!-- SPECKIT END -->'
-$ProjectRoot  = (Get-Location).Path
+
+# 通过向上搜索 .specify 目录定位项目根（而非当前工作目录）
+function Find-ProjectRootFromSpecify {
+    param([string]$StartDir)
+    $resolved = Resolve-Path -LiteralPath $StartDir -ErrorAction SilentlyContinue
+    $current = if ($resolved) { $resolved.Path } else { $null }
+    if (-not $current) { return $null }
+    while ($true) {
+        if (Test-Path -LiteralPath (Join-Path $current ".specify") -PathType Container) {
+            return $current
+        }
+        $parent = Split-Path $current -Parent
+        if ([string]::IsNullOrEmpty($parent) -or $parent -eq $current) {
+            return $null
+        }
+        $current = $parent
+    }
+}
+
+# 首选：从脚本自身位置向上查找（脚本嵌于 .specify/extensions/agent-context/scripts/powershell/ 下）
+$ProjectRoot = Find-ProjectRootFromSpecify -StartDir $PSScriptRoot
+# 备选：当 $PSScriptRoot 不可用或解析失败时退回当前工作目录
+if (-not $ProjectRoot) {
+    $ProjectRoot = Find-ProjectRootFromSpecify -StartDir (Get-Location).Path
+}
+if (-not $ProjectRoot) {
+    $ProjectRoot = (Get-Location).Path
+}
 $ExtConfig    = Join-Path $ProjectRoot '.specify/extensions/agent-context/agent-context-config.yml'
 
 if (-not (Test-Path -LiteralPath $ExtConfig)) {
