@@ -2,7 +2,7 @@
 
 ## AI 工作指令
 
-以下规则约束 AI 在此项目中的行为，优先级高于任何默认行为。**规则与 `.specify/memory/constitution.md`（章程版本 1.8.0）的不可协商原则对齐，冲突时以章程为准**。
+以下规则约束 AI 在此项目中的行为，优先级高于任何默认行为。**规则与 `.specify/memory/constitution.md`（章程版本 1.9.0）的不可协商原则对齐，冲突时以章程为准**。
 
 > **文件权重体系**：constitution.md（宪法）> AGENTS.md 根级（法律·全局）> 前端/后端 AGENTS.md（行政法规）> 模块 AGENTS.md（地方性法规）。本文件为全局级法律层，覆盖项目的日常修改和 AI 行为约束，前端/后端及各模块 AGENTS.md 在此基础上逐级细化。
 
@@ -14,7 +14,7 @@
 6. **遵循现有模式** — 新增代码保持与同模块现有代码一致的风格、命名和注释密度。不要引入新的架构模式除非任务明确要求。
 7. **严格遵守分层架构** — Controller 不写业务逻辑，Service 承载核心逻辑，Repository 仅数据持久化。禁止跨层调用。（章程原则 I）
 8. **代码变更必须同步测试** — 每次修改 Java 类文件后，MUST 同步修改或新增对应的单元测试。（章程原则 V）
-9. **日志规范不可省略** — 所有重要操作 MUST 按 DEBUG/INFO/WARN/ERROR 四级输出日志，API 调用和本地文件操作 MUST 记录输入输出。（章程原则 VII）
+9. **日志规范不可省略** — 所有重要操作 MUST 按 DEBUG/INFO/WARN/ERROR 四级输出日志，API 调用和本地文件操作 MUST 记录输入输出。任务入口 MUST 通过 `TraceContext.runWith(...)` 注入 traceId / module / operation MDC 字段；ERROR 级别日志 MUST 同时写入 `app.log` 与 `error.log`；所有 `/api/**` 响应 MUST 携带 `X-Trace-Id`；日志与诊断包 MUST NOT 出现密码 / Token / 密钥等敏感原始值。（章程原则 VII）
 10. **中文优先** — 所有文档、注释、日志消息、提交信息 MUST 使用简体中文。对外 API 字段名和错误信息使用英文。（章程原则 IV）
 
 ---

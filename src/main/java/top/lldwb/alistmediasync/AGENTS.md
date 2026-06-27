@@ -44,4 +44,8 @@ src/main/java/top/lldwb/alistmediasync/
 - 所有实体 MUST 有 `@Version`，写操作 MUST 有 `@Transactional`（原则 II）
 - 统一 `ApiResult<T>` 封装，DTO 不暴露 Entity（原则 III）
 - 修改 Java 类 MUST 同步更新单元测试（原则 V）
-- 日志按 DEBUG/INFO/WARN/ERROR 四级输出（原则 VII）
+- 日志按 DEBUG/INFO/WARN/ERROR 四级输出（原则 VII §7.1）
+- 任务入口 MUST 通过 `TraceContext.runWith(...)` 注入 traceId / module / operation；跨线程提交 MUST 显式透传 MDC（原则 VII §7.3）
+- ERROR 级别日志 MUST 同时写入 `app.log` 与 `error.log`，并在 MDC 中写入 `errorType`（原则 VII §7.4）
+- 所有 `/api/**` 响应 MUST 通过过滤器注入 `X-Trace-Id` 响应头（原则 VII §7.5）
+- 日志与诊断包 MUST 对密码 / Token / 密钥 / 认证头 / Cookie 等敏感字段进行脱敏（原则 VII §7.6）
