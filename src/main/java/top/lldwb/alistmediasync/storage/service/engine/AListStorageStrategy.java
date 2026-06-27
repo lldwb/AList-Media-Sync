@@ -204,23 +204,47 @@ public class AListStorageStrategy implements StorageEngineStrategy {
     @Override
     public void copyFile(StorageEngine engine, String sourcePath, String targetPath) {
         log.info("AList 同引擎复制：src={}, dst={}", sourcePath, targetPath);
+        Map<String, Object> body = buildSrcDstBody(sourcePath, targetPath);
+        ApiUtil.postVoid(restClient, engine.getBaseUrl(), engine.getEncryptedToken(),
+            "/api/fs/copy", body);
+        log.debug("AList 复制完成：{} -> {}", sourcePath, targetPath);
+    }
+
+    /**
+     * 移动文件（对接 {@code POST /api/fs/move}）
+     * <p>
+     * 同 {@link #copyFile} 的请求格式：src_dir / dst_dir / names。
+     * 与 copy 相比，move 不会触发底层 {@code chown} 操作，
+     * 因此可绕过 Synology DSM 等环境下 "operation not permitted" 错误。
+     * </p>
+     */
+    @Override
+    public void moveFile(StorageEngine engine, String sourcePath, String targetPath) {
+        log.info("AList 同引擎移动：src={}, dst={}", sourcePath, targetPath);
+        Map<String, Object> body = buildSrcDstBody(sourcePath, targetPath);
+        ApiUtil.postVoid(restClient, engine.getBaseUrl(), engine.getEncryptedToken(),
+            "/api/fs/move", body);
+        log.debug("AList 移动完成：{} -> {}", sourcePath, targetPath);
+    }
+
+    /**
+     * 构建 AList 同引擎复制/移动接口的统一请求体：拆分源路径为 src_dir + names，
+     * 拆分目标路径为 dst_dir（若 targetPath 以 fileName 结尾则剥离文件名）。
+     */
+    private Map<String, Object> buildSrcDstBody(String sourcePath, String targetPath) {
         int srcSlash = sourcePath.lastIndexOf('/');
         String srcDir = srcSlash > 0 ? sourcePath.substring(0, srcSlash) : "/";
         String fileName = srcSlash >= 0 ? sourcePath.substring(srcSlash + 1) : sourcePath;
-        // 目标 dst_dir：若 targetPath 以 fileName 结尾，去掉文件名得到父目录；否则视为已经是目录
         String dstDir = targetPath;
         if (dstDir.endsWith("/" + fileName)) {
             dstDir = dstDir.substring(0, dstDir.length() - fileName.length() - 1);
         }
         if (dstDir.isEmpty()) dstDir = "/";
-        Map<String, Object> body = Map.of(
+        return Map.of(
             "src_dir", srcDir,
             "dst_dir", dstDir,
             "names", List.of(fileName)
         );
-        ApiUtil.postVoid(restClient, engine.getBaseUrl(), engine.getEncryptedToken(),
-            "/api/fs/copy", body);
-        log.debug("AList 复制完成：{} -> {}", sourcePath, targetPath);
     }
 
     @Override

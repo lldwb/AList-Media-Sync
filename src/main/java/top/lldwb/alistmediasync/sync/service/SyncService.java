@@ -197,14 +197,21 @@ public class SyncService {
                     }
 
                     if (sameEngine) {
-                        // 同引擎：直接调用 copyFile 方法
-                        log.debug("同引擎复制：{} -> {}", sourceFilePath, targetFilePath);
+                        // 同引擎：直接调用 copyFile / moveFile 方法
                         // 确保目标父目录存在
                         String targetDir = getDirPath(targetFilePath);
                         if (!targetDir.isEmpty()) {
                             targetStrategy.createDirectory(targetEngine, targetDir);
                         }
-                        targetStrategy.copyFile(targetEngine, sourceFilePath, targetFilePath);
+                        if (task.getSyncMode() == SyncTask.SyncMode.MOVE) {
+                            // MOVE 模式优先走原生 move：避免 copy 后置 chown 失败，
+                            // 同时无需额外的源文件删除步骤
+                            log.debug("同引擎移动：{} -> {}", sourceFilePath, targetFilePath);
+                            targetStrategy.moveFile(targetEngine, sourceFilePath, targetFilePath);
+                        } else {
+                            log.debug("同引擎复制：{} -> {}", sourceFilePath, targetFilePath);
+                            targetStrategy.copyFile(targetEngine, sourceFilePath, targetFilePath);
+                        }
                     } else if (file.size > 100 * 1024 * 1024) { // > 100MB 使用临时文件
                         syncLargeFile(sourceEngine, sourceStrategy, targetEngine, targetStrategy,
                             sourceFilePath, targetFilePath, file);
@@ -231,8 +238,9 @@ public class SyncService {
                         "progressPercent", toSync.size() > 0 ? (completedCount + failedFiles.size()) * 100 / toSync.size() : 0
                     ));
 
-                    // MOVE 模式：删除源文件
-                    if (task.getSyncMode() == SyncTask.SyncMode.MOVE) {
+                    // MOVE 模式：删除源文件（同引擎已由 moveFile 原生完成移动，无需再删；
+                    // 仅跨引擎场景需通过 copy + delete 显式释放源端）
+                    if (task.getSyncMode() == SyncTask.SyncMode.MOVE && !sameEngine) {
                         try {
                             sourceStrategy.deleteFile(sourceEngine, sourceFilePath);
                         } catch (Exception e) {
@@ -251,9 +259,17 @@ public class SyncService {
 
             // 完成
             execution.setEndTime(LocalDateTime.now());
-            execution.setStatus(failedFiles.isEmpty()
-                ? TaskExecution.ExecutionStatus.SUCCESS
-                : TaskExecution.ExecutionStatus.PARTIAL_SUCCESS);
+            // 状态判定：
+            //   - 全部成功（failedFiles 为空）→ SUCCESS
+            //   - 全部失败（successFiles == 0 且有失败）→ FAILED
+            //   - 部分成功（有成功也有失败）→ PARTIAL_SUCCESS
+            if (failedFiles.isEmpty()) {
+                execution.setStatus(TaskExecution.ExecutionStatus.SUCCESS);
+            } else if (completedCount == 0) {
+                execution.setStatus(TaskExecution.ExecutionStatus.FAILED);
+            } else {
+                execution.setStatus(TaskExecution.ExecutionStatus.PARTIAL_SUCCESS);
+            }
             if (!failedFiles.isEmpty()) {
                 execution.setFailureDetails(toJson(failedFiles));
             }
