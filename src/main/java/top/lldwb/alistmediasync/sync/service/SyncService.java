@@ -192,7 +192,11 @@ public class SyncService {
                             }
                             case RENAME -> targetFilePath = generateUniqueName(
                                 targetFilePath, targetRootPath, destRelativePaths);
-                            // OVERWRITE：继续执行覆盖
+                            case OVERWRITE -> {
+                                // AList move API 不支持覆盖已存在的文件，需先删除目标
+                                log.debug("覆盖已存在文件：{}", fileRelativePath);
+                                targetStrategy.deleteFile(targetEngine, targetFilePath);
+                            }
                         }
                     }
 
