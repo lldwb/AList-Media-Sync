@@ -315,7 +315,7 @@ public class TranscodeFileProcessor {
     /**
      * 步骤 3：上传转码输出到目标存储引擎
      * <p>
-     * 输出路径规则：源文件所在目录 / 源文件名（不含原扩展名）.目标格式扩展名。
+     * 输出路径规则：目标文件所在目录 / 源文件名（不含原扩展名）.目标格式扩展名。
      * 对于源目录转码（targetPath 与 fullPath 目录相同），输出文件与源文件在同一目录下。
      * 对于目录扫描模式，每个文件的输出路径独立计算。
      * </p>
@@ -327,10 +327,10 @@ public class TranscodeFileProcessor {
         String targetFileName = getOutputName(candidate.name(), targetFormat);
 
         // 输出目录 = 目标文件所在目录（使用 targetPath 计算，确保转码结果写入目标引擎的正确路径）
-        String sourceDir = getDirPath(candidate.targetPath());
+        String targetDir = getDirPath(candidate.targetPath());
 
-        // 拼接完整目标路径：源文件所在目录 / 输出文件名
-        String remotePath = concatDirAndName(sourceDir, targetFileName);
+        // 拼接完整目标路径：目标文件所在目录 / 输出文件名
+        String remotePath = concatDirAndName(targetDir, targetFileName);
 
         long fileSize = Files.size(finalFile);
         log.debug("开始上传转码文件：localPath={}, remotePath={}, size={}bytes", finalFile, remotePath, fileSize);
