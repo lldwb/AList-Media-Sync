@@ -273,10 +273,13 @@ public class AListStorageStrategy implements StorageEngineStrategy {
     @Override
     public boolean testConnection(StorageEngine engine) {
         log.debug("测试连接：引擎={}, baseUrl={}", engine.getName(), engine.getBaseUrl());
-        // 阶段 1：/ping 仅探活，不传 token；AList /ping 返回字符串 "pong"（非 JSON），
-        // ApiUtil 的 verifyBusinessCode 检测不到 code 字段会跳过校验。
+        // 阶段 1：/ping 仅探活，不传 token；AList /ping 返回纯文本 "pong"（Content-Type: text/plain），
+        // 无法用 ApiUtil.get() 反序列化为 Map，因此直接使用 RestClient 检查 HTTP 状态码。
         try {
-            ApiUtil.get(restClient, engine.getBaseUrl(), null, "/ping");
+            restClient.get()
+                .uri(engine.getBaseUrl() + "/ping")
+                .retrieve()
+                .toBodilessEntity();
         } catch (Exception e) {
             log.warn("AList 连接测试失败（ping 阶段）：{} -> {}", engine.getBaseUrl(), e.getMessage());
             return false;

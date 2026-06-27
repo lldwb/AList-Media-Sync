@@ -10,6 +10,7 @@ import org.mockito.MockedStatic;
 import org.mockito.junit.jupiter.MockitoExtension;
 import org.mockito.junit.jupiter.MockitoSettings;
 import org.mockito.quality.Strictness;
+import org.springframework.http.ResponseEntity;
 import org.springframework.web.client.RestClient;
 import top.lldwb.alistmediasync.common.util.ApiUtil;
 import top.lldwb.alistmediasync.sync.dto.sync.DirectoryEntryVO;
@@ -63,22 +64,33 @@ class AListStorageStrategyTest {
 
     @Test
     @DisplayName("testConnection — ping 阶段失败应返回 false")
+    @SuppressWarnings({"unchecked", "rawtypes"})
     void testConnectionShouldReturnFalseWhenPingFails() {
-        try (MockedStatic<ApiUtil> apiUtil = mockStatic(ApiUtil.class)) {
-            apiUtil.when(() -> ApiUtil.get(any(), anyString(), isNull(), eq("/ping")))
-                .thenThrow(new RuntimeException("connection refused"));
-            assertFalse(strategy.testConnection(engine));
-            // ping 失败时不应再调 /api/me
-            apiUtil.verify(() -> ApiUtil.get(any(), anyString(), anyString(), eq("/api/me")), never());
-        }
+        // 模拟 RestClient 调用链：get() → uri() → retrieve() → toBodilessEntity() 抛异常
+        RestClient.RequestHeadersUriSpec uriSpec = mock(RestClient.RequestHeadersUriSpec.class);
+        RestClient.ResponseSpec responseSpec = mock(RestClient.ResponseSpec.class);
+        when(restClient.get()).thenReturn(uriSpec);
+        when(uriSpec.uri(anyString())).thenReturn(uriSpec);
+        when(uriSpec.retrieve()).thenReturn(responseSpec);
+        when(responseSpec.toBodilessEntity()).thenThrow(new RuntimeException("connection refused"));
+
+        assertFalse(strategy.testConnection(engine));
     }
 
     @Test
     @DisplayName("testConnection — token 阶段失败应返回 false")
+    @SuppressWarnings({"unchecked", "rawtypes"})
     void testConnectionShouldReturnFalseWhenTokenInvalid() {
+        // ping 阶段成功
+        RestClient.RequestHeadersUriSpec uriSpec = mock(RestClient.RequestHeadersUriSpec.class);
+        RestClient.ResponseSpec responseSpec = mock(RestClient.ResponseSpec.class);
+        when(restClient.get()).thenReturn(uriSpec);
+        when(uriSpec.uri(anyString())).thenReturn(uriSpec);
+        when(uriSpec.retrieve()).thenReturn(responseSpec);
+        when(responseSpec.toBodilessEntity()).thenReturn(ResponseEntity.ok().build());
+
+        // token 阶段失败
         try (MockedStatic<ApiUtil> apiUtil = mockStatic(ApiUtil.class)) {
-            apiUtil.when(() -> ApiUtil.get(any(), anyString(), isNull(), eq("/ping")))
-                .thenReturn(Map.of());
             apiUtil.when(() -> ApiUtil.get(any(), anyString(), eq("test-token"), eq("/api/me")))
                 .thenThrow(new RuntimeException("code=401, message=unauthorized"));
             assertFalse(strategy.testConnection(engine));
@@ -87,10 +99,18 @@ class AListStorageStrategyTest {
 
     @Test
     @DisplayName("testConnection — ping + me 都成功应返回 true")
+    @SuppressWarnings({"unchecked", "rawtypes"})
     void testConnectionShouldReturnTrueOnSuccess() {
+        // ping 阶段成功
+        RestClient.RequestHeadersUriSpec uriSpec = mock(RestClient.RequestHeadersUriSpec.class);
+        RestClient.ResponseSpec responseSpec = mock(RestClient.ResponseSpec.class);
+        when(restClient.get()).thenReturn(uriSpec);
+        when(uriSpec.uri(anyString())).thenReturn(uriSpec);
+        when(uriSpec.retrieve()).thenReturn(responseSpec);
+        when(responseSpec.toBodilessEntity()).thenReturn(ResponseEntity.ok().build());
+
+        // token 阶段成功
         try (MockedStatic<ApiUtil> apiUtil = mockStatic(ApiUtil.class)) {
-            apiUtil.when(() -> ApiUtil.get(any(), anyString(), isNull(), eq("/ping")))
-                .thenReturn(Map.of());
             apiUtil.when(() -> ApiUtil.get(any(), anyString(), eq("test-token"), eq("/api/me")))
                 .thenReturn(Map.of("code", 200));
             assertTrue(strategy.testConnection(engine));
