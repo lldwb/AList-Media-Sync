@@ -136,8 +136,10 @@ public class SyncService {
             log.info("扫描完成，发现 {} 个文件", sourceFiles.size());
 
             // 阶段 2：扫描目标目录并计算差异
-            List<FileInfo> destFiles = sameEngine ? sourceFiles : scanDirectory(
-                targetEngine, targetStrategy, targetRootPath, null);
+            // 仅当同引擎且同路径时才复用源扫描结果，否则必须实际扫描目标目录
+            List<FileInfo> destFiles = (sameEngine && sourceRootPath.equals(targetRootPath))
+                ? sourceFiles
+                : scanDirectory(targetEngine, targetStrategy, targetRootPath, null);
 
             // 构建目标文件相对路径集合（快速查找）
             Set<String> destRelativePaths = new HashSet<>();
