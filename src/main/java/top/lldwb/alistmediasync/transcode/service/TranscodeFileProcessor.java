@@ -326,8 +326,8 @@ public class TranscodeFileProcessor {
         // 构建输出文件名：源文件名（去扩展名）+ "." + 目标扩展名
         String targetFileName = getOutputName(candidate.name(), targetFormat);
 
-        // 输出目录 = 源文件所在目录（使用 fullPath 计算，确保不受 targetPath 尾部斜杠影响）
-        String sourceDir = getDirPath(candidate.fullPath());
+        // 输出目录 = 目标文件所在目录（使用 targetPath 计算，确保转码结果写入目标引擎的正确路径）
+        String sourceDir = getDirPath(candidate.targetPath());
 
         // 拼接完整目标路径：源文件所在目录 / 输出文件名
         String remotePath = concatDirAndName(sourceDir, targetFileName);
