@@ -257,6 +257,24 @@ public class LocalStorageStrategy implements StorageEngineStrategy {
         }
     }
 
+    @Override
+    public void moveFile(StorageEngine engine, String sourcePath, String targetPath) {
+        Path source = resolvePath(engine, sourcePath);
+        Path target = resolvePath(engine, targetPath);
+        log.info("本地同引擎移动：src={}, dst={}", source, target);
+        try {
+            Path parent = target.getParent();
+            if (parent != null) {
+                Files.createDirectories(parent);
+            }
+            Files.move(source, target, StandardCopyOption.REPLACE_EXISTING);
+            log.debug("本地移动完成：{} -> {}", source, target);
+        } catch (IOException e) {
+            log.error("本地文件移动失败：src={}, dst={} — {}", source, target, e.getMessage(), e);
+            throw new RuntimeException("本地文件移动失败：" + source + " -> " + target, e);
+        }
+    }
+
     // ==================== 私有辅助方法 ====================
 
     /**

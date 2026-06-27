@@ -133,4 +133,25 @@ public interface StorageEngineStrategy {
         throw new UnsupportedOperationException(
             "copyFile 不被当前策略支持：" + type());
     }
+
+    /**
+     * 在同存储引擎内移动文件（重命名 / 跨目录移动）
+     * <p>
+     * 与 {@link #copyFile} + {@link #deleteFile} 的组合相比，原生 move 通常更高效，
+     * 且对某些底层存储（如 Synology DSM 经 AList 暴露的本地驱动）可绕过
+     * copy 操作后置的 {@code chown} 权限问题。
+     * </p>
+     * <p>
+     * 默认实现抛出 UnsupportedOperationException，由各策略实现覆盖。
+     * </p>
+     *
+     * @param engine     存储引擎实体
+     * @param sourcePath 源文件路径
+     * @param targetPath 目标文件路径
+     * @throws UnsupportedOperationException 如果策略不支持直接移动
+     */
+    default void moveFile(StorageEngine engine, String sourcePath, String targetPath) {
+        throw new UnsupportedOperationException(
+            "moveFile 不被当前策略支持：" + type());
+    }
 }
