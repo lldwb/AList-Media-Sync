@@ -4,7 +4,7 @@
 
 **创建日期**：2026-06-28
 
-**状态**：草案
+**状态**：已完成（PR 1）
 
 **输入**：用户描述："Service 层（同步/转码/Webhook）存在路径工具方法重复、traceId 样板重复、JsonMapper 重复实例化、futures 收集逻辑重复、`executeSyncTaskInternal`(224 行) 与 `doProcess`(128 行) 等超长方法以及 4-5 层嵌套等问题，需以零行为变更为前提进行重构。"
 

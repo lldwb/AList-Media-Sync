@@ -1,12 +1,13 @@
 package top.lldwb.alistmediasync.transcode.service;
 
+import tools.jackson.databind.json.JsonMapper;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.scheduling.annotation.Async;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 import top.lldwb.alistmediasync.common.config.AppProperties;
-import top.lldwb.alistmediasync.common.util.TraceContext;
+import top.lldwb.alistmediasync.common.util.*;
 import top.lldwb.alistmediasync.sync.dto.sync.FileEntry;
 import top.lldwb.alistmediasync.sync.entity.SyncTask;
 import top.lldwb.alistmediasync.sync.entity.TaskExecution;
@@ -18,8 +19,6 @@ import top.lldwb.alistmediasync.transcode.entity.TranscodeTask;
 import top.lldwb.alistmediasync.transcode.entity.TranscodeTask.TranscodeStatus;
 import top.lldwb.alistmediasync.transcode.repository.TranscodeTaskRepository;
 import top.lldwb.alistmediasync.storage.service.engine.StorageEngineStrategy;
-import top.lldwb.alistmediasync.common.util.*;
-import tools.jackson.databind.json.JsonMapper;
 
 import java.io.IOException;
 import java.nio.file.Files;
@@ -52,6 +51,7 @@ public class TranscodeService {
     private final StorageEngineService storageEngineService;
     private final AppProperties appProperties;
     private final TranscodeFileProcessor fileProcessor;
+    private final JsonMapper objectMapper;
 
     /**
      * 合法状态转换集合（8 状态模型）
@@ -99,7 +99,7 @@ public class TranscodeService {
                                      boolean sourceDirectoryTranscode) {
         // 源目录转码：自动计算目标路径（源文件所在的父目录）
         if (sourceDirectoryTranscode) {
-            targetPath = getDirPath(sourcePath);
+            targetPath = PathUtils.parentDir(sourcePath);
             if (targetPath.isEmpty()) {
                 targetPath = "/";
             }
@@ -125,17 +125,7 @@ public class TranscodeService {
      */
     @Async("transcodeExecutor")
     public void executeAsync(TranscodeTask task) {
-        String traceId = TraceContext.getTraceId();
-        if (traceId == null) {
-            traceId = TraceContext.generate();
-        }
-        TraceContext.setTraceId(traceId);
-        TraceContext.setModuleOperation("transcode", "转码任务执行");
-        try {
-            executeTask(task);
-        } finally {
-            TraceContext.clear();
-        }
+        TraceContext.runWith("transcode", "转码任务执行", () -> executeTask(task));
     }
 
     /**
@@ -143,13 +133,7 @@ public class TranscodeService {
      */
     public void executePostSyncTranscode(SyncTask syncTask, TaskExecution syncExecution) {
         // 沿用同步任务的 traceId，便于将同步+转码视作同一次任务链路
-        boolean owns = false;
-        if (TraceContext.getTraceId() == null) {
-            TraceContext.setTraceId(TraceContext.generate());
-            owns = true;
-        }
-        TraceContext.setModuleOperation("transcode", "同步后置转码");
-        try {
+        TraceContext.runWith("transcode", "同步后置转码", () -> {
             log.info("同步后置转码开始：syncTask={}", syncTask.getName());
             TaskExecution execution = new TaskExecution();
             execution.setSyncTask(syncTask);
@@ -167,11 +151,7 @@ public class TranscodeService {
             taskExecutionRepository.save(execution);
             log.info("同步后置转码完成：syncTask={}, 成功 {} / 失败 {}",
                 syncTask.getName(), execution.getSuccessFiles(), execution.getFailedFiles());
-        } finally {
-            if (owns) {
-                TraceContext.clear();
-            }
-        }
+        });
     }
 
     // ================================================================
@@ -452,11 +432,11 @@ public class TranscodeService {
         List<FileEntry> entries = sourceStrategy.listFiles(sourceEngine, sourceDir, 1, Integer.MAX_VALUE);
         for (FileEntry entry : entries) {
             String name = entry.name();
-            String fullPath = concatPath(sourceDir, name);
+            String fullPath = PathUtils.join(sourceDir, name);
 
             if (entry.isDirectory()) {
                 scanDirectoryRecursive(sourceEngine, sourceStrategy, targetEngine, targetStrategy,
-                    fullPath, concatPath(targetDir, name), conflictStrategy,
+                    fullPath, PathUtils.join(targetDir, name), conflictStrategy,
                     candidates, depth + 1, maxDepth);
                 continue;
             }
@@ -469,14 +449,14 @@ public class TranscodeService {
 
             // 检查目标是否已存在
             boolean targetExists = checkTargetExists(targetEngine, targetStrategy,
-                concatPath(targetDir, getOutputName(name)));
+                PathUtils.join(targetDir, PathUtils.swapExtension(name, "mp3")));
             if (targetExists && conflictStrategy == SyncTask.ConflictStrategy.SKIP) {
                 log.debug("目标文件已存在，跳过：{}", name);
                 continue;
             }
 
             candidates.add(new TranscodeCandidate(
-                name, fullPath, concatPath(targetDir, name), format, entry.size(), sourceEngine));
+                name, fullPath, PathUtils.join(targetDir, name), format, entry.size(), sourceEngine));
         }
     }
 
@@ -623,32 +603,17 @@ public class TranscodeService {
 
     /** 获取转码后输出文件名 */
     private String getOutputName(String sourceName) {
-        int dotIdx = sourceName.lastIndexOf('.');
-        String baseName = dotIdx > 0 ? sourceName.substring(0, dotIdx) : sourceName;
-        return baseName + ".mp3";
+        return PathUtils.swapExtension(sourceName, "mp3");
     }
 
     /** 带目标格式的输出文件名 */
     private String getOutputName(String sourceName, TranscodeTask.TargetFormat targetFormat) {
-        int dotIdx = sourceName.lastIndexOf('.');
-        String baseName = dotIdx > 0 ? sourceName.substring(0, dotIdx) : sourceName;
-        return baseName + "." + targetFormat.name().toLowerCase();
-    }
-
-    /** 获取目标目录路径 */
-    private String getDirPath(String fullPath) {
-        int idx = fullPath.lastIndexOf('/');
-        return idx > 0 ? fullPath.substring(0, idx) : "";
-    }
-
-    private String concatPath(String dir, String name) {
-        if (dir == null || dir.isEmpty() || dir.equals("/")) return "/" + name;
-        return dir.endsWith("/") ? dir + name : dir + "/" + name;
+        return PathUtils.swapExtension(sourceName, targetFormat.name().toLowerCase());
     }
 
     private String toJson(Object obj) {
         try {
-            return JsonMapper.builder().build().writeValueAsString(obj);
+            return objectMapper.writeValueAsString(obj);
         } catch (Exception e) {
             return obj.toString();
         }

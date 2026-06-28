@@ -4,6 +4,7 @@ import lombok.extern.slf4j.Slf4j;
 import org.springframework.stereotype.Component;
 import org.springframework.web.client.RestClient;
 import top.lldwb.alistmediasync.common.util.ApiUtil;
+import top.lldwb.alistmediasync.common.util.PathUtils;
 import top.lldwb.alistmediasync.sync.dto.sync.DirectoryEntryVO;
 import top.lldwb.alistmediasync.sync.dto.sync.FileEntry;
 import top.lldwb.alistmediasync.storage.entity.StorageEngine;
@@ -189,9 +190,9 @@ public class AListStorageStrategy implements StorageEngineStrategy {
     @Override
     public void deleteFile(StorageEngine engine, String path) {
         log.info("删除文件：引擎={}, path={}", engine.getName(), path);
-        int slash = path.lastIndexOf('/');
-        String dir = slash > 0 ? path.substring(0, slash) : "/";
-        String name = slash >= 0 ? path.substring(slash + 1) : path;
+        String dir = PathUtils.parentDir(path);
+        if (dir.isEmpty()) dir = "/";
+        String name = PathUtils.baseName(path);
         Map<String, Object> body = Map.of("names", List.of(name), "dir", dir);
         ApiUtil.postVoid(restClient, engine.getBaseUrl(), engine.getEncryptedToken(),
             "/api/fs/remove", body);
@@ -232,9 +233,9 @@ public class AListStorageStrategy implements StorageEngineStrategy {
      * 拆分目标路径为 dst_dir（若 targetPath 以 fileName 结尾则剥离文件名）。
      */
     private Map<String, Object> buildSrcDstBody(String sourcePath, String targetPath) {
-        int srcSlash = sourcePath.lastIndexOf('/');
-        String srcDir = srcSlash > 0 ? sourcePath.substring(0, srcSlash) : "/";
-        String fileName = srcSlash >= 0 ? sourcePath.substring(srcSlash + 1) : sourcePath;
+        String srcDir = PathUtils.parentDir(sourcePath);
+        if (srcDir.isEmpty()) srcDir = "/";
+        String fileName = PathUtils.baseName(sourcePath);
         String dstDir = targetPath;
         if (dstDir.endsWith("/" + fileName)) {
             dstDir = dstDir.substring(0, dstDir.length() - fileName.length() - 1);

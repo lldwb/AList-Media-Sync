@@ -9,6 +9,7 @@ import org.springframework.data.domain.Sort;
 import org.springframework.scheduling.annotation.Async;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
+import top.lldwb.alistmediasync.common.util.TraceContext;
 import top.lldwb.alistmediasync.webhook.dto.webhook.WebhookEventVO;
 import top.lldwb.alistmediasync.webhook.entity.WebhookEvent;
 import top.lldwb.alistmediasync.webhook.entity.WebhookRule;
@@ -110,21 +111,18 @@ public class WebhookService {
     }
 
     /**
-    /**
      * 异步处理 Webhook 事件
      */
     @Async
     @Transactional
     public void processWebhookEvent(WebhookEvent event) {
         // 沿用接收线程的 traceId（receiveWebhookEvent 设置），跨线程通过 MdcTaskDecorator 传递
-        String traceId = top.lldwb.alistmediasync.common.util.TraceContext.getTraceId();
-        if (traceId == null) {
-            traceId = top.lldwb.alistmediasync.common.util.TraceContext.generate();
-            top.lldwb.alistmediasync.common.util.TraceContext.setTraceId(traceId);
-        }
-        top.lldwb.alistmediasync.common.util.TraceContext.setModuleOperation(
-            "webhook", "异步处理事件：" + event.getEventId());
+        TraceContext.runWith("webhook", "异步处理事件：" + event.getEventId(), () -> {
+            processWebhookEventInternal(event);
+        });
+    }
 
+    private void processWebhookEventInternal(WebhookEvent event) {
         try {
             if (event.getStatus() == WebhookEvent.EventStatus.DUPLICATE) {
                 return; // 重复事件不处理
@@ -182,7 +180,7 @@ public class WebhookService {
             log.info("Webhook 事件处理完成：EventId={}", event.getEventId());
 
         } catch (Exception e) {
-            top.lldwb.alistmediasync.common.util.TraceContext.setErrorType(e.getClass().getSimpleName());
+            TraceContext.setErrorType(e.getClass().getSimpleName());
             log.error("Webhook 事件处理失败：EventId={} — {}", event.getEventId(), e.getMessage(), e);
             event.setStatus(WebhookEvent.EventStatus.FAILED);
             eventRepository.save(event);
