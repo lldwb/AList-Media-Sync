@@ -11,6 +11,7 @@ import top.lldwb.alistmediasync.storage.entity.StorageEngine;
 import top.lldwb.alistmediasync.storage.service.StorageEngineService;
 import top.lldwb.alistmediasync.common.service.WsSessionManager;
 import top.lldwb.alistmediasync.common.util.TraceContext;
+import top.lldwb.alistmediasync.common.util.PathUtils;
 import top.lldwb.alistmediasync.sync.entity.SyncTask;
 import top.lldwb.alistmediasync.sync.entity.TaskExecution;
 import top.lldwb.alistmediasync.sync.repository.SyncTaskRepository;
@@ -69,31 +70,22 @@ public class SyncService {
     @Async
     @Transactional
     public void executeSyncTask(SyncTask task) {
-        // 任务级 traceId：HTTP 触发时继承 MDC 中的 traceId；定时/异步触发时生成新值
-        String traceId = TraceContext.getTraceId();
-        if (traceId == null) {
-            traceId = TraceContext.generate();
-        }
-        TraceContext.setTraceId(traceId);
-        TraceContext.setModuleOperation("sync", "同步任务执行");
-
-        try {
+        TraceContext.runWith("sync", "同步任务执行", () -> {
             // 异步线程独立 Session：必须按 ID 重新加载，确保 @ManyToOne(LAZY) 关联（sourceEngine/targetEngine）
             // 在当前事务 Session 内可被初始化，避免 detached 代理触发 LazyInitializationException
             final Long taskId = task.getId();
-            task = syncTaskRepository.findById(taskId)
+            SyncTask reloaded = syncTaskRepository.findById(taskId)
                 .orElseThrow(() -> new NoSuchElementException("同步任务不存在：id=" + taskId));
 
-            executeSyncTaskInternal(task);
-        } finally {
-            TraceContext.clear();
-        }
+            executeSyncTaskInternal(reloaded);
+        });
     }
 
     /**
      * 同步任务执行内部逻辑（traceId 已由外层 {@link #executeSyncTask(SyncTask)} 设置）
      */
-    private void executeSyncTaskInternal(SyncTask task) {        // 冲突检测：是否有其他 SyncTask 向同一目标路径写入且正在运行中
+    private void executeSyncTaskInternal(SyncTask task) {
+        // 冲突检测：是否有其他 SyncTask 向同一目标路径写入且正在运行中
         List<TaskExecution> conflicting = taskExecutionRepository.findByStatusAndTaskType(
             TaskExecution.ExecutionStatus.RUNNING, TaskExecution.TaskType.SYNC);
         if (!conflicting.isEmpty()) {
@@ -180,7 +172,7 @@ public class SyncService {
                 String fileRelativePath = relativePath(sourceRootPath, file.path);
                 try {
                     String sourceFilePath = file.path;
-                    String targetFilePath = concatPath(targetRootPath, fileRelativePath);
+                    String targetFilePath = PathUtils.join(targetRootPath, fileRelativePath);
 
                     // 检查目标是否已存在（冲突策略）
                     if (destRelativePaths.contains(fileRelativePath)) {
@@ -203,7 +195,7 @@ public class SyncService {
                     if (sameEngine) {
                         // 同引擎：直接调用 copyFile / moveFile 方法
                         // 确保目标父目录存在
-                        String targetDir = getDirPath(targetFilePath);
+                        String targetDir = PathUtils.parentDir(targetFilePath);
                         if (!targetDir.isEmpty()) {
                             targetStrategy.createDirectory(targetEngine, targetDir);
                         }
@@ -337,7 +329,7 @@ public class SyncService {
         for (var entry : entries) {
             String name = entry.name();
             if (name == null) continue;
-            String fullPath = concatPath(path, name);
+            String fullPath = PathUtils.join(path, name);
 
             // 应用排除规则
             if (matchesExcludePattern(name, excludePatterns)) {
@@ -412,46 +404,16 @@ public class SyncService {
         }
     }
 
-    /** 从完整路径中提取父目录路径 */
-    private String getDirPath(String filePath) {
-        int lastSlash = filePath.lastIndexOf('/');
-        return lastSlash > 0 ? filePath.substring(0, lastSlash) : "";
-    }
-
-    /** 路径拼接 */
-    private String concatPath(String dir, String name) {
-        if (dir == null || dir.isEmpty() || dir.equals("/")) return "/" + trimLeadingSlash(name);
-        return dir.endsWith("/") ? dir + trimLeadingSlash(name) : dir + "/" + trimLeadingSlash(name);
-    }
-
     /** 计算文件相对根目录的路径 */
     private String relativePath(String rootPath, String filePath) {
-        String normalizedRoot = normalizePath(rootPath);
-        String normalizedFile = normalizePath(filePath);
+        String normalizedRoot = PathUtils.normalize(rootPath);
+        String normalizedFile = PathUtils.normalize(filePath);
         if (normalizedFile.equals(normalizedRoot)) return "";
         String prefix = normalizedRoot.equals("/") ? "/" : normalizedRoot + "/";
         if (normalizedFile.startsWith(prefix)) {
             return normalizedFile.substring(prefix.length());
         }
-        return trimLeadingSlash(normalizedFile.substring(normalizedFile.lastIndexOf('/') + 1));
-    }
-
-    private String normalizePath(String path) {
-        if (path == null || path.isBlank()) return "/";
-        String normalized = path.replace('\\', '/');
-        while (normalized.length() > 1 && normalized.endsWith("/")) {
-            normalized = normalized.substring(0, normalized.length() - 1);
-        }
-        return normalized.startsWith("/") ? normalized : "/" + normalized;
-    }
-
-    private String trimLeadingSlash(String path) {
-        if (path == null) return "";
-        int index = 0;
-        while (index < path.length() && path.charAt(index) == '/') {
-            index++;
-        }
-        return path.substring(index);
+        return PathUtils.trimLeadingSlash(normalizedFile.substring(normalizedFile.lastIndexOf('/') + 1));
     }
 
     /** 生成不重名的目标路径 */

@@ -18,6 +18,7 @@ import top.lldwb.alistmediasync.transcode.entity.TranscodeTask;
 import top.lldwb.alistmediasync.transcode.repository.TranscodeTaskRepository;
 import top.lldwb.alistmediasync.common.util.DiskSpaceChecker;
 import top.lldwb.alistmediasync.common.util.TempFileManager;
+import top.lldwb.alistmediasync.common.util.PathUtils;
 import ws.schild.jave.Encoder;
 import ws.schild.jave.MultimediaObject;
 import ws.schild.jave.encode.AudioAttributes;
@@ -293,10 +294,8 @@ public class TranscodeFileProcessor {
         long downloadedSize = Files.size(sourceTempFile);
         log.debug("源文件下载完成：path={}, size={}bytes, tempFile={}", candidate.fullPath(), downloadedSize, sourceTempFile);
 
-        // 注意：调用方在 save 后应使用返回的 managed entity，此处仅更新引用
-        // downloadStep 不负责持久化（由 doProcess 统一管理）
+        // 仅设置临时路径，不在此处持久化（由 doProcess 统一管理 save/reload 节奏）
         transcodeTask.setTempSourcePath(sourceTempFile.toString());
-        transcodeTask = repository.save(transcodeTask);
         return sourceTempFile;
     }
 
@@ -324,13 +323,13 @@ public class TranscodeFileProcessor {
                              StorageEngine targetEngine, Path finalFile,
                              TranscodeTask transcodeTask) throws IOException {
         // 构建输出文件名：源文件名（去扩展名）+ "." + 目标扩展名
-        String targetFileName = getOutputName(candidate.name(), targetFormat);
+        String targetFileName = PathUtils.swapExtension(candidate.name(), targetFormat.name().toLowerCase());
 
         // 输出目录 = 目标文件所在目录（使用 targetPath 计算，确保转码结果写入目标引擎的正确路径）
-        String targetDir = getDirPath(candidate.targetPath());
+        String targetDir = PathUtils.parentDir(candidate.targetPath());
 
         // 拼接完整目标路径：目标文件所在目录 / 输出文件名
-        String remotePath = concatDirAndName(targetDir, targetFileName);
+        String remotePath = PathUtils.join(targetDir, targetFileName);
 
         long fileSize = Files.size(finalFile);
         log.debug("开始上传转码文件：localPath={}, remotePath={}, size={}bytes", finalFile, remotePath, fileSize);
@@ -430,22 +429,6 @@ public class TranscodeFileProcessor {
     // ================================================================
     // 辅助方法
     // ================================================================
-
-    private String getOutputName(String sourceName, TranscodeTask.TargetFormat targetFormat) {
-        int dotIdx = sourceName.lastIndexOf('.');
-        String baseName = dotIdx > 0 ? sourceName.substring(0, dotIdx) : sourceName;
-        return baseName + "." + targetFormat.name().toLowerCase();
-    }
-
-    private String getDirPath(String fullPath) {
-        int idx = fullPath.lastIndexOf('/');
-        return idx > 0 ? fullPath.substring(0, idx) : "";
-    }
-
-    private String concatDirAndName(String dir, String name) {
-        if (dir == null || dir.isEmpty() || dir.equals("/")) return "/" + name;
-        return dir.endsWith("/") ? dir + name : dir + "/" + name;
-    }
 
     /**
      * 通过 WebSocket 推送转码任务进度

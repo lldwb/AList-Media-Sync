@@ -170,4 +170,40 @@ public final class TraceContext {
             clear();
         }
     }
+
+    /**
+     * 在自动管理 traceId 的上下文中执行任务。
+     * <p>
+     * 语义：
+     * <ol>
+     *   <li>若当前 MDC 中已有 traceId，则继承之，并在结束时<strong>不清理</strong>（由外层拥有者负责）</li>
+     *   <li>否则生成新 traceId 并标记为"本次拥有"，结束时调用 {@link #clear()} 清理 MDC</li>
+     *   <li>设置 module 与 operation</li>
+     *   <li>执行 task.run()</li>
+     *   <li>finally 块：仅在"本次拥有"时清理</li>
+     * </ol>
+     * </p>
+     * <p>
+     * 异常处理：task 抛出的异常原样向外抛出，不吞异常，但仍执行 finally 清理。
+     * </p>
+     *
+     * @param module    业务模块名（如 "sync" / "transcode" / "webhook"）
+     * @param operation 当前操作描述（如 "同步任务执行"）
+     * @param task      要执行的任务
+     */
+    public static void runWith(String module, String operation, Runnable task) {
+        String existing = getTraceId();
+        boolean ownsTrace = (existing == null);
+        if (ownsTrace) {
+            setTraceId(generate());
+        }
+        setModuleOperation(module, operation);
+        try {
+            task.run();
+        } finally {
+            if (ownsTrace) {
+                clear();
+            }
+        }
+    }
 }
