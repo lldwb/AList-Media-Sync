@@ -88,11 +88,12 @@ scripts\gen-api-doc.bat
 
 ### 3.2 命令行为契约
 
-- **C-001**：命令 MUST 是幂等的——连续执行两次，`docs/05-API接口文档.md` 的内容（除"最后生成时间"外）diff 为空
+- **C-001**：命令 MUST 是幂等的——连续执行两次，`docs/05-API接口文档.md` 中**生成区**（见 §3.4 分界标记）的内容（除"最后生成时间"外）diff 为空。手工引导区不在 diff 校验范围内。
 - **C-002**：命令 MUST 在无网络环境下可执行（除首次安装 `openapi-to-md` 外），依赖均通过 Maven/npm 本地缓存
 - **C-003**：命令执行失败时 MUST 以非零退出码终止，并输出明确错误信息到 stderr
-- **C-004**：命令 MUST 在 `docs/05-API接口文档.md` 文件头写入派生产物声明与生成时间
+- **C-004**：命令 MUST 在 `docs/05-API接口文档.md` 生成区文件头写入派生产物声明与生成时间
 - **C-005**：命令 MUST 校验 `target/openapi.yaml` 非空后才执行转换，否则报错
+- **C-006**：命令 MUST 仅重写生成区（`<!-- GENERATED START -->` 与 `<!-- GENERATED END -->` 之间）内容，MUST NOT 触碰手工引导区，以保护 T021 手工维护的认证/统一响应/WebSocket/错误码章节
 
 ### 3.3 Maven Profile 隔离
 
@@ -105,6 +106,37 @@ mvn verify -Pgen-api-doc        # 仅触发阶段 1-4
 
 - 常规 `mvn verify` / `mvn package` MUST NOT 触发 SpringDoc 静态导出
 - CI 可在文档更新检查任务中调用完整流水线
+
+### 3.4 手工引导区与生成区分界标记
+
+`docs/05-API接口文档.md` 采用"手工引导区 + 生成区"双区结构，以两个固定 HTML 注释锚点分界。生成脚本 MUST 仅重写生成区，手工引导区由 T021 手工维护、永不被脚本覆盖。
+
+**文件结构模板**：
+
+```markdown
+<!-- 派生产物声明：本文件手工引导区由人工维护，生成区由 scripts/gen-api-doc 自动生成 -->
+# API 接口文档
+
+（手工引导章节：认证方式、统一响应格式、WebSocket 端点、错误码清单、Swagger UI 访问方式）
+（此区域由 T021 维护，生成脚本 MUST NOT 触碰）
+
+<!-- GENERATED START -->
+> 本区块由 `scripts/gen-api-doc` 自动生成，请勿手工编辑。
+> 源真值位于 `src/main/java/top/lldwb/alistmediasync/**/controller/*.java`
+> 与 `**/dto/*.java` 的 OpenAPI 注解中。
+> 最后生成时间：[由脚本填充]
+
+（自动生成的端点清单，按 @Tag 分组）
+
+<!-- GENERATED END -->
+```
+
+**规则**：
+
+- **R-Gen-001**：生成脚本 MUST 通过定位 `<!-- GENERATED START -->` 与 `<!-- GENERATED END -->` 锚点，仅替换二者之间的内容；锚点本身 MUST 保留
+- **R-Gen-002**：若文件中缺少锚点，脚本 MUST 报错并以非零退出码终止（防止首次生成时误覆盖手工引导区）
+- **R-Gen-003**：首次创建 `docs/05-API接口文档.md` 时，手工引导区先由 T021 写入并包含锚点，再由 T011/T022 触发生成填充生成区
+- **R-Gen-004**：SC-004 的"重新生成 diff 为空"约束仅适用于生成区；手工引导区的变更不纳入 SC-004 校验
 
 ## 4. 访问控制契约
 
@@ -125,9 +157,10 @@ mvn verify -Pgen-api-doc        # 仅触发阶段 1-4
 
 1. 执行 `./scripts/gen-api-doc.sh` 生成最新 `docs/05-API接口文档.md`
 2. `git diff --exit-code docs/05-API接口文档.md`
-3. 若 diff 非空（除生成时间戳），表示文档与注解不一致：
+3. 若 diff 仅出现在**生成区**（`<!-- GENERATED START -->` 与 `<!-- GENERATED END -->` 之间，且除生成时间戳外），表示文档与注解不一致：
    - 若 diff 来自注解变更未提交：提示提交注解变更后重新生成
-   - 若 diff 来自文档手工编辑：提示恢复派生产物声明，禁止手工编辑
+   - 若 diff 来自生成区手工编辑：提示恢复，禁止手工编辑生成区
+4. 手工引导区的 diff 不纳入 SC-004 校验（该区由人工维护）
 
 ### 注解覆盖率校验
 

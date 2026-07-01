@@ -6,7 +6,7 @@
 
 ## 摘要
 
-本功能为项目建立"根级入口 + docs/ 主题文档 + specs/ 冻结档案"三层文档体系。主要交付物：CHANGELOG.md、docs/ 下 6 个编号主题文档、docs/architecture/ 五大模块文档、docs/operations/ 运维文档，以及对 AGENTS.md 与 README.md 的精简。核心技术创新是 docs/05-API接口文档.md 采用 SpringDoc OpenAPI v3.0.3 通过代码注解自动生成（运行时 Swagger UI + 构建期静态导出 OpenAPI YAML → Markdown）。
+本功能为项目建立"根级入口 + docs/ 主题文档 + specs/ 冻结档案"三层文档体系。主要交付物：CHANGELOG.md、CONTRIBUTING.md、docs/ 下 6 个编号主题文档、docs/architecture/ 五大模块文档 + 交叉关注点文档、docs/operations/ 运维文档，以及对 AGENTS.md 与 README.md 的精简。核心技术创新是 docs/05-API接口文档.md 采用 SpringDoc OpenAPI v3.0.3 通过代码注解自动生成（运行时 Swagger UI + 构建期静态导出 OpenAPI YAML → Markdown）。
 
 ## 技术上下文
 
@@ -41,9 +41,9 @@
 - 文档生成命令 MUST 可在 CI 与本地重复执行，确保 docs/05 为派生产物、源真值在注解中
 
 **规模/范围**：
-- 新增文档约 15 份（6 主题 + 6 模块/交叉 + 2 运维 + CHANGELOG）
+- 新增文档约 16 份（6 主题 + 6 模块/交叉 + 2 运维 + CHANGELOG + CONTRIBUTING）
 - 精简文档 2 份（AGENTS.md、README.md）
-- 代码注解覆盖 7 个 Controller + 约 20 个 DTO
+- 代码注解覆盖 8 个 Controller + 约 20 个 DTO
 - 冻结不动：specs/001-010、md/ 全部文件
 
 ## 章程检查
@@ -56,7 +56,7 @@
 | II. 数据完整性 | ✅ 不适用 | 纯文档功能，无实体写操作 |
 | III. RESTful API 契约 | ✅ 通过 | SpringDoc 生成的文档反向强化 API 契约可见性；`ApiResult<T>` 统一响应结构将通过 `@Schema` 注解体现 |
 | IV. 中文优先 | ✅ 通过 | 所有新增文档使用简体中文；注解 `description` 使用中文；API 字段名与错误码保持英文 |
-| V. 测试不可省略 | ⚠️ 需注意 | 本功能无 Service/Repository 代码变更，单元测试不适用；但须补充"文档生成可重复性"验证（见技术上下文·测试）与 Java 类变更同步测试检查（注解不改变行为，无需新增测试） |
+| V. 测试不可省略 | ⚠️ 需注意 | 本功能无 Service/Repository 代码变更，但 T006 修改 `AuthInterceptor.java`（SpringDoc 端点放行逻辑）属行为变更，MUST 同步修改 `AuthInterceptorTest.java`（见 tasks T006b）；Java 注解（@Tag/@Operation/@Schema）不改变运行时行为，无需新增测试；文档生成可重复性验证见技术上下文·测试 |
 | VI. 简洁至上（YAGNI） | ⚠️ 需证明 | 新增 SpringDoc 依赖 + 可选 Maven 插件 + 可选 MD 转换工具，须在「复杂性追踪」记录合理性 |
 | VII. 日志规范 | ✅ 不适用 | 文档功能不涉及业务日志；SpringDoc 自身日志不纳入项目日志规范 |
 | VIII. 规格状态同步 | ✅ 通过 | 规格状态已按流转更新（草案 → 已澄清 → 已计划） |
@@ -114,7 +114,7 @@ specs/011-docs-system-optimization/
 │   │   └── OpenApiConfig.java    # [新增] @OpenAPIDefinition + @SecurityScheme（HTTP Basic）
 │   ├── common/interceptor/
 │   │   └── AuthInterceptor.java  # [修改] 放行 /v3/api-docs** 与 /swagger-ui**（或生产禁用）
-│   └── ...                       # [修改] 7 个 Controller + 约 20 个 DTO 添加 @Tag/@Operation/@Schema
+│   └── ...                       # [修改] 8 个 Controller + 约 20 个 DTO 添加 @Tag/@Operation/@Schema
 │
 ├── src/main/resources/
 │   └── application.yaml          # [修改] 新增 springdoc.* 配置段
@@ -160,7 +160,7 @@ specs/011-docs-system-optimization/
 
 预期任务分组：
 1. **依赖与配置**：pom.xml 新增 SpringDoc、application.yaml 新增 springdoc.* 段、OpenApiConfig.java
-2. **注解增强**：7 个 Controller + 约 20 个 DTO 添加注解、AuthInterceptor 放行调整
+2. **注解增强**：8 个 Controller + 约 20 个 DTO 添加注解、AuthInterceptor 放行调整
 3. **生成流水线**：gen-api-doc 脚本、CI 集成、docs/05 派生产物生成
 4. **根级文档**：CHANGELOG.md、CONTRIBUTING.md、README.md 精简、AGENTS.md 精简
 5. **docs 主题文档**：01-06 六份

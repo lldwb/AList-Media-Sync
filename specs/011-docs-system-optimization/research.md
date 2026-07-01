@@ -181,7 +181,7 @@ springdoc:
 
 ### 配置项抽取方式
 
-`docs/04-配置说明.md` 的映射表可通过解析 `AppProperties.java` 的 `@ConfigurationProperties` 字段与 `application.yaml` 的占位符自动抽取，减少手写误差。建议在实现阶段编写一次性脚本或直接手工对照（字段数约 19 个，手工成本可接受）。
+`docs/04-配置说明.md` 的映射表可通过解析 `AppProperties.java` 的 `@ConfigurationProperties` 字段与 `application.yaml` 的占位符自动抽取，减少手写误差。建议在实现阶段编写一次性脚本或直接手工对照（字段数 17 个，手工成本可接受）。
 
 **来源**：项目章程原则 I/VI/IX、当前文档痛点评估（见对话上下文）
 

@@ -68,15 +68,19 @@
 
 ## 4. 派生文档标注
 
-`docs/05-API接口文档.md` 作为派生产物，文件头 MUST 包含以下声明：
+`docs/05-API接口文档.md` 采用"手工引导区 + 生成区"双区结构（分界标记详见 `api-doc-generation-contract.md` §3.4）。文件头与手工引导区由 T021 人工维护，生成区由 `scripts/gen-api-doc` 自动生成。生成区文件头 MUST 包含以下声明：
 
 ```markdown
-<!-- 派生产物声明 -->
-> 本文档由 `scripts/gen-api-doc` 自动生成，请勿手工编辑。
+<!-- GENERATED START -->
+> 本区块由 `scripts/gen-api-doc` 自动生成，请勿手工编辑。
 > 源真值位于 `src/main/java/top/lldwb/alistmediasync/**/controller/*.java`
 > 与 `**/dto/*.java` 的 OpenAPI 注解中。
 > 最后生成时间：[由脚本填充]
+<!-- GENERATED END -->
 ```
+
+- 手工引导区（`<!-- GENERATED START -->` 之前）MUST NOT 被生成脚本覆盖
+- 生成区（两锚点之间）MUST NOT 被人工编辑（SC-004 校验范围）
 
 ## 5. 冻结边界
 
