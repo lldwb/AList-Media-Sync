@@ -413,4 +413,5 @@ docker run -d -p 8080:8080 -e ALIST_BASE_URL=... -e ALIST_TOKEN=... -v alist-dat
 - 密码加密与代码组织：`specs/007-password-encryption-and-code-organization/plan.md`
 <!-- SPECKIT START -->
 - 轻量诊断系统：`specs/009-lightweight-diagnostics/plan.md`
+- 文档体系优化：`specs/011-docs-system-optimization/plan.md`
 <!-- SPECKIT END -->
