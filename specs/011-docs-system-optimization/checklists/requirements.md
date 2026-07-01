@@ -32,5 +32,5 @@
 ## 备注
 
 - 标记为未完成的项需要在 `/speckit-clarify` 或 `/speckit-plan` 之前更新规格
-- 澄清会话已解决 API 注解库选型（FR-019）：采用 SpringDoc OpenAPI v3.0.3（官方支持 Spring Boot 4.x），规格中无残留 [需要澄清] 标记
+- 澄清会话已解决 API 注解库选型（FR-019）与 CONTRIBUTING.md/CODE_STYLE.md 取舍（FR-020）：采用 SpringDoc OpenAPI v3.0.3；纳入 CONTRIBUTING.md（根目录），不纳入 CODE_STYLE.md（避免与 constitution.md+AGENTS.md 重复）
 - 验证说明：本规格为文档体系优化，需求与成功标准聚焦于"文档可用性"与"信息可查性"，部分实现细节（如注解库具体版本号）已在澄清中确定，其余实现细节推迟到 plan 阶段，符合规格层"聚焦做什么而非如何做"的原则

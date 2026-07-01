@@ -25,6 +25,7 @@
 | `README.md` | root | 项目入口 + 导航 | false | false | — | false |
 | `CHANGELOG.md` | root | 版本变更日志 | true（变更历史） | false | — | false |
 | `AGENTS.md` | root | AI 协作指令 | false | false | — | false |
+| `CONTRIBUTING.md` | root | 人类贡献者参与入口 | false | false | — | false |
 | `docs/01-项目概述.md` | docs | 项目背景与核心功能 | false | false | — | false |
 | `docs/02-开发环境搭建.md` | docs | 环境搭建指南 | false | false | — | false |
 | `docs/03-架构设计.md` | docs | 分层架构与核心类职责 | false | false | — | false |
