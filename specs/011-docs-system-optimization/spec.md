@@ -4,7 +4,7 @@
 
 **创建日期**：2026-07-02
 
-**状态**：草案
+**状态**：已澄清
 
 **输入**：用户描述："按照已评估的文档规划方案，创建"文档体系优化"功能规格。需求要点：1. 在项目根目录新增 docs/ 目录作为人类开发者文档主目录，建立"根级入口 + docs/ 主题文档 + specs/ 冻结档案"三层结构。2. 需要创建以下文档（按优先级）：CHANGELOG.md、docs/01-项目概述.md、docs/02-开发环境搭建.md、docs/03-架构设计.md、docs/04-配置说明.md（SSOT）、docs/05-API接口文档.md（通过代码注解自动生成）、docs/06-运维部署.md、docs/architecture/模块文档、docs/operations/。3. 精简 AGENTS.md 和 README.md。4. specs/ 历史制品保持冻结不动；md/ 外部对接 API 保持不动。5. 遵循项目章程 10 条原则。"
 
@@ -94,7 +94,7 @@
 - 当文档内容与代码实现出现不一致时会发生什么？—— 配置与 API 文档因采用 SSOT 与注解自动生成机制，不一致会被生成命令暴露；其他文档通过章程原则 IX（实现后文档同步）约束，本规格不引入额外校验机制。
 - 当 specs/ 历史制品与新文档存在内容重叠时会发生什么？—— specs/ 保持冻结作为"功能设计档案"，新文档描述"系统当前状态"，二者通过链接互引，不互相覆盖。
 - 当新增功能需要新增模块文档时会发生什么？—— 维护者按 architecture/ 现有模块文档的统一结构（职责边界 → 核心类 → 关键流程 → 扩展点 → 关联 spec）补充。
-- 当 API 注解生成工具与 Spring Boot 4.1.0 不兼容时会发生什么？—— 在 plan 阶段需验证工具兼容性，若不兼容则回退到半自动方案（注解 + 手工补全），此为 [需要澄清：见澄清问题]。
+- 当 API 注解生成工具与 Spring Boot 4.1.0 不兼容时会发生什么？—— 已澄清：采用 SpringDoc v3.0.3（基于 Spring Boot 4.0.5 构建，官方支持 4.x 系列），与项目 Spring Boot 4.1.0 同属 4.x，兼容性有官方背书；若 plan 阶段实测发现 4.1.0 与 4.0.5 的小版本差异导致问题，回退到半自动方案（注解保留，生成命令辅以人工校对）。
 - 当 CHANGELOG 需要回溯补全 0.0.1 历史版本时会发生什么？—— 通过 git log 回溯整理，0.0.1-SNAPSHOT 之前的版本若无法精确还原则标注"历史版本"。
 
 ## 需求 *（强制）*
@@ -108,7 +108,7 @@
 - **FR-005**：系统 MUST 创建 `docs/03-架构设计.md`，包含分层架构图、包结构总览、核心类职责说明（AppProperties 等）、模块间依赖关系、交叉关注点链接
 - **FR-006**：系统 MUST 创建 `docs/04-配置说明.md` 作为配置单一权威来源（SSOT），包含 Spring Boot Relaxed Binding 机制说明、配置优先级、完整 `app.*` 配置项与环境变量映射表、非 `app.*` 环境变量清单、敏感项标记与生产建议
 - **FR-007**：系统 MUST 创建 `docs/05-API接口文档.md`，采用通过代码注解自动生成的形式：在 Controller 与 DTO 上添加标准注解（如 `@Tag`、`@Operation`、`@Schema` 等），通过生成命令产出接口文档，文档内容与代码注解保持同步
-- **FR-008**：系统 MUST 在 docs/05 中说明注解方案选型（考虑与 Spring Boot 4.1.0 / Spring Framework 7.x 的兼容性）、集成方式、生成命令、输出位置，并明确标注生成文档为派生产物，源真值在代码注解中
+- **FR-008**：系统 MUST 在 docs/05 中说明注解方案选型（SpringDoc OpenAPI v3.0.3，基于 Spring Boot 4.0.5，官方支持 Spring Boot 4.x）、集成方式（Maven 依赖 + Spring Boot 自动配置）、生成命令（运行时访问 `/v3/api-docs` 与 `/swagger-ui.html`，或通过脚本导出静态文件）、输出位置，并明确标注生成文档为派生产物，源真值在代码注解中
 - **FR-009**：系统 MUST 创建 `docs/06-运维部署.md`，包含部署方式对比表、Docker 部署完整流程、环境变量配置清单引用、数据持久化策略、运维注意事项（FFmpeg 依赖、转码并发与内存关系、虚拟线程监控、actuator 端点、诊断包生成、升级回滚与备份）
 - **FR-010**：系统 MUST 创建 `docs/architecture/` 子目录，包含五大模块细化文档（common、storage、sync、transcode、webhook）与一份交叉关注点文档，每份模块文档采用统一结构：职责边界 → 核心类 → 关键流程 → 扩展点 → 关联 spec
 - **FR-011**：系统 MUST 创建 `docs/operations/` 子目录，包含环境变量清单（全量表，含默认值、是否必填、对应配置属性、示例）与故障排查与日志文档（日志级别调整、traceId 串联查询、常见问题 FAQ）
@@ -119,7 +119,7 @@
 - **FR-016**：所有新增文档 MUST 使用简体中文编写（遵循章程原则 IV），对外 API 字段命名与错误信息保持英文
 - **FR-017**：新增文档在描述架构与配置时 MUST 遵循章程原则 I（分层架构）、原则 VI（YAGNI，不引入超出当前所需的内容）、原则 VII（日志规范相关引用需准确）
 - **FR-018**：API 注解自动生成方案引入的第三方依赖 MUST 在 plan.md 的「复杂性追踪」中记录并证明合理性（遵循章程原则 VI），优先选择与 Spring Boot 内置能力兼容的方案
-- **FR-019**：API 注解自动生成方案 [需要澄清：需在 plan 阶段确定具体注解库选型 —— SpringDoc OpenAPI（需验证对 Spring Boot 4.x 兼容性）、springdoc-openapi-starter-webmvc-ui，或其他兼容方案？此选择影响依赖引入与生成命令]
+- **FR-019**：API 注解自动生成方案采用 SpringDoc OpenAPI v3.0.3（`springdoc-openapi-starter-webmvc-ui`，基于 Spring Boot 4.0.5 构建，官方支持 Spring Boot 4.x），在 Controller 与 DTO 上添加 `@Tag`、`@Operation`、`@Schema` 等标准 OpenAPI 3 注解，通过 SpringDoc 运行时自动生成 OpenAPI JSON/YAML 与 Swagger UI。该依赖 MUST 在 plan.md 的「复杂性追踪」中记录并证明合理性（遵循章程原则 VI）
 
 ### 关键实体 *（如果功能涉及数据则包含）*
 
@@ -147,9 +147,15 @@
 
 - 假设目标用户为后端开发者、运维人员与技术负责人，具备基本的 Java/Docker 知识，无需从零科普
 - 假设本地开发环境已具备 JDK 21 与 Node 22 的安装能力，文档只需说明配置要点而非操作系统级安装教程
-- 假设 Spring Boot 4.1.0 / Spring Framework 7.x 生态存在兼容的 API 注解生成方案；若在 plan 阶段验证发现主流方案（如 SpringDoc OpenAPI）尚未兼容，则回退为"注解标记 + 半自动生成"方案，此为关键澄清点
+- 假设 SpringDoc OpenAPI v3.0.3（基于 Spring Boot 4.0.5 构建）与项目 Spring Boot 4.1.0 兼容；二者同属 4.x 系列，SpringDoc 已官方声明支持 Spring Boot 4.x。若 plan 阶段实测发现小版本差异导致问题，回退为"注解标记 + 半自动生成"方案
 - 假设 specs/ 001-010 的历史制品作为"功能设计档案"具有保留价值，无需迁移或合并到新文档体系
 - 假设 md/ 目录下的外部对接系统 API 文档（AList、录播姬）为只读参考资料，与本项目文档体系解耦
 - 假设 CHANGELOG.md 的 0.0.1-SNAPSHOT 之前历史版本可通过 git log 回溯整理，无法精确还原的部分标注"历史版本"
 - 假设配置说明文档（docs/04）的映射表可在 plan 阶段通过解析 AppProperties.java 与 application.yaml 自动抽取，减少手写误差
 - 假设 API 注解自动生成命令可集成到 Maven 构建阶段或作为独立脚本执行，具体集成方式在 plan 阶段确定
+
+## 澄清
+
+### 会话 2026-07-02
+
+- Q: API 注解自动生成方案应采用哪种注解库（需兼容 Spring Boot 4.1.0）？ → A: 采用 SpringDoc OpenAPI v3.0.3（`springdoc-openapi-starter-webmvc-ui`）。经查证 GitHub release（v3.0.3，2026-04-11 发布），其 "Changed" 明确写明 "Upgrade Spring Boot to version 4.0.5"，即 v3.x 系列已官方支持 Spring Boot 4.x。项目使用的 4.1.0 与其基于的 4.0.5 同属 4.x 系列，兼容性有官方背书，无需降级方案。此前对 SpringDoc 仅支持 Boot 3.x 的担忧已被消除（源于 SpringDoc 主站 README 仅声明 v2 支持 Boot 3.x，未覆盖 v3 信息）。
