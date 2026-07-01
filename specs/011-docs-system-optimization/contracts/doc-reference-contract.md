@@ -10,6 +10,7 @@
 
 - `README.md` 的"导航"章节 MUST 链接到 `docs/01` ~ `docs/06` 与 `docs/operations/`、`docs/architecture/`
 - `AGENTS.md` 的"项目结构"章节 MAY 引用 `docs/03-架构设计.md` 作为架构详述入口，但 MUST NOT 复制架构内容
+- `CONTRIBUTING.md` 的"开发环境搭建"章节 MUST 链接到 `docs/02-开发环境搭建.md`（不重复步骤），"代码审查门禁"章节 MUST 链接到 `AGENTS.md` 的章程合规检查清单（不复制清单），"日志与测试规范"章节 MUST 链接到 `.specify/memory/constitution.md` 原则 V、VII
 - `CHANGELOG.md` 不引用 docs/（变更日志为独立时间线）
 
 ### 1.2 docs/ 主题间

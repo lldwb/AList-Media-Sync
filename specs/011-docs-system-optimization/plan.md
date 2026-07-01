@@ -87,6 +87,7 @@ specs/011-docs-system-optimization/
 .
 ├── README.md                    # [精简] 仅快速开始 + 导航（约 80 行）
 ├── CHANGELOG.md                 # [新增] Keep a Changelog 格式
+├── CONTRIBUTING.md              # [新增] 人类贡献者参与入口（约 60-80 行，引用 docs/02/AGENTS.md/constitution.md）
 ├── AGENTS.md                    # [精简] 仅 AI 协作指令 + 章程引用（约 100 行）
 ├── CLAUDE.md                    # [保持] 一行重定向
 │
@@ -161,7 +162,7 @@ specs/011-docs-system-optimization/
 1. **依赖与配置**：pom.xml 新增 SpringDoc、application.yaml 新增 springdoc.* 段、OpenApiConfig.java
 2. **注解增强**：7 个 Controller + 约 20 个 DTO 添加注解、AuthInterceptor 放行调整
 3. **生成流水线**：gen-api-doc 脚本、CI 集成、docs/05 派生产物生成
-4. **根级文档**：CHANGELOG.md、README.md 精简、AGENTS.md 精简
+4. **根级文档**：CHANGELOG.md、CONTRIBUTING.md、README.md 精简、AGENTS.md 精简
 5. **docs 主题文档**：01-06 六份
 6. **docs/architecture**：五大模块 + 交叉关注点六份
 7. **docs/operations**：环境变量清单 + 故障排查两份

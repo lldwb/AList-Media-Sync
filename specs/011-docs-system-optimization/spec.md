@@ -23,6 +23,7 @@
 1. **假设** 一位新开发者克隆了代码库且本机已安装 JDK 21 与 Node 22，**当** 他按 README.md 的导航依次阅读 docs/01-项目概述.md 与 docs/02-开发环境搭建.md，**则** 能在无需查阅任何 spec 或源码的情况下完成本地启动并访问 Web 管理界面
 2. **假设** 开发者本地未设置 `ALIST_BASE_URL` 与 `ALIST_TOKEN`，**当** 他阅读 docs/02 中的本地开发配置章节，**则** 能明确知道哪些环境变量为必填、哪些可使用默认值，并理解 `dataDir` 路径的作用
 3. **假设** 开发者在启动过程中遇到端口冲突或 H2 数据库初始化失败，**当** 他查阅 docs/02 的常见问题部分，**则** 能找到对应的排障指引
+4. **假设** 一位希望参与贡献的开发者首次访问仓库，**当** 他打开根目录的 CONTRIBUTING.md，**则** 能通过链接进入 docs/02 完成环境搭建、了解 Conventional Commits 中文提交规范与 Spec Kit 工作流入口，无需阅读 AGENTS.md 即可开始贡献
 
 ---
 
@@ -120,6 +121,7 @@
 - **FR-017**：新增文档在描述架构与配置时 MUST 遵循章程原则 I（分层架构）、原则 VI（YAGNI，不引入超出当前所需的内容）、原则 VII（日志规范相关引用需准确）
 - **FR-018**：API 注解自动生成方案引入的第三方依赖 MUST 在 plan.md 的「复杂性追踪」中记录并证明合理性（遵循章程原则 VI），优先选择与 Spring Boot 内置能力兼容的方案
 - **FR-019**：API 注解自动生成方案采用 SpringDoc OpenAPI v3.0.3（`springdoc-openapi-starter-webmvc-ui`，基于 Spring Boot 4.0.5 构建，官方支持 Spring Boot 4.x），在 Controller 与 DTO 上添加 `@Tag`、`@Operation`、`@Schema` 等标准 OpenAPI 3 注解，通过 SpringDoc 运行时自动生成 OpenAPI JSON/YAML 与 Swagger UI。该依赖 MUST 在 plan.md 的「复杂性追踪」中记录并证明合理性（遵循章程原则 VI）
+- **FR-020**：系统 MUST 在项目根目录新增 `CONTRIBUTING.md`（约 60-80 行），作为人类贡献者的参与入口，包含：开发环境搭建（链接到 docs/02，不重复）、分支与提交规范（Conventional Commits 中文格式，遵循章程原则 IV）、Spec Kit 工作流参与方式（链接到 AGENTS.md）、代码审查门禁（链接到 AGENTS.md 章程合规检查清单）、日志与测试规范（链接到 constitution.md 原则 V、VII）。CONTRIBUTING.md MUST NOT 复制章程或 AGENTS.md 内容，仅引用；MUST NOT 引入 CODE_STYLE.md（代码规范由 constitution.md + AGENTS.md 体系承载，避免 SSOT 破坏与 YAGNI 违规）
 
 ### 关键实体 *（如果功能涉及数据则包含）*
 
@@ -129,6 +131,7 @@
 - **配置 SSOT**：docs/04-配置说明.md 作为配置说明的唯一权威文档，AppProperties.java 作为代码层 SSOT，application.yaml 作为运行时默认值，三者通过约定保持一致
 - **API 派生文档**：docs/05-API接口文档.md 为派生产物，源真值在 Controller 与 DTO 的代码注解中，通过生成命令产出
 - **变更日志**：CHANGELOG.md，按版本倒序记录项目演进，遵循 Keep a Changelog 格式
+- **贡献者入口**：CONTRIBUTING.md（根目录），面向人类贡献者的参与流程总入口，引用 docs/02、AGENTS.md、constitution.md，不复制内容
 
 ## 成功标准 *（强制）*
 
@@ -139,7 +142,7 @@
 - **SC-003**：维护者查询任意 `app.*` 配置项的环境变量、默认值与作用，或查询任意 REST 端点的路径、方法与响应结构，耗时均 < 30 秒（对应 docs/04 SSOT 与 docs/05 注解自动生成）
 - **SC-004**：API 文档与代码实现的一致性可由生成命令验证——执行生成命令后，文档内容与 Controller/DTO 注解的偏差为 0（无手写漂移）
 - **SC-005**：项目根目录文档总入口（README.md）精简至约 80 行，AGENTS.md 精简至约 100 行，二者不再承担对方职责
-- **SC-006**：新增文档覆盖项目全部 5 个业务模块（common、storage、sync、transcode、webhook）与全部 19 个 `app.*` 配置项，无遗漏
+- **SC-006**：新增文档覆盖项目全部 5 个业务模块（common、storage、sync、transcode、webhook）、全部 19 个 `app.*` 配置项与人类贡献者参与入口（CONTRIBUTING.md），无遗漏
 - **SC-007**：specs/ 历史制品（001-010）与 md/ 外部对接文档在本次变更后文件数与内容哈希均不变（冻结验证）
 - **SC-008**：CHANGELOG.md 可让外部用户在不查阅 git log 的情况下，判断任一已发布功能从哪个版本开始支持
 
@@ -159,3 +162,4 @@
 ### 会话 2026-07-02
 
 - Q: API 注解自动生成方案应采用哪种注解库（需兼容 Spring Boot 4.1.0）？ → A: 采用 SpringDoc OpenAPI v3.0.3（`springdoc-openapi-starter-webmvc-ui`）。经查证 GitHub release（v3.0.3，2026-04-11 发布），其 "Changed" 明确写明 "Upgrade Spring Boot to version 4.0.5"，即 v3.x 系列已官方支持 Spring Boot 4.x。项目使用的 4.1.0 与其基于的 4.0.5 同属 4.x 系列，兼容性有官方背书，无需降级方案。此前对 SpringDoc 仅支持 Boot 3.x 的担忧已被消除（源于 SpringDoc 主站 README 仅声明 v2 支持 Boot 3.x，未覆盖 v3 信息）。
+- Q: 是否需要新增 CONTRIBUTING.md（如何参与开发）与 CODE_STYLE.md（代码规范）？ → A: 纳入 CONTRIBUTING.md（根目录，最小化引入，约 60-80 行，仅引用 docs/02/AGENTS.md/constitution.md 不复制内容，填补"人类贡献者入口"空白，GitHub 原生集成识别根目录）；不纳入 CODE_STYLE.md（与 constitution.md + AGENTS.md 严重重复，违反 YAGNI 与 SSOT，加剧文档散落）。

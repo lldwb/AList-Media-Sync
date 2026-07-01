@@ -67,6 +67,7 @@ description: "文档体系优化的任务列表"
 - [ ] T013 [P] [US1] 创建 `docs/01-项目概述.md`：项目背景（AList 媒体库自动同步与转码、对接 B 站录播姬 Webhook）、核心功能清单（同步/转码/Webhook/Web 管理/WebSocket/诊断）、技术栈（Spring Boot 4.1.0/Java 21/JPA+H2/React 19/JAVE2）、非目标边界
 - [ ] T014 [P] [US1] 创建 `docs/02-开发环境搭建.md`：JDK 21 安装与 JAVA_HOME、Maven Wrapper 使用（`./mvnw`）、前端构建（Node 22 + `npm ci` + `npm run build`）、本地必填配置（`ALIST_BASE_URL`/`ALIST_TOKEN`/`ALIST_CRYPTO_KEY` 与 `app.data-dir`）、三种启动方式（`mvn spring-boot:run`、IDE、`scripts/start.sh`）、常见启动问题排障（端口冲突、H2 初始化失败）
 - [ ] T015 [US1] 精简 `README.md` 至约 80 行：项目一句话定位、技术栈徽章、三种部署方式快速开始（Docker/一体化包/源码构建各约 5 行）、指向 `docs/01`~`docs/06` 与 `docs/operations/`、`docs/architecture/` 的导航链接；移除原配置详解章节（迁移至 docs/04）
+- [ ] T016 [US1] 创建 `CONTRIBUTING.md`（根目录，约 60-80 行）：开发环境搭建（链接到 `docs/02-开发环境搭建.md`，不重复）、分支与提交规范（Conventional Commits 中文格式，遵循章程原则 IV）、Spec Kit 工作流参与方式（`/speckit-specify`→`/speckit-plan`→`/speckit-tasks`→`/speckit-implement` 简介，链接到 `AGENTS.md`）、代码审查门禁（链接到 `AGENTS.md` 章程合规检查清单）、日志与测试规范（链接到 `.specify/memory/constitution.md` 原则 V、VII）；MUST NOT 复制章程或 AGENTS.md 内容，仅引用
 
 **检查点**：新开发者可仅凭 README → docs/01 → docs/02 完成本地启动（SC-001 可验证）
 
@@ -80,9 +81,9 @@ description: "文档体系优化的任务列表"
 
 ### 用户故事 2 的实现
 
-- [ ] T016 [P] [US2] 创建 `docs/operations/环境变量清单.md`（SSOT）：全量环境变量表，含 `app.*` 映射变量（如 `DATA_DIR`、`TRANSCODE_TEMP_SUFFIX`）与非 `app.*` 变量（`SERVER_PORT`、`ALIST_BASE_URL`、`ALIST_TOKEN`、`ALIST_CRYPTO_KEY`、`LOGGING_LEVEL`、`LOG_PATH`、`JAVA_OPTS`、`SPRINGDOC_*`），每项标注默认值、是否必填、对应配置属性、示例
-- [ ] T017 [P] [US2] 创建 `docs/operations/故障排查与日志.md`：日志级别调整（`LOGGING_LEVEL`）、traceId 串联查询（原则 VII §7.3 的 MDC 字段）、error.log 分流（§7.4）、X-Trace-Id 响应头（§7.5）、常见问题 FAQ（启动失败、转码失败、Webhook 不触发、AList API 调用失败）
-- [ ] T018 [US2] 创建 `docs/06-运维部署.md`：部署方式对比表（Docker/一体化包/源码构建）、Docker 部署完整流程（`docker compose up -d`、`.env` 配置、健康检查、卷挂载）、环境变量配置清单引用（链接到 `docs/operations/环境变量清单.md`，不重复）、数据持久化（H2 文件位置、`dataDir` 迁移、日志轮转）、运维注意事项（FFmpeg/JAVE2 依赖、转码并发与内存关系、虚拟线程监控、actuator 端点、诊断包生成、升级回滚与备份）
+- [ ] T017 [P] [US2] 创建 `docs/operations/环境变量清单.md`（SSOT）：全量环境变量表，含 `app.*` 映射变量（如 `DATA_DIR`、`TRANSCODE_TEMP_SUFFIX`）与非 `app.*` 变量（`SERVER_PORT`、`ALIST_BASE_URL`、`ALIST_TOKEN`、`ALIST_CRYPTO_KEY`、`LOGGING_LEVEL`、`LOG_PATH`、`JAVA_OPTS`、`SPRINGDOC_*`），每项标注默认值、是否必填、对应配置属性、示例
+- [ ] T018 [P] [US2] 创建 `docs/operations/故障排查与日志.md`：日志级别调整（`LOGGING_LEVEL`）、traceId 串联查询（原则 VII §7.3 的 MDC 字段）、error.log 分流（§7.4）、X-Trace-Id 响应头（§7.5）、常见问题 FAQ（启动失败、转码失败、Webhook 不触发、AList API 调用失败）
+- [ ] T019 [US2] 创建 `docs/06-运维部署.md`：部署方式对比表（Docker/一体化包/源码构建）、Docker 部署完整流程（`docker compose up -d`、`.env` 配置、健康检查、卷挂载）、环境变量配置清单引用（链接到 `docs/operations/环境变量清单.md`，不重复）、数据持久化（H2 文件位置、`dataDir` 迁移、日志轮转）、运维注意事项（FFmpeg/JAVE2 依赖、转码并发与内存关系、虚拟线程监控、actuator 端点、诊断包生成、升级回滚与备份）
 
 **检查点**：运维人员可仅凭 docs/06 + docs/operations/ 完成 Docker 部署与健康检查（SC-002 可验证）
 
@@ -96,9 +97,9 @@ description: "文档体系优化的任务列表"
 
 ### 用户故事 3 的实现
 
-- [ ] T019 [US3] 创建 `docs/04-配置说明.md`（SSOT）：Spring Boot Relaxed Binding 机制说明（`app.data-dir` ↔ `DATA_DIR`、`app.auth.password` ↔ `APP_AUTH_PASSWORD` 的 kebab-case → SCREAMING_SNAKE_CASE 映射规则）、三级配置优先级（命令行 > 环境变量 > application.yaml > 默认值）、完整 `app.*` 配置项表（从 `AppProperties.java` 抽取 19 项，分基础/认证/转码/运行时四组）、非 `app.*` 环境变量引用（链接到 `docs/operations/环境变量清单.md`）、敏感项标记与生产建议（`ALIST_CRYPTO_KEY` 必设、密码避免默认值）
-- [ ] T020 [US3] 完善 `docs/05-API接口文档.md` 的引导章节（生成产物之上的手工补充部分）：认证方式（HTTP Basic Auth，`/api/**` 受 AuthInterceptor 保护，`/actuator/health` 开放）、统一响应格式 `ApiResult{code,message,data,traceId}`、WebSocket 端点 `/ws` 与 `MessageType` 枚举、错误码清单、Swagger UI 与 OpenAPI 端点访问方式；标注"端点清单由 scripts/gen-api-doc 自动生成，引导章节手工维护"
-- [ ] T021 [US3] 在 `docs/05-API接口文档.md` 顶部创建引导章节后，重新执行 `./scripts/gen-api-doc.sh` 确认生成产物与引导章节正确拼接（若生成工具不支持前置手工章节，调整为生成端点清单 + 手工引导章节合并的方式），验证 SC-004（重新生成 diff 为空）
+- [ ] T020 [US3] 创建 `docs/04-配置说明.md`（SSOT）：Spring Boot Relaxed Binding 机制说明（`app.data-dir` ↔ `DATA_DIR`、`app.auth.password` ↔ `APP_AUTH_PASSWORD` 的 kebab-case → SCREAMING_SNAKE_CASE 映射规则）、三级配置优先级（命令行 > 环境变量 > application.yaml > 默认值）、完整 `app.*` 配置项表（从 `AppProperties.java` 抽取 19 项，分基础/认证/转码/运行时四组）、非 `app.*` 环境变量引用（链接到 `docs/operations/环境变量清单.md`）、敏感项标记与生产建议（`ALIST_CRYPTO_KEY` 必设、密码避免默认值）
+- [ ] T021 [US3] 完善 `docs/05-API接口文档.md` 的引导章节（生成产物之上的手工补充部分）：认证方式（HTTP Basic Auth，`/api/**` 受 AuthInterceptor 保护，`/actuator/health` 开放）、统一响应格式 `ApiResult{code,message,data,traceId}`、WebSocket 端点 `/ws` 与 `MessageType` 枚举、错误码清单、Swagger UI 与 OpenAPI 端点访问方式；标注"端点清单由 scripts/gen-api-doc 自动生成，引导章节手工维护"
+- [ ] T022 [US3] 在 `docs/05-API接口文档.md` 顶部创建引导章节后，重新执行 `./scripts/gen-api-doc.sh` 确认生成产物与引导章节正确拼接（若生成工具不支持前置手工章节，调整为生成端点清单 + 手工引导章节合并的方式），验证 SC-004（重新生成 diff 为空）
 
 **检查点**：维护者可在 30 秒内查询任意配置项或 API 端点（SC-003、SC-004 可验证）
 
@@ -112,13 +113,13 @@ description: "文档体系优化的任务列表"
 
 ### 用户故事 4 的实现
 
-- [ ] T022 [P] [US4] 创建 `docs/architecture/模块-common.md`：职责边界（配置/认证/工具/异常处理/诊断）、核心类（AppProperties/AsyncConfig/WebMvcConfig/WebSocketConfig/TraceIdFilter/AuthInterceptor/CryptoConverter/GlobalExceptionHandler）、关键流程、扩展点、关联 spec
-- [ ] T023 [P] [US4] 创建 `docs/architecture/模块-storage.md`：职责边界（存储引擎策略模式）、核心类（StorageEngineController/Service/AListStrategy/LocalStrategy）、关键流程、扩展点（新增存储策略）、关联 spec
-- [ ] T024 [P] [US4] 创建 `docs/architecture/模块-sync.md`：职责边界（同步三模式 NEW_ONLY/FULL/MOVE + 调度 CRON/INTERVAL）、核心类（SyncTaskController/SyncService/ScheduleService/SyncTaskManageService）、关键流程、扩展点、关联 spec
-- [ ] T025 [P] [US4] 创建 `docs/architecture/模块-transcode.md`：职责边界（下载→转码→上传三步流程 + 8 状态模型）、核心类（TranscodeTaskController/TranscodeService/TranscodeFileProcessor）、关键流程、扩展点（并发控制 Semaphore）、关联 spec
-- [ ] T026 [P] [US4] 创建 `docs/architecture/模块-webhook.md`：职责边界（接收录播姬 v2 事件 → 规则匹配 → 触发同步/转码）、核心类（WebhookController/WebhookService/WebhookRuleService）、关键流程、扩展点、关联 spec
-- [ ] T027 [P] [US4] 创建 `docs/architecture/交叉关注点.md`：认证（AuthInterceptor + BCrypt + PasswordEncryptionPostProcessor）、加密（CryptoConverter + CryptoKeyEnvironmentPostProcessor + AES-256）、虚拟线程（Java 21 启用配置）、诊断（diagnose.sh + /api/diagnostics/run + Web 入口）、日志（原则 VII traceId/MDC/error.log/X-Trace-Id/脱敏）
-- [ ] T028 [US4] 创建 `docs/03-架构设计.md`：分层架构图（Controller → Service → Repository → Entity，遵循章程原则 I）、包结构总览（common/storage/sync/transcode/webhook 五大模块）、核心类职责说明（AppProperties 为配置层唯一入口、各 Config 类职责、TraceIdFilter+TraceContext+MDC 全链路追踪、AuthInterceptor+WebSocketAuthInterceptor 认证、CryptoConverter 加密存储、GlobalExceptionHandler 统一异常→ApiResult）、模块间依赖关系图、交叉关注点链接到 `docs/architecture/交叉关注点.md`
+- [ ] T023 [P] [US4] 创建 `docs/architecture/模块-common.md`：职责边界（配置/认证/工具/异常处理/诊断）、核心类（AppProperties/AsyncConfig/WebMvcConfig/WebSocketConfig/TraceIdFilter/AuthInterceptor/CryptoConverter/GlobalExceptionHandler）、关键流程、扩展点、关联 spec
+- [ ] T024 [P] [US4] 创建 `docs/architecture/模块-storage.md`：职责边界（存储引擎策略模式）、核心类（StorageEngineController/Service/AListStrategy/LocalStrategy）、关键流程、扩展点（新增存储策略）、关联 spec
+- [ ] T025 [P] [US4] 创建 `docs/architecture/模块-sync.md`：职责边界（同步三模式 NEW_ONLY/FULL/MOVE + 调度 CRON/INTERVAL）、核心类（SyncTaskController/SyncService/ScheduleService/SyncTaskManageService）、关键流程、扩展点、关联 spec
+- [ ] T026 [P] [US4] 创建 `docs/architecture/模块-transcode.md`：职责边界（下载→转码→上传三步流程 + 8 状态模型）、核心类（TranscodeTaskController/TranscodeService/TranscodeFileProcessor）、关键流程、扩展点（并发控制 Semaphore）、关联 spec
+- [ ] T027 [P] [US4] 创建 `docs/architecture/模块-webhook.md`：职责边界（接收录播姬 v2 事件 → 规则匹配 → 触发同步/转码）、核心类（WebhookController/WebhookService/WebhookRuleService）、关键流程、扩展点、关联 spec
+- [ ] T028 [P] [US4] 创建 `docs/architecture/交叉关注点.md`：认证（AuthInterceptor + BCrypt + PasswordEncryptionPostProcessor）、加密（CryptoConverter + CryptoKeyEnvironmentPostProcessor + AES-256）、虚拟线程（Java 21 启用配置）、诊断（diagnose.sh + /api/diagnostics/run + Web 入口）、日志（原则 VII traceId/MDC/error.log/X-Trace-Id/脱敏）
+- [ ] T029 [US4] 创建 `docs/03-架构设计.md`：分层架构图（Controller → Service → Repository → Entity，遵循章程原则 I）、包结构总览（common/storage/sync/transcode/webhook 五大模块）、核心类职责说明（AppProperties 为配置层唯一入口、各 Config 类职责、TraceIdFilter+TraceContext+MDC 全链路追踪、AuthInterceptor+WebSocketAuthInterceptor 认证、CryptoConverter 加密存储、GlobalExceptionHandler 统一异常→ApiResult）、模块间依赖关系图、交叉关注点链接到 `docs/architecture/交叉关注点.md`
 
 **检查点**：审查者可依据 docs/03 + docs/architecture/ 判断模块边界与分层合规（SC-006 可验证）
 
@@ -132,7 +133,7 @@ description: "文档体系优化的任务列表"
 
 ### 用户故事 5 的实现
 
-- [ ] T029 [US5] 创建 `CHANGELOG.md`：遵循 Keep a Changelog 格式，按版本倒序排列，包含 Added/Changed/Fixed/Removed 分类；通过 `git log` 回溯补全 0.0.1-SNAPSHOT 历史版本（001-010 spec 对应的功能），无法精确还原的标注"历史版本"；顶部预留 Unreleased 区块供后续迭代
+- [ ] T030 [US5] 创建 `CHANGELOG.md`：遵循 Keep a Changelog 格式，按版本倒序排列，包含 Added/Changed/Fixed/Removed 分类；通过 `git log` 回溯补全 0.0.1-SNAPSHOT 历史版本（001-010 spec 对应的功能），无法精确还原的标注"历史版本"；顶部预留 Unreleased 区块供后续迭代
 
 **检查点**：CHANGELOG 可支撑版本功能查询（SC-008 可验证）
 
@@ -142,15 +143,15 @@ description: "文档体系优化的任务列表"
 
 **目的**：精简 AGENTS.md、更新文档引用、运行端到端验证、确保章程合规
 
-- [ ] T030 精简 `AGENTS.md`：移除"项目架构总览"章节（已迁移至 docs/03），仅保留 AI 协作指令、章程引用（`.specify/memory/constitution.md`）、Spec Kit 工作流说明；目标约 100 行；保持 SPECKIT 标记区指向当前 plan.md
-- [ ] T031 [P] 校验 `docs/04-配置说明.md` 与 `AppProperties.java`、`application.yaml` 一致（VR-001）：对照 19 个 `app.*` 配置项的字段名、默认值、环境变量映射，修正不一致
-- [ ] T032 [P] 校验 `docs/operations/环境变量清单.md` 与 `application.yaml`、`Dockerfile`、`.env` 模板一致（VR-001）：对照非 `app.*` 环境变量，修正不一致
-- [ ] T033 [P] 校验冻结文件完整性（VR-003）：确认 `specs/001..010/` 与 `md/` 下所有文件无修改、删除、重命名，文件数与内容哈希与实现前快照一致
-- [ ] T034 [P] 校验文档链接有效性（VR-004）：扫描 `docs/` 间相对链接与指向 `specs/` 的链接，确认无死链；可使用 `scripts/check-doc-links.sh`（若有）或人工抽查
-- [ ] T035 运行 quickstart.md 验证场景 1：执行 `./scripts/gen-api-doc.sh` 与 `git diff --exit-code docs/05-API接口文档.md`，确认 SC-004（重新生成 diff 为空）与注解覆盖率 100%
-- [ ] T036 运行 quickstart.md 验证场景 2-6：按场景模拟新开发者本地启动、运维 Docker 部署、配置 SSOT 一致性、冻结完整性、文档链接有效性，确认 SC-001/002/006/007/008 与 VR-001/004
-- [ ] T037 [P] 在 `README.md` 的"导航"章节确认指向 `docs/01`~`docs/06`、`docs/architecture/`、`docs/operations/`、`CHANGELOG.md` 的链接完整有效
-- [ ] T038 章程合规自检：对照 plan.md「章程检查」表，确认原则 I/IV/VI/IX/X 合规；原则 VI 的 5 项新增依赖/配置已在「复杂性追踪」记录；原则 IX 的 README.md 同步已收尾
+- [ ] T031 精简 `AGENTS.md`：移除"项目架构总览"章节（已迁移至 docs/03），仅保留 AI 协作指令、章程引用（`.specify/memory/constitution.md`）、Spec Kit 工作流说明；目标约 100 行；保持 SPECKIT 标记区指向当前 plan.md
+- [ ] T032 [P] 校验 `docs/04-配置说明.md` 与 `AppProperties.java`、`application.yaml` 一致（VR-001）：对照 19 个 `app.*` 配置项的字段名、默认值、环境变量映射，修正不一致
+- [ ] T033 [P] 校验 `docs/operations/环境变量清单.md` 与 `application.yaml`、`Dockerfile`、`.env` 模板一致（VR-001）：对照非 `app.*` 环境变量，修正不一致
+- [ ] T034 [P] 校验冻结文件完整性（VR-003）：确认 `specs/001..010/` 与 `md/` 下所有文件无修改、删除、重命名，文件数与内容哈希与实现前快照一致
+- [ ] T035 [P] 校验文档链接有效性（VR-004）：扫描 `docs/` 间相对链接与指向 `specs/` 的链接，确认无死链；可使用 `scripts/check-doc-links.sh`（若有）或人工抽查
+- [ ] T036 运行 quickstart.md 验证场景 1：执行 `./scripts/gen-api-doc.sh` 与 `git diff --exit-code docs/05-API接口文档.md`，确认 SC-004（重新生成 diff 为空）与注解覆盖率 100%
+- [ ] T037 运行 quickstart.md 验证场景 2-6：按场景模拟新开发者本地启动、运维 Docker 部署、配置 SSOT 一致性、冻结完整性、文档链接有效性，确认 SC-001/002/006/007/008 与 VR-001/004
+- [ ] T038 [P] 在 `README.md` 的"导航"章节确认指向 `docs/01`~`docs/06`、`docs/architecture/`、`docs/operations/`、`CHANGELOG.md` 的链接完整有效
+- [ ] T039 章程合规自检：对照 plan.md「章程检查」表，确认原则 I/IV/VI/IX/X 合规；原则 VI 的 5 项新增依赖/配置已在「复杂性追踪」记录；原则 IX 的 README.md 同步已收尾
 
 ---
 
@@ -179,14 +180,14 @@ description: "文档体系优化的任务列表"
 
 - 文档创建任务可并行（不同文件）
 - 引用其他文档的任务需在被引用文档存在后进行（如 docs/06 引用 docs/operations/环境变量清单）
-- US3 的 T021（重新生成验证）依赖 T019/T020 完成
+- US3 的 T022（重新生成验证）依赖 T020/T021 完成
 
 ### 并行机会
 
 - 阶段 1：T001 与 T002 可并行
 - 阶段 2：T008（Controller 注解）与 T009（DTO 注解）可并行；T012（覆盖率脚本）可与 T010/T011 并行
-- 阶段 3-7：US1（T013/T014）与 US2（T016/T017）可并行；US4 的 6 份模块文档（T022-T027）可全部并行；US5 可与任何故事并行
-- 阶段 8：T031/T032/T033/T034 校验任务可并行
+- 阶段 3-7：US1（T013/T014）与 US2（T017/T018）可并行；US4 的 6 份模块文档（T023-T028）可全部并行；US5 可与任何故事并行
+- 阶段 8：T032/T033/T034/T035 校验任务可并行
 
 ---
 

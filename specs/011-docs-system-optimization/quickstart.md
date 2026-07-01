@@ -142,6 +142,7 @@
 - 7 个 Controller + 约 20 个 DTO 注解增强
 - gen-api-doc 脚本与 Maven profile
 - docs/ 全部主题文档与 architecture/、operations/ 子目录文档
+- CONTRIBUTING.md（根目录，贡献者入口）
 - README.md 与 AGENTS.md 精简
 - CHANGELOG.md 创建
 
