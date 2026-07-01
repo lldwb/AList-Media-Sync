@@ -97,7 +97,7 @@
 
 ### 预期结果
 
-- 19 个 `app.*` 配置项在 docs/04、AppProperties.java、application.yaml 三处一致
+- 17 个 `app.*` 配置项在 docs/04、AppProperties.java、application.yaml 三处一致
 - 非 `app.*` 环境变量在 docs/operations/环境变量清单、Dockerfile、.env 模板三处一致
 
 ## 验证场景 5：冻结文件完整性
@@ -139,7 +139,7 @@
 执行上述验证前，确保以下任务（由 `/speckit-tasks` 生成并实现）已完成：
 
 - SpringDoc 依赖与 OpenApiConfig 集成
-- 7 个 Controller + 约 20 个 DTO 注解增强
+- 8 个 Controller + 约 20 个 DTO 注解增强
 - gen-api-doc 脚本与 Maven profile
 - docs/ 全部主题文档与 architecture/、operations/ 子目录文档
 - CONTRIBUTING.md（根目录，贡献者入口）

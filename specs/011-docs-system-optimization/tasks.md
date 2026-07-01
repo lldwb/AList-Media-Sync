@@ -9,7 +9,7 @@ description: "文档体系优化的任务列表"
 
 **前提条件**：plan.md（必需）、spec.md（用户故事必需）、research.md、data-model.md、contracts/
 
-**测试**：本功能为文档体系优化，无 Service/Repository 代码逻辑变更，单元测试不适用。验证以 quickstart.md 的 6 个端到端验证场景为准（文档生成可重复性、链接有效性、冻结完整性等），作为润色阶段的验证任务。
+**测试**：本功能为文档体系优化，无 Service/Repository 代码逻辑变更。唯一的行为性 Java 代码变更是 T006 修改 `AuthInterceptor.java`，MUST 同步修改 `AuthInterceptorTest.java`（见 T006b，遵循 AGENTS.md 规则 8 与章程原则 V）。其余验证以 quickstart.md 的 6 个端到端验证场景为准（文档生成可重复性、链接有效性、冻结完整性等），作为润色阶段的验证任务。
 
 **组织方式**：任务按用户故事分组，以支持每个故事的独立实现和测试。
 
@@ -45,11 +45,12 @@ description: "文档体系优化的任务列表"
 - [ ] T004 在 `src/main/java/top/lldwb/alistmediasync/common/config/OpenApiConfig.java` 创建配置类，声明 `@OpenAPIDefinition`（标题=AList-Media-Sync API、version=${app.version}、描述中文）与 `@SecurityScheme`（type=HTTP、scheme=basic、name=basicAuth）
 - [ ] T005 在 `src/main/resources/application.yaml` 新增 `springdoc.*` 配置段：`api-docs.path`、`api-docs.enabled`、`swagger-ui.path`、`swagger-ui.enabled`、`packages-to-scan: top.lldwb.alistmediasync`，enabled 项支持环境变量覆盖（`SPRINGDOC_API_DOCS_ENABLED` / `SPRINGDOC_SWAGGER_UI_ENABLED`）
 - [ ] T006 修改 `src/main/java/top/lldwb/alistmediasync/common/interceptor/AuthInterceptor.java`，对 `/v3/api-docs**` 与 `/swagger-ui**` 路径做环境差异化处理：开发环境放行，生产环境通过 `springdoc.*.enabled=false` 禁用或保持认证保护
+- [ ] T006b [US3] 同步修改 `AuthInterceptor` 的单元测试（遵循 AGENTS.md 规则 8 与章程原则 V）：为 `/v3/api-docs`、`/swagger-ui.html`、`/swagger-ui/index.html` 的放行/保护路径新增用例，覆盖开发环境放行与生产环境认证保护两种分支；确保现有 `/api/**`、`/actuator/health`、`/api/webhooks/**` 用例不受回归
 - [ ] T007 启动应用验证 SpringDoc 与 Spring Boot 4.1.0 兼容性：`./mvnw spring-boot:run`，访问 `/v3/api-docs` 确认返回非空 OpenAPI JSON，访问 `/swagger-ui.html` 确认 UI 渲染；若不兼容执行 contracts/api-doc-generation-contract.md §6 回退方案
-- [ ] T008 [P] 为 7 个 Controller 添加类级 `@Tag` 与方法级 `@Operation`/`@ApiResponse` 注解（中文 description、英文 operationId）：`DashboardController`、`DiagnosticController`、`StorageEngineController`、`SyncTaskController`、`TranscodeTaskController`、`WebhookController`、`WebhookEventController`、`WebhookRuleController`
+- [ ] T008 [P] 为 8 个 Controller 添加类级 `@Tag` 与方法级 `@Operation`/`@ApiResponse` 注解（中文 description、英文 operationId）：`DashboardController`、`DiagnosticController`、`StorageEngineController`、`SyncTaskController`、`TranscodeTaskController`、`WebhookController`、`WebhookEventController`、`WebhookRuleController`
 - [ ] T009 [P] 为约 20 个 DTO 添加类级 `@Schema` 与字段级 `@Schema(description, example, requiredMode)` 注解，覆盖 `common/dto/`、`storage/dto/`、`sync/dto/`、`transcode/dto/`、`webhook/dto/` 下所有请求与响应 DTO
-- [ ] T010 创建 `scripts/gen-api-doc.sh` 与 `scripts/gen-api-doc.bat`，封装 contracts/api-doc-generation-contract.md §1 的 5 阶段流水线：`mvn verify -Pgen-api-doc` 生成 `target/openapi.yaml` → 调用 `openapi-to-md`（或自研 Node 脚本作为回退）转换为 `docs/05-API接口文档.md` → 写入派生产物声明与生成时间 → 校验输出非空
-- [ ] T011 执行 `./scripts/gen-api-doc.sh` 首次生成 `docs/05-API接口文档.md`，确认文件头包含派生产物声明、内容非空、覆盖全部 7 个 Controller 的端点
+- [ ] T010 创建 `scripts/gen-api-doc.sh` 与 `scripts/gen-api-doc.bat`，封装 contracts/api-doc-generation-contract.md §1 的 5 阶段流水线：`mvn verify -Pgen-api-doc` 生成 `target/openapi.yaml` → 调用 `openapi-to-md`（或自研 Node 脚本作为回退）转换为 Markdown → 仅重写 `docs/05-API接口文档.md` 的生成区（`<!-- GENERATED START -->` 与 `<!-- GENERATED END -->` 之间，见契约 §3.4）并写入派生产物声明与生成时间 → 校验输出非空；若锚点缺失则报错退出（C-006、R-Gen-002）
+- [ ] T011 执行 `./scripts/gen-api-doc.sh` 首次生成 `docs/05-API接口文档.md` 的生成区：先创建含手工引导区占位与 `<!-- GENERATED START -->`/`<!-- GENERATED END -->` 锚点对的骨架文件（手工引导区内容由 T021 在阶段 5 补全），再执行脚本填充生成区，确认生成区内容非空、覆盖全部 8 个 Controller 的端点、手工引导区未被覆盖
 - [ ] T012 [P] 创建 `scripts/check-annotation-coverage.sh`（与 .bat），扫描 `src/main/java/**/controller/*.java` 与 `**/dto/*.java`，断言每个 Controller 类有 `@Tag`、每个公开方法有 `@Operation`、每个 DTO 类有 `@Schema`，缺失时非零退出码并输出缺失清单
 
 **检查点**：SpringDoc 集成就绪、注解覆盖完成、生成流水线可用 — 现在可以并行开始用户故事实现
@@ -97,9 +98,9 @@ description: "文档体系优化的任务列表"
 
 ### 用户故事 3 的实现
 
-- [ ] T020 [US3] 创建 `docs/04-配置说明.md`（SSOT）：Spring Boot Relaxed Binding 机制说明（`app.data-dir` ↔ `DATA_DIR`、`app.auth.password` ↔ `APP_AUTH_PASSWORD` 的 kebab-case → SCREAMING_SNAKE_CASE 映射规则）、三级配置优先级（命令行 > 环境变量 > application.yaml > 默认值）、完整 `app.*` 配置项表（从 `AppProperties.java` 抽取 19 项，分基础/认证/转码/运行时四组）、非 `app.*` 环境变量引用（链接到 `docs/operations/环境变量清单.md`）、敏感项标记与生产建议（`ALIST_CRYPTO_KEY` 必设、密码避免默认值）
-- [ ] T021 [US3] 完善 `docs/05-API接口文档.md` 的引导章节（生成产物之上的手工补充部分）：认证方式（HTTP Basic Auth，`/api/**` 受 AuthInterceptor 保护，`/actuator/health` 开放）、统一响应格式 `ApiResult{code,message,data,traceId}`、WebSocket 端点 `/ws` 与 `MessageType` 枚举、错误码清单、Swagger UI 与 OpenAPI 端点访问方式；标注"端点清单由 scripts/gen-api-doc 自动生成，引导章节手工维护"
-- [ ] T022 [US3] 在 `docs/05-API接口文档.md` 顶部创建引导章节后，重新执行 `./scripts/gen-api-doc.sh` 确认生成产物与引导章节正确拼接（若生成工具不支持前置手工章节，调整为生成端点清单 + 手工引导章节合并的方式），验证 SC-004（重新生成 diff 为空）
+- [ ] T020 [US3] 创建 `docs/04-配置说明.md`（SSOT）：Spring Boot Relaxed Binding 机制说明（`app.data-dir` ↔ `DATA_DIR`、`app.auth.password` ↔ `APP_AUTH_PASSWORD` 的 kebab-case → SCREAMING_SNAKE_CASE 映射规则）、三级配置优先级（命令行 > 环境变量 > application.yaml > 默认值）、完整 `app.*` 配置项表（从 `AppProperties.java` 抽取 17 项，分基础/认证/转码/运行时四组）、非 `app.*` 环境变量引用（链接到 `docs/operations/环境变量清单.md`）、敏感项标记与生产建议（`ALIST_CRYPTO_KEY` 必设、密码避免默认值）
+- [ ] T021 [US3] 创建 `docs/05-API接口文档.md` 的**手工引导区**（`<!-- GENERATED START -->` 锚点之前，见 `contracts/api-doc-generation-contract.md` §3.4）：认证方式（HTTP Basic Auth，`/api/**` 受 AuthInterceptor 保护，`/actuator/health` 开放）、统一响应格式 `ApiResult{code,message,data,traceId}`、WebSocket 端点 `/ws` 与 `MessageType` 枚举、错误码清单、Swagger UI 与 OpenAPI 端点访问方式；文件末尾写入 `<!-- GENERATED START -->` 与 `<!-- GENERATED END -->` 锚点对（生成区初始留空，由 T022 触发生成填充）；标注"手工引导区人工维护，生成区由 scripts/gen-api-doc 自动生成"
+- [ ] T022 [US3] 在 `docs/05-API接口文档.md` 手工引导区与锚点就位后（T021 完成），执行 `./scripts/gen-api-doc.sh` 填充生成区（`<!-- GENERATED START -->` 与 `<!-- GENERATED END -->` 之间），验证脚本仅重写生成区、未触碰手工引导区；验证 SC-004（生成区重新生成 diff 为空，手工引导区变更不纳入校验）
 
 **检查点**：维护者可在 30 秒内查询任意配置项或 API 端点（SC-003、SC-004 可验证）
 
@@ -144,7 +145,7 @@ description: "文档体系优化的任务列表"
 **目的**：精简 AGENTS.md、更新文档引用、运行端到端验证、确保章程合规
 
 - [ ] T031 精简 `AGENTS.md`：移除"项目架构总览"章节（已迁移至 docs/03），仅保留 AI 协作指令、章程引用（`.specify/memory/constitution.md`）、Spec Kit 工作流说明；目标约 100 行；保持 SPECKIT 标记区指向当前 plan.md
-- [ ] T032 [P] 校验 `docs/04-配置说明.md` 与 `AppProperties.java`、`application.yaml` 一致（VR-001）：对照 19 个 `app.*` 配置项的字段名、默认值、环境变量映射，修正不一致
+- [ ] T032 [P] 校验 `docs/04-配置说明.md` 与 `AppProperties.java`、`application.yaml` 一致（VR-001）：对照 17 个 `app.*` 配置项的字段名、默认值、环境变量映射，修正不一致
 - [ ] T033 [P] 校验 `docs/operations/环境变量清单.md` 与 `application.yaml`、`Dockerfile`、`.env` 模板一致（VR-001）：对照非 `app.*` 环境变量，修正不一致
 - [ ] T034 [P] 校验冻结文件完整性（VR-003）：确认 `specs/001..010/` 与 `md/` 下所有文件无修改、删除、重命名，文件数与内容哈希与实现前快照一致
 - [ ] T035 [P] 校验文档链接有效性（VR-004）：扫描 `docs/` 间相对链接与指向 `specs/` 的链接，确认无死链；可使用 `scripts/check-doc-links.sh`（若有）或人工抽查
@@ -253,7 +254,7 @@ description: "文档体系优化的任务列表"
 - [P] 任务 = 不同文件，无依赖
 - [Story] 标签将任务映射到特定用户故事以实现可追溯性
 - 每个用户故事应能独立完成和测试
-- 本功能无 Service/Repository 代码逻辑变更，单元测试不适用；验证以 quickstart.md 6 个端到端场景为准
+- 本功能无 Service/Repository 代码逻辑变更；唯一行为性 Java 变更为 T006（AuthInterceptor），需同步测试（T006b）；验证以 quickstart.md 6 个端到端场景为准
 - 冻结边界：specs/001..010/ 与 md/ 不可修改（VR-003）
 - 派生产物：docs/05-API接口文档.md 不手工编辑端点清单，源真值在注解中（SC-004）
 - SSOT：docs/04（配置说明）、docs/operations/环境变量清单（环境变量）、AppProperties.java（代码层）、application.yaml（运行时默认值）
