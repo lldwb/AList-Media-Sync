@@ -2,24 +2,31 @@
 ============================================================
 同步影响报告
 ============================================================
-版本变更：1.8.0 → 1.9.0（MINOR — 在原则 VII 中固化轻量诊断系统对日志的新要求）
+版本变更：1.9.0 → 1.10.0（MINOR — 固化 011-docs-system-optimization 引入的三层文档结构）
 修改原则：
-  - VII. 日志规范 — 新增不可协商子条款：
-    * traceId 全链路追踪与 MDC 结构化字段（module/operation/errorType）
-    * 错误日志强制双写：app.log（含全部级别）+ error.log（仅 ERROR 级）
-    * 任务边界 MUST 调用 TraceContext.runWith 或等价机制清理 MDC
-    * HTTP 响应 MUST 返回 X-Trace-Id，便于将一次请求与日志串联
-    * 敏感数据脱敏：日志与诊断包 MUST NOT 出现原始密码 / Token / 密钥 / 认证头 / Cookie
-    * 诊断包入口：MUST 同时提供脚本（diagnose.sh / diagnose.bat）、API（POST /api/diagnostics/run）、Web 三种入口
-新增部分：无
+  - IX. 实现后文档同步 — 同步范围从 README.md 扩展至整个 docs/ 主题文档体系与 CHANGELOG.md
+    * 新增功能/配置项/API 端点/环境变量 MUST 同步反映到 docs/ 对应主题文档（不再仅 README.md）
+    * CHANGELOG.md MUST 按 Keep a Changelog 格式新增版本条目
+    * docs/04-配置说明.md 为配置 SSOT，docs/05-API接口文档.md 为 API SSOT，变更 MUST 以 SSOT 为准
+新增原则：
+  - XI. 文档体系结构（不可协商）— 固化三层文档结构与单一权威来源（SSOT）约束
+    * 三层结构：根级入口（README.md / AGENTS.md / CHANGELOG.md / CONTRIBUTING.md）+ docs/ 主题文档（01-06 编号 + architecture/ + operations/）+ specs/ 冻结档案
+    * specs/ 历史制品保持冻结，描述"功能设计档案"；docs/ 描述"系统当前状态"，二者通过链接互引
+    * md/ 为外部对接 API 参考（AList / 录播姬），保持不动，以外部契约为事实来源
+    * 配置与 API 各自存在单一权威来源（SSOT），禁止多源并存
+新增部分：
+  - 治理章节新增「人类开发者文档体系」小节，与「AI 代理上下文文件体系」并列
+  - 开发工作流质量门禁新增 docs/ 同步与 CHANGELOG.md 更新检查
+  - 基础设施章节新增文档基础设施约束
 移除部分：无
 模板同步状态：
   ✅ plan-template.md — 章程检查为占位符，无需修改
   ✅ spec-template.md — 无需修改
   ✅ tasks-template.md — 无需修改
-  ✅ AGENTS.md（根级） — 版本引用同步至 1.9.0；AI 工作指令第 9 条扩展为 traceId/error.log/X-Trace-Id/脱敏
-  ✅ src/main/java/.../AGENTS.md — 合规要点扩展 traceId 与脱敏
-  ⚠ 前端 AGENTS.md — 待人工确认是否需要补充 X-Trace-Id 响应头读取约束
+  ✅ AGENTS.md（根级） — 版本引用同步至 1.10.0；AI 工作指令第 3 条扩展 docs/ 同步；合规检查清单新增第 11 项；项目文档导航章节对齐三层结构
+  ✅ src/main/java/.../AGENTS.md — 章程变更未涉及后端模块约束，无需修改
+  ✅ src/main/frontend/AGENTS.md — 章程变更未涉及前端模块约束，无需修改
+  ✅ 各模块 AGENTS.md — 章程变更未涉及特定模块行为，无需修改
 延期 TODO：无
 ============================================================
 -->
@@ -295,13 +302,19 @@ API 调用和文件系统操作是媒体同步系统的核心交互路径。没�
 
 ### IX. 实现后文档同步（不可协商）
 
-每次执行完 `/speckit-implement` 后，MUST 自动更新项目根目录的 `README.md` 文件，确保文档与代码实现保持一致：
+每次执行完 `/speckit-implement` 后，MUST 自动同步项目文档体系，确保文档与代码实现保持一致：
 
-- 新增功能、配置项、API 端点、环境变量 MUST 同步反映到 README.md 对应章节
-- 废弃或移除的功能 MUST 从 README.md 中移除或标注为已废弃
-- README.md 的更新 MUST 作为实现阶段的收尾步骤，不得推迟到后续迭代
+- 新增功能、配置项、API 端点、环境变量 MUST 同步反映到 `docs/` 对应主题文档（不再仅限 `README.md`）：
+  - 配置项变更 MUST 同步更新 `docs/04-配置说明.md`（配置 SSOT）
+  - API 端点变更 MUST 同步更新 `docs/05-API接口文档.md`（API SSOT，通过代码注解生成）
+  - 模块职责/核心类变更 MUST 同步更新 `docs/03-架构设计.md` 与 `docs/architecture/` 对应模块文档
+  - 部署/运维相关变更 MUST 同步更新 `docs/06-运维部署.md` 与 `docs/operations/`
+- `CHANGELOG.md` MUST 按 [Keep a Changelog](https://keepachangelog.com/) 格式在顶部新增版本条目，包含 Added/Changed/Fixed/Removed 分类与明确日期
+- 废弃或移除的功能 MUST 从对应主题文档中移除或标注为已废弃
+- `README.md` 的快速开始与文档导航 MUST 反映最新的部署方式与文档入口
+- 文档更新 MUST 作为实现阶段的收尾步骤，不得推迟到后续迭代
 
-**理由**：过时的文档比没有文档更具危害性——它会误导使用者做出错误的配置决策。将文档同步绑定到实现流程，是确保文档始终可信的唯一可靠方式。
+**理由**：过时的文档比没有文档更具危害性——它会误导使用者做出错误的配置决策。011-docs-system-optimization 已建立三层文档结构，将文档同步范围从单点 README.md 扩展至整个 docs/ 体系，是确保多主题文档始终可信的唯一可靠方式。
 
 ### X. 章程更新与 AGENTS.md 同步（不可协商）
 
@@ -318,6 +331,56 @@ API 调用和文件系统操作是媒体同步系统的核心交互路径。没�
 - 同步检查 MUST 作为 `/speckit-constitution` 命令的收尾步骤，不得推迟
 
 **理由**：AGENTS.md 是 AI 编码代理的运行时指令文件，章程是项目的最高开发准则。如果 AGENTS.md 中的行为指令与章程原则不一致，AI 代理将按错误指令工作，导致代码不合规。将章程更新与 AGENTS.md 同步绑定，是确保 AI 代理始终按最新章程工作的唯一可靠方式。
+
+### XI. 文档体系结构（不可协商）
+
+项目文档 MUST 遵循三层结构，各层职责清晰、互不覆盖：
+
+#### 11.1 三层文档结构
+
+- **第一层 · 根级入口**（项目根目录，面向所有读者，提供导航与速查）：
+  - `README.md` — 项目一句话定位 + 三种部署方式快速开始 + 文档导航表
+  - `AGENTS.md` — AI 工作指令、模块索引、章程合规检查清单
+  - `CHANGELOG.md` — 按 Keep a Changelog 格式记录版本演进
+  - `CONTRIBUTING.md` — 贡献者入口（环境搭建链接、提交规范、Spec Kit 工作流入口）
+- **第二层 · 主题文档**（`docs/` 目录，面向人类开发者，描述系统当前状态）：
+  - `docs/01-项目概述.md` — 项目背景、核心功能、技术栈、非目标边界
+  - `docs/02-开发环境搭建.md` — JDK 21 / Maven Wrapper / 前端构建 / 必填配置 / 启动排障
+  - `docs/03-架构设计.md` — 分层结构、核心类职责、模块边界总览
+  - `docs/04-配置说明.md` — **配置单一权威来源（SSOT）**，Relaxed Binding 映射表
+  - `docs/05-API接口文档.md` — **API 单一权威来源（SSOT）**，通过代码注解自动生成
+  - `docs/06-运维部署.md` — Docker 部署、一体化启动包、健康检查
+  - `docs/architecture/` — 五大模块细化文档（common/storage/sync/transcode/webhook）+ 交叉关注点
+  - `docs/operations/` — 环境变量清单、故障排查与日志
+- **第三层 · 冻结档案**（`specs/` 目录，功能设计档案，描述设计决策而非当前状态）：
+  - 各功能 spec.md / plan.md / tasks.md / contracts/ 等制品
+  - 历史制品保持冻结不动，作为"功能为什么这样设计"的档案
+- **外部对接参考**（`md/` 目录，外部系统 API 契约，独立于三层结构）：
+  - `md/alist/` — AList REST API 参考
+  - `md/danmuji/` — 录播姬 Webhook v2 协议参考
+  - 以外部契约为事实来源，保持不动
+
+#### 11.2 单一权威来源（SSOT）约束
+
+- 配置信息 MUST 以 `docs/04-配置说明.md` 为唯一权威来源，禁止在 README.md、AGENTS.md、Dockerfile、.env 模板中重复维护配置项清单（可引用链接，但不得复制权威内容）
+- API 契约 MUST 以 `docs/05-API接口文档.md` 为唯一权威来源，通过 Controller 代码注解自动生成，禁止手写维护
+- 环境变量清单 MUST 以 `docs/operations/环境变量清单.md` 为唯一权威来源
+- 当 SSOT 与其他文档冲突时，以 SSOT 为准，其他文档 MUST 同步修正
+
+#### 11.3 specs/ 与 docs/ 的边界
+
+- `specs/` 描述"功能设计档案"（设计时的决策与权衡），保持冻结
+- `docs/` 描述"系统当前状态"（实现后的实际行为），随实现同步更新
+- 二者通过链接互引，不互相覆盖
+- 新功能开发 MUST 通过 Spec Kit 工作流在 `specs/` 产生设计制品，实现完成后 MUST 将"系统当前状态"同步到 `docs/`
+
+#### 11.4 文档语言与格式
+
+- 所有 `docs/` 主题文档 MUST 使用简体中文（遵循原则 IV）
+- `CHANGELOG.md` MUST 遵循 Keep a Changelog 格式，版本倒序，含 Added/Changed/Fixed/Removed 分类
+- `docs/05-API接口文档.md` MUST 通过代码注解自动生成，避免文档与实现漂移
+
+**理由**：011-docs-system-optimization 已将散落在 AGENTS.md、README.md 与多个 spec 中的文档重组为三层结构。固化此结构可避免文档多头入口导致的新人无从选择问题，SSOT 约束可消除配置/API 散落多处的交叉比对成本，specs/ 冻结与 docs/ 同步的边界划分可让"设计档案"与"当前状态"各司其职，不互相覆盖。
 
 ## 技术约束
 
@@ -351,6 +414,7 @@ API 调用和文件系统操作是媒体同步系统的核心交互路径。没�
 - **容器化**：Docker（多阶段构建） + Docker Compose（单机编排）
 - **部署**：Docker 镜像通过环境变量注入配置，支持 Windows 开发环境与 Linux 生产环境
 - **诊断**：MUST 同时提供 `diagnose.sh` / `diagnose.bat` 脚本入口、`POST /api/diagnostics/run` API 入口与 Web 入口，覆盖本地、Docker、一体化启动包三种部署形态
+- **文档基础设施**：项目 MUST 维持三层文档结构（根级入口 + `docs/` 主题文档 + `specs/` 冻结档案，见原则 XI）；`docs/05-API接口文档.md` MUST 通过 SpringDoc OpenAPI 基于代码注解自动生成；`CHANGELOG.md` MUST 遵循 Keep a Changelog 格式
 
 ## 开发工作流
 
@@ -370,8 +434,10 @@ API 调用和文件系统操作是媒体同步系统的核心交互路径。没�
 - 代码审查 MUST 检查日志级别使用是否符合原则 VII 的分级标准
 - 代码审查 MUST 验证 traceId / MDC 字段的注入与清理，error.log 分流是否生效，X-Trace-Id 响应头是否覆盖所有 `/api/**` 路径（原则 VII §7.3–§7.5）
 - 代码审查 MUST 检查日志与诊断包是否完成敏感数据脱敏（原则 VII §7.6）
+- 代码审查 MUST 检查文档同步是否覆盖 `docs/` 对应主题文档与 `CHANGELOG.md`（原则 IX、XI）
+- 代码审查 MUST 验证配置/API 变更是否以 `docs/04` / `docs/05` 为 SSOT 更新，无其他文档重复维护权威内容（原则 XI §11.2）
 - 所有 API 变更 MUST 同步更新对应的 API 文档
-- 实现阶段完成 MUST 包含 README.md 更新（原则 IX）
+- 实现阶段完成 MUST 包含 `docs/` 主题文档与 `CHANGELOG.md` 更新（原则 IX、XI）
 - 章程更新完成 MUST 包含 AGENTS.md 文件同步（原则 X）
 - 每个 Spec Kit 工作流阶段完成后 MUST 验证 spec.md 状态字段已同步更新（原则 VIII）
 
@@ -412,6 +478,36 @@ constitution.md  >  AGENTS.md（根级）  >  前端/后端 AGENTS.md  >  各模
 - 模块 AGENTS.md 中的说明 MUST 对齐上级 AGENTS.md，可在此基础上细化模块特定约束
 - 模块 AGENTS.md 之间的关联描述 MUST 与对应模块 AGENTS.md 的自述一致
 
+### 人类开发者文档体系
+
+项目使用三层文档结构指导人类开发者，各层职责互不覆盖（详见原则 XI）：
+
+```
+根级入口（README/AGENTS/CHANGELOG/CONTRIBUTING）  >  docs/ 主题文档  >  specs/ 冻结档案
+   导航与速查                                          系统当前状态       功能设计档案
+```
+
+| 层级 | 目录/文件 | 作用范围 | 适用场景 |
+|------|----------|---------|---------|
+| 1（入口） | `README.md` / `AGENTS.md` / `CHANGELOG.md` / `CONTRIBUTING.md` | 全局 | 首次了解项目、快速部署、版本演进、贡献流程 |
+| 2（主题） | `docs/`（01-06 编号 + `architecture/` + `operations/`） | 全局/模块 | 环境搭建、架构理解、配置查询（SSOT）、API 查询（SSOT）、运维部署、故障排查 |
+| 3（档案） | `specs/`（各功能 spec/plan/tasks/contracts） | 功能 | 了解某功能的设计决策与权衡（非当前状态） |
+| 外部参考 | `md/`（`alist/` / `danmuji/`） | 外部对接 | 修改对接代码前查阅外部系统 API 契约 |
+
+**单一权威来源（SSOT）映射：**
+
+| 内容 | SSOT 文件 | 禁止重复维护 |
+|------|----------|-------------|
+| 配置项（app.* 环境变量映射、默认值） | `docs/04-配置说明.md` | README/AGENTS/Dockerfile/.env 模板 |
+| API 端点契约 | `docs/05-API接口文档.md`（注解生成） | 各 spec 的 contracts/、AGENTS.md |
+| 环境变量清单 | `docs/operations/环境变量清单.md` | Dockerfile、.env 模板 |
+
+**冲突解决规则：**
+
+- 当 SSOT 与其他文档冲突时，以 SSOT 为准，其他文档 MUST 同步修正
+- `specs/` 冻结档案与 `docs/` 当前状态冲突时，以 `docs/` 为准（specs 仅记录设计时决策）
+- `md/` 外部对接参考与外部系统实际契约冲突时，以外部系统契约为事实来源
+
 **修订流程**：
 
 - 章程修订 MUST 通过 `/speckit-constitution` 命令进行，确保依赖模板同步更新
@@ -425,4 +521,4 @@ constitution.md  >  AGENTS.md（根级）  >  前端/后端 AGENTS.md  >  各模
 - 违反不可协商原则（标记为「不可协商」的条目）的代码 MUST 被拒绝
 - 技术约束的例外 MUST 在 plan.md 的「复杂性追踪」表格中记录并获得批准
 
-**版本**：1.9.0 | **批准日期**：2026-06-19 | **最近修订**：2026-06-27
+**版本**：1.10.0 | **批准日期**：2026-06-19 | **最近修订**：2026-07-02
