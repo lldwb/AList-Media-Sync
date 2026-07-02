@@ -2,6 +2,7 @@ package top.lldwb.alistmediasync.transcode.dto.transcode;
 
 import com.fasterxml.jackson.annotation.JsonAlias;
 import com.fasterxml.jackson.annotation.JsonProperty;
+import io.swagger.v3.oas.annotations.media.Schema;
 import jakarta.validation.constraints.NotBlank;
 import jakarta.validation.constraints.NotNull;
 import lombok.Data;
@@ -13,10 +14,12 @@ import top.lldwb.alistmediasync.transcode.entity.TranscodeTask;
  * @author AList-Media-Sync
  */
 @Data
+@Schema(description = "转码任务创建请求")
 public class TranscodeTaskCreateDTO {
 
     /** 源文件在 AList 中的完整路径 */
     @NotBlank(message = "源文件路径不能为空")
+    @Schema(description = "源文件在 AList 中的完整路径", example = "/recordings/live.flv", requiredMode = Schema.RequiredMode.REQUIRED)
     private String sourceFilePath;
 
     /**
@@ -26,16 +29,20 @@ public class TranscodeTaskCreateDTO {
      * 当 {@code sourceDirectoryTranscode=false} 时必填。
      * </p>
      */
+    @Schema(description = "目标文件完整路径（sourceDirectoryTranscode=true 时可选，否则必填）", example = "/media/live.mp4")
     private String targetFilePath;
 
     /** 目标格式（MP3/MP4/FLV） */
     @NotNull(message = "目标格式不能为空")
+    @Schema(description = "目标格式（MP3/MP4/FLV）", example = "MP3", requiredMode = Schema.RequiredMode.REQUIRED)
     private TranscodeTask.TargetFormat targetFormat = TranscodeTask.TargetFormat.MP3;
 
     /** 音频比特率（bps，默认 128kbps） */
+    @Schema(description = "音频比特率（bps，默认 128kbps）", example = "128000")
     private Integer bitrate = 128000;
 
     /** 源存储引擎 ID（从 AList 下载） */
+    @Schema(description = "源存储引擎 ID（从 AList 下载）", example = "1")
     private Long sourceEngineId;
 
     /**
@@ -45,6 +52,7 @@ public class TranscodeTaskCreateDTO {
      * 当 {@code sourceDirectoryTranscode=false} 时必填。
      * </p>
      */
+    @Schema(description = "目标存储引擎 ID（上传转码结果，sourceDirectoryTranscode=true 时可为空）", example = "2")
     private Long targetEngineId;
 
     /**
@@ -65,5 +73,6 @@ public class TranscodeTaskCreateDTO {
      */
     @JsonProperty("sourceDirectoryTranscode")
     @JsonAlias({"sameDirectoryTranscode"})
+    @Schema(description = "源目录转码选项（默认 false，启用时输出文件自动放置在源文件所在目录）", example = "false")
     private Boolean sourceDirectoryTranscode = false;
 }

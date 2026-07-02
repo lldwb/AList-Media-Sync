@@ -23,7 +23,10 @@ import java.util.Base64;
  * 拦截器仅处理 {bcrypt} 格式的密码验证。
  * </p>
  * <p>
- * 排除路径：/api/webhooks/**  /actuator/health  /h2-console/**
+ * 排除路径：/api/webhooks/**  /actuator/health  /h2-console/**  /v3/api-docs**  /swagger-ui**
+ * <p>
+ * SpringDoc 端点（/v3/api-docs、/swagger-ui）始终放行，生产环境通过
+ * springdoc.*.enabled=false 禁用端点本身实现访问控制（见 application.yaml）。
  * </p>
  *
  * @author AList-Media-Sync
@@ -35,7 +38,12 @@ public class AuthInterceptor implements HandlerInterceptor {
     private static final String[] EXCLUDE_PATHS = {
         "/api/webhooks",
         "/actuator/health",
-        "/h2-console"
+        "/h2-console",
+        // SpringDoc OpenAPI 端点：放行以便开发环境访问 Swagger UI 与 OpenAPI JSON/YAML。
+        // 生产环境的访问控制由 springdoc.api-docs.enabled / springdoc.swagger-ui.enabled 控制
+        //（通过环境变量 SPRINGDOC_API_DOCS_ENABLED / SPRINGDOC_SWAGGER_UI_ENABLED 设为 false 禁用端点）。
+        "/v3/api-docs",
+        "/swagger-ui"
     };
 
     private final AppProperties appProperties;
