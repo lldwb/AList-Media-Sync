@@ -2,13 +2,15 @@
 
 ## AI 工作指令
 
-以下规则约束 AI 在此项目中的行为，优先级高于任何默认行为。**规则与 `.specify/memory/constitution.md`（章程版本 1.9.0）的不可协商原则对齐，冲突时以章程为准**。
+以下规则约束 AI 在此项目中的行为，优先级高于任何默认行为。**规则与 `.specify/memory/constitution.md`（章程版本 1.10.0）的不可协商原则对齐，冲突时以章程为准**。
 
 > **文件权重体系**：constitution.md（宪法）> AGENTS.md 根级（法律·全局）> 前端/后端 AGENTS.md（行政法规）> 模块 AGENTS.md（地方性法规）。本文件为全局级法律层，覆盖项目的日常修改和 AI 行为约束，前端/后端及各模块 AGENTS.md 在此基础上逐级细化。
+> **人类开发者文档体系**（与 AI 上下文体系并列）：根级入口（README/AGENTS/CHANGELOG/CONTRIBUTING）> docs/ 主题文档（系统当前状态）> specs/ 冻结档案（功能设计档案）。详见章程原则 XI。
 
 1. **直接执行，跳过冗余分析** — 收到任务后直接开始实现，不要先输出"我先了解代码库结构"或"让我分析需求"之类的开场白。AGENTS.md 已包含足够的架构上下文，直接动手。
 2. **先读模块 AGENTS.md** — 修改某个模块前，先读取该模块目录下的 `AGENTS.md` 了解功能、作用和关联。模块索引见下方"模块 AGENTS.md 索引"章节。
 3. **禁止凭空编写规格文档** — 除非用户明确要求编写 spec/plan/tasks，否则不要创建或修改 `specs/` 目录下的任何文件。功能设计通过代码和注释表达。（对应章程原则 VI: YAGNI）
+   - `specs/` 为冻结档案，描述设计决策而非当前状态；`docs/` 为系统当前状态，随实现同步更新（对应章程原则 XI）
 4. **先读后改，精准定位** — 修改前先阅读目标文件，理解现有实现后再改。不要猜测代码内容。
 5. **最小化输出** — 完成任务后简要说明做了什么，不要长篇总结。代码本身就是最好的文档。
 6. **遵循现有模式** — 新增代码保持与同模块现有代码一致的风格、命名和注释密度。不要引入新的架构模式除非任务明确要求。
@@ -16,6 +18,7 @@
 8. **代码变更必须同步测试** — 每次修改 Java 类文件后，MUST 同步修改或新增对应的单元测试。（章程原则 V）
 9. **日志规范不可省略** — 所有重要操作 MUST 按 DEBUG/INFO/WARN/ERROR 四级输出日志，API 调用和本地文件操作 MUST 记录输入输出。任务入口 MUST 通过 `TraceContext.runWith(...)` 注入 traceId / module / operation MDC 字段；ERROR 级别日志 MUST 同时写入 `app.log` 与 `error.log`；所有 `/api/**` 响应 MUST 携带 `X-Trace-Id`；日志与诊断包 MUST NOT 出现密码 / Token / 密钥等敏感原始值。（章程原则 VII）
 10. **中文优先** — 所有文档、注释、日志消息、提交信息 MUST 使用简体中文。对外 API 字段名和错误信息使用英文。（章程原则 IV）
+11. **实现后文档同步** — 实现完成后 MUST 同步更新 `docs/` 对应主题文档（配置→docs/04、API→docs/05、架构→docs/03+architecture/、运维→docs/06+operations/）与 `CHANGELOG.md`（Keep a Changelog 格式）。配置/API 以 docs/04、docs/05 为 SSOT，禁止在其他文档重复维护权威内容。（章程原则 IX、XI）
 
 ---
 
@@ -35,19 +38,24 @@
 | 8 | spec.md 状态字段已同步更新 | VIII |
 | 9 | `/speckit-implement` 后 README.md 已更新 | IX |
 | 10 | `/speckit-constitution` 后 AGENTS.md 已同步 | X |
+| 11 | `docs/` 主题文档与 `CHANGELOG.md` 已同步，配置/API 以 SSOT 为准 | IX、XI |
 
 ---
 
 ## 项目文档导航
 
-> 详细的架构总览、环境搭建、配置说明、API 文档、运维部署已迁移至 `docs/` 目录，本文件仅保留 AI 协作指令与模块索引。
+项目采用三层文档结构（章程原则 XI）：根级入口（导航与速查）> `docs/` 主题文档（系统当前状态）> `specs/` 冻结档案（功能设计档案）。本文件仅保留 AI 协作指令与模块索引。
 
-- **项目概述与架构**：[`docs/01-项目概述.md`](docs/01-项目概述.md) · [`docs/03-架构设计.md`](docs/03-架构设计.md) · [`docs/architecture/`](docs/architecture/)（五大模块细化）
-- **开发与部署**：[`docs/02-开发环境搭建.md`](docs/02-开发环境搭建.md) · [`docs/06-运维部署.md`](docs/06-运维部署.md)
-- **配置与 API**：[`docs/04-配置说明.md`](docs/04-配置说明.md) · [`docs/05-API接口文档.md`](docs/05-API接口文档.md)
-- **运维参考**：[`docs/operations/`](docs/operations/)（环境变量清单、故障排查与日志）
-- **贡献与变更**：[`CONTRIBUTING.md`](CONTRIBUTING.md) · [`CHANGELOG.md`](CHANGELOG.md)
-- **项目章程**：[`.specify/memory/constitution.md`](.specify/memory/constitution.md)（10 条不可协商原则，最高开发准则）
+- **根级入口**：[`README.md`](README.md)（快速开始）· [`CHANGELOG.md`](CHANGELOG.md)（版本演进）· [`CONTRIBUTING.md`](CONTRIBUTING.md)（贡献指南）· [`.specify/memory/constitution.md`](.specify/memory/constitution.md)（项目章程·11 条不可协商原则）
+- **主题文档**（`docs/`，SSOT 所在）：
+  - 项目概述：[`docs/01-项目概述.md`](docs/01-项目概述.md)
+  - 开发环境搭建：[`docs/02-开发环境搭建.md`](docs/02-开发环境搭建.md)
+  - 架构设计：[`docs/03-架构设计.md`](docs/03-架构设计.md) · [`docs/architecture/`](docs/architecture/)（五大模块细化 + 交叉关注点）
+  - 配置说明（**配置 SSOT**）：[`docs/04-配置说明.md`](docs/04-配置说明.md)
+  - API 接口文档（**API SSOT**，注解生成）：[`docs/05-API接口文档.md`](docs/05-API接口文档.md)
+  - 运维部署：[`docs/06-运维部署.md`](docs/06-运维部署.md) · [`docs/operations/`](docs/operations/)（环境变量清单、故障排查与日志）
+- **冻结档案**（`specs/`，功能设计档案，描述设计决策而非当前状态）：见下方"引用规格文档"
+- **外部对接参考**（`md/`，外部系统 API 契约，以外部契约为事实来源）：见下方"对接系统文档"
 
 ---
 
