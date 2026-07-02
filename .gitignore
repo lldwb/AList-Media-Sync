@@ -35,6 +35,9 @@ build/
 ### Docker ###
 .env
 *.log
+*.log.gz
+logs/
+/logs/
 /src/main/resources/static/app/
 /data/
 /src/main/resources/static/
