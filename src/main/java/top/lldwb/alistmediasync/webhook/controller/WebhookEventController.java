@@ -1,5 +1,8 @@
 package top.lldwb.alistmediasync.webhook.controller;
 
+import io.swagger.v3.oas.annotations.Operation;
+import io.swagger.v3.oas.annotations.responses.ApiResponse;
+import io.swagger.v3.oas.annotations.tags.Tag;
 import lombok.RequiredArgsConstructor;
 import org.springframework.web.bind.annotation.*;
 import top.lldwb.alistmediasync.common.dto.ApiResult;
@@ -20,6 +23,7 @@ import java.util.List;
 @RestController
 @RequestMapping("/api/webhooks")
 @RequiredArgsConstructor
+@Tag(name = "Webhook 事件", description = "Webhook 接收事件的只读分页查询")
 public class WebhookEventController {
 
     private final WebhookService webhookService;
@@ -32,6 +36,8 @@ public class WebhookEventController {
      * @return 事件分页结果
      */
     @GetMapping("/events")
+    @Operation(summary = "分页查询 Webhook 事件列表", operationId = "listEvents", description = "按创建时间倒序分页查询 Webhook 事件列表，供前端事件列表页使用")
+    @ApiResponse(responseCode = "200", description = "查询成功，返回事件分页结果")
     public ApiResult<List<WebhookEventVO>> listEvents(
         @RequestParam(defaultValue = "1") int page,
         @RequestParam(defaultValue = "20") int size

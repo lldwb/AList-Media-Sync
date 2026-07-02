@@ -65,6 +65,24 @@ logging:
     console: "%d{yyyy-MM-dd HH:mm:ss.SSS} %-5level [%thread] [traceId=%X{traceId:-}] [module=%X{module:-}] [operation=%X{operation:-}] [errorType=%X{errorType:-}] %logger{36} - %msg%n"
     file: "%d{yyyy-MM-dd HH:mm:ss.SSS} %-5level [%thread] [traceId=%X{traceId:-}] [module=%X{module:-}] [operation=%X{operation:-}] [errorType=%X{errorType:-}] %logger{36} - %msg%n"
 
+# ============================================================
+# SpringDoc OpenAPI 配置
+# ============================================================
+# 通过代码注解（@Tag/@Operation/@Schema）自动生成 API 文档。
+# 运行时端点：/v3/api-docs（JSON）、/v3/api-docs.yaml（YAML）、/swagger-ui.html（UI）。
+# 静态导出：./mvnw verify -Pgen-api-doc 生成 target/openapi.{json,yaml}，
+#           再由 scripts/gen-api-doc 转换为 docs/05-API接口文档.md（派生产物）。
+# 生产环境建议禁用 api-docs 与 swagger-ui，避免未认证访问暴露 API 结构。
+springdoc:
+  api-docs:
+    path: /v3/api-docs
+    enabled: ${SPRINGDOC_API_DOCS_ENABLED:true}
+  swagger-ui:
+    path: /swagger-ui.html
+    enabled: ${SPRINGDOC_SWAGGER_UI_ENABLED:true}
+  packages-to-scan: top.lldwb.alistmediasync
+  show-actuator: false
+
 # AList 连接配置（必填，由环境变量注入）
 alist:
   base-url: ${ALIST_BASE_URL:}         # AList 服务器地址（如 https://alist.example.com）

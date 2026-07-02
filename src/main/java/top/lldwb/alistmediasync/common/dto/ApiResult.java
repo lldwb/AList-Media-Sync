@@ -1,6 +1,7 @@
 package top.lldwb.alistmediasync.common.dto;
 
 import com.fasterxml.jackson.annotation.JsonInclude;
+import io.swagger.v3.oas.annotations.media.Schema;
 import lombok.Getter;
 
 /**
@@ -15,15 +16,19 @@ import lombok.Getter;
  */
 @Getter
 @JsonInclude(JsonInclude.Include.NON_NULL)
+@Schema(description = "统一响应封装结构")
 public class ApiResult<T> {
 
     /** HTTP 状态码 */
+    @Schema(description = "HTTP 状态码", example = "200", requiredMode = Schema.RequiredMode.REQUIRED)
     private final int code;
 
     /** 提示消息（成功或错误描述） */
+    @Schema(description = "提示消息（成功或错误描述）", example = "操作成功", requiredMode = Schema.RequiredMode.REQUIRED)
     private final String message;
 
     /** 响应数据（成功时返回，可能为 null） */
+    @Schema(description = "响应数据（成功时返回，可能为 null）", example = "{\"id\":1}")
     private final T data;
 
     private ApiResult(int code, String message, T data) {

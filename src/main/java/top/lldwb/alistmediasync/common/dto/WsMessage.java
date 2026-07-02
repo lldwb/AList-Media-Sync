@@ -1,5 +1,7 @@
 package top.lldwb.alistmediasync.common.dto;
 
+import io.swagger.v3.oas.annotations.media.Schema;
+
 /**
  * WebSocket 消息 DTO
  * <p>
@@ -13,8 +15,14 @@ package top.lldwb.alistmediasync.common.dto;
  *
  * @author AList-Media-Sync
  */
+@Schema(description = "WebSocket 推送消息")
 public record WsMessage(
+    @Schema(description = "消息类型（MessageType 枚举值的字符串形式）", example = "SYNC_TASK_UPDATED", requiredMode = Schema.RequiredMode.REQUIRED)
     String type,
+
+    @Schema(description = "增量数据载荷（仅含变更字段）", example = "{\"id\":1,\"status\":\"RUNNING\"}", requiredMode = Schema.RequiredMode.REQUIRED)
     Object payload,
+
+    @Schema(description = "ISO 8601 时间戳，由 WsSessionManager 在推送时自动填充", example = "2026-07-02T10:30:00Z", requiredMode = Schema.RequiredMode.REQUIRED)
     String timestamp
 ) {}

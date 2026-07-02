@@ -69,6 +69,27 @@ class AuthInterceptorTest {
     }
 
     @Test
+    @DisplayName("排除路径 /v3/api-docs 应跳过认证（SpringDoc OpenAPI JSON 端点）")
+    void shouldSkipAuthForApiDocsPath() throws Exception {
+        request.setRequestURI("/v3/api-docs");
+        assertTrue(interceptor.preHandle(request, response, null));
+    }
+
+    @Test
+    @DisplayName("排除路径 /swagger-ui.html 应跳过认证（SpringDoc Swagger UI 入口）")
+    void shouldSkipAuthForSwaggerUiPath() throws Exception {
+        request.setRequestURI("/swagger-ui.html");
+        assertTrue(interceptor.preHandle(request, response, null));
+    }
+
+    @Test
+    @DisplayName("排除路径 /swagger-ui/index.html 应跳过认证（SpringDoc Swagger UI 资源）")
+    void shouldSkipAuthForSwaggerUiResourcePath() throws Exception {
+        request.setRequestURI("/swagger-ui/index.html");
+        assertTrue(interceptor.preHandle(request, response, null));
+    }
+
+    @Test
     @DisplayName("缺少 Authorization 请求头应返回 401")
     void shouldReturn401WhenNoAuthHeader() throws Exception {
         request.setRequestURI("/api/storage");

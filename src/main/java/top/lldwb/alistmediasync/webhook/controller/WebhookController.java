@@ -1,5 +1,8 @@
 package top.lldwb.alistmediasync.webhook.controller;
 
+import io.swagger.v3.oas.annotations.Operation;
+import io.swagger.v3.oas.annotations.responses.ApiResponse;
+import io.swagger.v3.oas.annotations.tags.Tag;
 import jakarta.servlet.http.HttpServletRequest;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
@@ -25,6 +28,7 @@ import java.util.Map;
 @RestController
 @RequestMapping("/api/webhooks")
 @RequiredArgsConstructor
+@Tag(name = "Webhook 接收", description = "录播姬 Webhook 事件接收端点")
 public class WebhookController {
 
     private final WebhookService webhookService;
@@ -35,6 +39,8 @@ public class WebhookController {
      * 响应时间 < 1 秒（仅入库 + 返回）
      */
     @PostMapping("/recorder")
+    @Operation(summary = "接收录播姬 Webhook 事件", operationId = "receiveRecorder", description = "接收录播姬 Webhook v2 协议的 HTTP POST 请求，立即返回 200 并异步处理事件，响应时间小于 1 秒")
+    @ApiResponse(responseCode = "200", description = "已接收事件，返回事件 ID")
     public ApiResult<String> receiveRecorder(@RequestBody Map<String, Object> body) {
         log.debug("收到录播姬 Webhook 请求：{}", body);
 
@@ -60,6 +66,8 @@ public class WebhookController {
      * </p>
      */
     @GetMapping("/address")
+    @Operation(summary = "获取 Webhook 接收 URL", operationId = "getWebhookAddress", description = "获取录播姬 Webhook V2 的完整接收 URL，优先使用 app.server-address 配置，未配置时使用当前请求的 origin")
+    @ApiResponse(responseCode = "200", description = "查询成功，返回完整的 Webhook 接收 URL")
     public ApiResult<String> getWebhookAddress(HttpServletRequest request) {
         String serverAddress = appProperties.getServerAddress();
         if (serverAddress == null || serverAddress.isBlank()) {
