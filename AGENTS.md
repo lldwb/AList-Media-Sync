@@ -114,4 +114,5 @@
 <!-- SPECKIT START -->
 - 轻量诊断系统：`specs/009-lightweight-diagnostics/plan.md`
 - 文档体系优化：`specs/011-docs-system-optimization/plan.md`
+- 端到端测试基础设施：`specs/012-e2e-test-infrastructure/plan.md`
 <!-- SPECKIT END -->
