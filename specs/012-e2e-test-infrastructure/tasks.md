@@ -33,7 +33,7 @@ description: "端到端测试基础设施的实现任务列表"
 
 - [ ] T001 创建测试目录结构：`src/test/java/top/lldwb/alistmediasync/{integration/repository,integration/client,e2e,support}/` 与 `src/test/resources/{fixtures/webhook,fixtures/media,fixtures/alist,wiremock/alist-mappings}/`
 - [ ] T002 [P] 在 `pom.xml` 添加 `wiremock-standalone` 依赖（test scope，版本锁定，research.md R1）
-- [ ] T003 [P] 在 `pom.xml` 添加 `maven-failsafe-plugin` 与 3 个 Maven profile（默认/`-Pintegration`/`-Pe2e`，surefire 排除 `*IT.java`/`*E2ETest.java`，research.md R2）
+- [ ] T003 [P] 在 `pom.xml` 添加 `maven-failsafe-plugin` 与 3 个 Maven profile（默认/`-Pintegration`/`-Pe2e`，surefire 排除 `*IT.java`/`*E2ETest.java`，research.md R2）；failsafe plugin 必须配置 `<forkCount>1</forkCount>` 与 `<reuseForks>false</reuseForks>` 以保证 E2E 链路间串行执行（对齐 FR-012、spec 澄清 line 15、research.md R2），禁止并行以避免端口与状态争抢；failsafe plugin 同时配置 `<forkedProcessExitTimeoutInSeconds>900</forkedProcessExitTimeoutInSeconds>` 作为套件级兜底（SC-006，防止 fork 进程挂死导致套件无限阻塞）
 - [ ] T004 [P] 在 `.gitignore` 添加 `scripts/e2e/bin/`、`scripts/e2e/data/`、`data-e2e/`、`scripts/e2e/data/ports.json`（二进制与运行时数据不纳入版本控制）
 
 ---
@@ -45,12 +45,12 @@ description: "端到端测试基础设施的实现任务列表"
 **⚠️ 关键**：在此阶段完成之前，不能开始任何用户故事的工作
 
 - [ ] T005 [P] 创建 `src/test/resources/application-e2e.yaml`：H2 文件模式（`jdbc:h2:file:./data-e2e/alistmediasync`）、`ddl-auto=create-drop`、独立数据目录 `./data-e2e/`、`server.port` 与 `alist.base-url` 占位（由 `E2ELifecycleManager` 动态注入，FR-014）、DEBUG 日志级别
-- [ ] T006 [P] 创建 `src/test/resources/fixtures/webhook/fileclosed-event.json` 与 `sessionstarted-event.json`：严格按 `md/danmuji/webhook.md` v2 协议四段式构造（EventType/EventId/EventTimestamp/EventData），`EventId` 用固定 UUID 便于幂等测试（data-model.md §2.1）
-- [ ] T007 [P] 创建 `src/test/resources/fixtures/media/sample.mp4`：小尺寸测试媒体（<5MB，短时长低码率），用于转码链路验证（research.md R6）
+- [ ] T006 [P] 创建 `src/test/resources/fixtures/webhook/fileclosed-event.json` 与 `sessionstarted-event.json`：严格按 `md/danmuji/webhook.md` v2 协议四段式构造（EventType/EventId/EventTimestamp/EventData），`EventId` 用固定 UUID 便于幂等测试（data-model.md §2.1）；MUST 同时提供 webhook fixtures 的 JSON Schema（或等价字段断言），在 `WebhookEventReplayer`（T012）加载 fixtures 时校验 payload 符合 `md/danmuji/webhook.md` v2 协议四段式结构（EventType/EventId/EventTimestamp/EventData），契约漂移时测试失败并报告缺失/多余字段（对应 spec 边界情况 line 94、research.md R5）
+- [ ] T007 [P] 创建 `src/test/resources/fixtures/media/sample.mp4`：小尺寸测试媒体（<5MB，短时长低码率），用于转码链路验证（research.md R6）；MUST 在构建或 CI 阶段校验 `src/test/resources/fixtures/` 目录总体积 < 10MB（plan.md 约束），超阈即构建失败以防止大体积媒体污染版本控制（对应 spec 边界情况 line 97）
 - [ ] T008 [P] 创建 `src/test/resources/fixtures/alist/list-response.json`：按 `md/alist/` 契约构造（`{code:200, message:"success", data:{content:[...], total}}`，data-model.md §2.3）
 - [ ] T009 [P] 创建 `src/test/resources/wiremock/alist-mappings/` 下 AList 9 端点桩映射：含 `/ping`（text/plain）、`/api/fs/list`、`/api/fs/put`（二进制流）、`/api/fs/mkdir`、`/api/fs/move`、`/api/fs/copy`、`/api/fs/remove`、`/api/fs/detail`、统一 `{code,message,data}` 响应结构 + 错误场景（401/403/404/500）
-- [ ] T010 创建 `src/test/java/top/lldwb/alistmediasync/support/E2ELifecycleManager.java`：动态端口分配（`ServerSocket(0)` 探测空闲端口，FR-014）、启动 AList 二进制实例、录播姬可选启动（`-Ddanmuji.enabled=true`）、端口注入配置、等待就绪探活、写入 `ports.json`（research.md R8）
-- [ ] T011 创建 `src/test/java/top/lldwb/alistmediasync/e2e/E2ETestBase.java`：`@BeforeAll` 强制清理（保证幂等）、`@AfterEach` 成功清理三级状态（数据库 TRUNCATE + 文件系统 + 临时文件）、失败时保留现场供诊断（FR-009）、链路间清理边界（FR-012，research.md R7）
+- [ ] T010 创建 `src/test/java/top/lldwb/alistmediasync/support/E2ELifecycleManager.java`：动态端口分配（`ServerSocket(0)` 探测空闲端口，FR-014）、启动 AList 二进制实例、录播姬可选启动（`-Ddanmuji.enabled=true`）、端口注入配置、等待就绪探活、写入 `ports.json`（research.md R8）；当 ServerSocket(0) 探测失败或可分配端口范围耗尽时，MUST 抛出 IllegalStateException 并输出可用端口范围提示与排查建议（如检查系统端口占用、调整 ephemeral port range），以非零退出码中止 E2E 套件，避免后续链路在错误端口状态下运行（对应 spec 边界情况 line 92）
+- [ ] T011 创建 `src/test/java/top/lldwb/alistmediasync/e2e/E2ETestBase.java`：`@BeforeAll` 强制清理（保证幂等）、`@AfterEach` 成功清理三级状态（数据库 TRUNCATE + 文件系统 + 临时文件）、失败时保留现场供诊断（FR-009）、链路间清理边界（FR-012，research.md R7）；E2E 链路测试类 MUST 标注 JUnit 5 `@Timeout(value = 15, unit = TimeUnit.MINUTES)`（SC-006 单链路全局超时阈值），超时即标记失败并按 FR-009 保留现场供诊断（不立即清理），由下次运行前强制清理保证幂等
 
 **检查点**：基础就绪 - 现在可以并行开始用户故事实现
 
