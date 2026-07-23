@@ -1,0 +1,12 @@
+{
+  "EventType": "SessionStarted",
+  "EventId": "e2e-test-sessionstarted-0001",
+  "EventTimestamp": "2026-07-23T11:55:00.000+08:00",
+  "EventData": {
+    "RoomId": 12345678,
+    "ShortId": 0,
+    "Name": "测试直播间",
+    "Title": "端到端测试直播标题",
+    "SessionId": "e2e-test-session-0001"
+  }
+}

@@ -130,6 +130,14 @@
             <artifactId>spring-boot-starter-websocket</artifactId>
         </dependency>
 
+        <!-- WireMock：AList REST 契约模拟（集成测试，research.md R1） -->
+        <dependency>
+            <groupId>org.wiremock</groupId>
+            <artifactId>wiremock-standalone</artifactId>
+            <version>3.9.1</version>
+            <scope>test</scope>
+        </dependency>
+
         <!-- SpringDoc OpenAPI：通过代码注解自动生成 API 文档（@Tag/@Operation/@Schema） -->
         <!-- v3.0.3 基于 Spring Boot 4.0.5，官方支持 Spring Boot 4.x，与项目 4.1.0 兼容 -->
         <dependency>
@@ -195,6 +203,21 @@
             <plugin>
                 <groupId>org.apache.maven.plugins</groupId>
                 <artifactId>maven-surefire-plugin</artifactId>
+                <configuration>
+                    <argLine>-Dfile.encoding=UTF-8 -Dstdout.encoding=UTF-8 -Dstderr.encoding=UTF-8</argLine>
+                    <!-- 排除集成测试与端到端测试，由 maven-failsafe-plugin 在 -Pintegration/-Pe2e profile 下驱动（FR-005） -->
+                    <excludes>
+                        <exclude>**/*IT.java</exclude>
+                        <exclude>**/*E2ETest.java</exclude>
+                    </excludes>
+                </configuration>
+            </plugin>
+
+            <!-- maven-failsafe-plugin：集成测试与端到端测试生命周期管理（research.md R2） -->
+            <!-- 默认不激活，通过 -Pintegration（*IT.java）或 -Pe2e（*E2ETest.java）profile 触发 -->
+            <plugin>
+                <groupId>org.apache.maven.plugins</groupId>
+                <artifactId>maven-failsafe-plugin</artifactId>
                 <configuration>
                     <argLine>-Dfile.encoding=UTF-8 -Dstdout.encoding=UTF-8 -Dstderr.encoding=UTF-8</argLine>
                 </configuration>
@@ -378,6 +401,76 @@
                                 <goals>
                                     <goal>generate</goal>
                                 </goals>
+                            </execution>
+                        </executions>
+                    </plugin>
+                </plugins>
+            </build>
+        </profile>
+
+        <!--
+            integration Profile：集成测试
+            激活：./mvnw verify -Pintegration
+            驱动：maven-failsafe-plugin 执行 *IT.java（Repository @DataJpaTest + AList WireMock 契约测试）
+            作用：验证数据持久化与外部契约交互的真实正确性，无外部二进制依赖（H2 内存 + WireMock 进程内）
+            详见 specs/012-e2e-test-infrastructure/contracts/e2e-maven-profile.md
+        -->
+        <profile>
+            <id>integration</id>
+            <build>
+                <plugins>
+                    <plugin>
+                        <groupId>org.apache.maven.plugins</groupId>
+                        <artifactId>maven-failsafe-plugin</artifactId>
+                        <executions>
+                            <execution>
+                                <goals>
+                                    <goal>integration-test</goal>
+                                    <goal>verify</goal>
+                                </goals>
+                                <configuration>
+                                    <includes>
+                                        <include>**/*IT.java</include>
+                                    </includes>
+                                </configuration>
+                            </execution>
+                        </executions>
+                    </plugin>
+                </plugins>
+            </build>
+        </profile>
+
+        <!--
+            e2e Profile：端到端测试
+            激活：./mvnw verify -Pe2e
+            驱动：maven-failsafe-plugin 执行 *E2ETest.java（3 条核心链路 + traceId 链路验证）
+            串行执行：forkCount=1, reuseForks=false 保证链路间串行（FR-012），避免端口与状态争抢
+            超时兜底：forkedProcessExitTimeoutInSeconds=900 防止 fork 进程挂死（SC-006）
+            外部依赖：E2ELifecycleManager 自动启动 AList 二进制、动态端口分配（FR-014）
+            事件驱动：WebhookEventReplayer 重放 fixtures/webhook/ 样本注入系统（FR-011）
+            详见 specs/012-e2e-test-infrastructure/contracts/e2e-maven-profile.md
+        -->
+        <profile>
+            <id>e2e</id>
+            <build>
+                <plugins>
+                    <plugin>
+                        <groupId>org.apache.maven.plugins</groupId>
+                        <artifactId>maven-failsafe-plugin</artifactId>
+                        <executions>
+                            <execution>
+                                <goals>
+                                    <goal>integration-test</goal>
+                                    <goal>verify</goal>
+                                </goals>
+                                <configuration>
+                                    <includes>
+                                        <include>**/*E2ETest.java</include>
+                                    </includes>
+                                    <forkCount>1</forkCount>
+                                    <reuseForks>false</reuseForks>
+                                    <forkedProcessExitTimeoutInSeconds>900</forkedProcessExitTimeoutInSeconds>
+                                </configuration>
                             </execution>
                         </executions>
                     </plugin>

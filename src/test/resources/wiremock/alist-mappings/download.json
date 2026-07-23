@@ -1,0 +1,13 @@
+{
+  "request": {
+    "method": "GET",
+    "urlPattern": "/download/.*"
+  },
+  "response": {
+    "status": 200,
+    "body": "fake-file-content",
+    "headers": {
+      "Content-Type": "application/octet-stream"
+    }
+  }
+}

@@ -1,0 +1,21 @@
+{
+  "version": "1.0",
+  "description": "AList E2E 测试配置模板",
+  "data_dir": "${DATA_DIR}",
+  "port": ${PORT},
+  "force": true,
+  "storage": {
+    "mount_path": "/e2e-test",
+    "driver": "Local",
+    "status": "work",
+    "addition": {
+      "root_folder_path": "${DATA_DIR}"
+    }
+  },
+  "log": {
+    "enable": true,
+    "name": "alist-e2e.log",
+    "max_size": 10,
+    "max_backups": 3
+  }
+}

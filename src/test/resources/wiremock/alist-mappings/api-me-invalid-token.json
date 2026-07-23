@@ -1,0 +1,19 @@
+{
+  "request": {
+    "method": "GET",
+    "url": "/api/me",
+    "headers": {
+      "Authorization": {
+        "equalTo": "invalid"
+      }
+    }
+  },
+  "response": {
+    "status": 200,
+    "jsonBody": {
+      "code": 401,
+      "message": "unauthorized",
+      "data": null
+    }
+  }
+}

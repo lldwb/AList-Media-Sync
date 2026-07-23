@@ -1,0 +1,36 @@
+# ============================================================
+# AList-Media-Sync E2E 测试配置（e2e profile）
+# ============================================================
+# 端口由 E2ELifecycleManager 动态注入（FR-014），此处为占位符
+# 数据目录独立于生产环境（./data-e2e/），避免污染开发数据
+# ============================================================
+
+spring:
+  datasource:
+    # H2 文件模式：贴近生产 application.yaml 配置，独立数据目录防止污染
+    url: jdbc:h2:file:./data-e2e/alistmediasync;MODE=MySQL
+    driver-class-name: org.h2.Driver
+    username: sa
+    password:
+  jpa:
+    hibernate:
+      ddl-auto: create-drop
+    show-sql: false
+
+server:
+  port: 0  # 占位，由 E2ELifecycleManager 动态注入
+
+app:
+  data-dir: ./data-e2e/app/
+  auth:
+    username: admin
+    password: "{bcrypt}$2a$10$e2etestplaceholderhashfore2e"
+  transcode:
+    temp-dir: ./data-e2e/transcode-tmp/
+
+alist:
+  base-url: http://localhost:0  # 占位，由 E2ELifecycleManager 动态注入
+
+logging:
+  level:
+    top.lldwb.alistmediasync: DEBUG
