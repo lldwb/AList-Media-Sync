@@ -1,0 +1,32 @@
+{
+  "request": {
+    "method": "POST",
+    "url": "/api/fs/list"
+  },
+  "response": {
+    "status": 200,
+    "jsonBody": {
+      "code": 200,
+      "message": "success",
+      "data": {
+        "content": [
+          {
+            "name": "test-recording.mp4",
+            "path": "/e2e-test/test-recording.mp4",
+            "is_dir": false,
+            "size": 5242880,
+            "modified": "2026-07-23T12:05:00+08:00"
+          },
+          {
+            "name": "test-folder",
+            "path": "/e2e-test/test-folder",
+            "is_dir": true,
+            "size": 0,
+            "modified": "2026-07-23T12:00:00+08:00"
+          }
+        ],
+        "total": 2
+      }
+    }
+  }
+}

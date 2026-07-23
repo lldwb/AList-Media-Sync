@@ -1,0 +1,22 @@
+# 录播姬 E2E 测试配置模板
+# 占位符 ${WEBUI_PORT}、${WORK_DIR}、${WEBHOOK_URL} 由 start-danmuji.ps1 注入
+
+[Recorder]
+Enable = true
+WorkDir = "${WORK_DIR}"
+
+[WebUI]
+Enable = true
+Port = ${WEBUI_PORT}
+
+[Webhook]
+Enable = true
+Url = "${WEBHOOK_URL}"
+
+[Stream]
+DefaultQuality = "Best"
+BufferDuration = 5
+
+[Output]
+Flv = true
+Mp4 = false

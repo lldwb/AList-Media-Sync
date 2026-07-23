@@ -1,0 +1,27 @@
+{
+  "request": {
+    "method": "POST",
+    "url": "/api/fs/get",
+    "bodyPatterns": [
+      {
+        "matchesJsonPath": "$.path"
+      }
+    ]
+  },
+  "response": {
+    "status": 200,
+    "jsonBody": {
+      "code": 200,
+      "message": "success",
+      "data": {
+        "name": "test-recording.mp4",
+        "path": "/e2e-test/test-recording.mp4",
+        "is_dir": false,
+        "size": 5242880,
+        "modified": "2026-07-23T12:05:00+08:00",
+        "raw_url": "http://localhost:{{request.requestLine.port}}/download/e2e-test/test-recording.mp4"
+      }
+    },
+    "transformers": ["response-template"]
+  }
+}

@@ -42,3 +42,9 @@ logs/
 /data/
 /src/main/resources/static/
 /.codemoss/
+
+### E2E 测试运行时数据 ###
+scripts/e2e/bin/
+scripts/e2e/data/
+data-e2e/
+scripts/e2e/data/ports.json

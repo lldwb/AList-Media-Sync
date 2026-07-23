@@ -1,0 +1,22 @@
+{
+  "request": {
+    "method": "GET",
+    "url": "/api/me",
+    "headers": {
+      "Authorization": {
+        "matches": "^(?!invalid).*"
+      }
+    }
+  },
+  "response": {
+    "status": 200,
+    "jsonBody": {
+      "code": 200,
+      "message": "success",
+      "data": {
+        "id": 1,
+        "username": "e2e-test-admin"
+      }
+    }
+  }
+}

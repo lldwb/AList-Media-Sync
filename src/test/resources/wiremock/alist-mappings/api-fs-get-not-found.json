@@ -1,0 +1,19 @@
+{
+  "request": {
+    "method": "POST",
+    "url": "/api/fs/get",
+    "bodyPatterns": [
+      {
+        "matchesJsonPath": "$[?(@.path == '/nonexistent')]"
+      }
+    ]
+  },
+  "response": {
+    "status": 200,
+    "jsonBody": {
+      "code": 404,
+      "message": "object not found",
+      "data": null
+    }
+  }
+}

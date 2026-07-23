@@ -1,0 +1,14 @@
+{
+  "request": {
+    "method": "POST",
+    "url": "/api/fs/remove"
+  },
+  "response": {
+    "status": 200,
+    "jsonBody": {
+      "code": 200,
+      "message": "success",
+      "data": null
+    }
+  }
+}
