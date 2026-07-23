@@ -1,6 +1,6 @@
 # 实现计划：端到端测试基础设施
 
-**分支**：`012-e2e-test-infrastructure` | **日期**：2026-07-19 | **规格**：[spec.md](./spec.md)
+**分支**：`012-e2e-test-infrastructure` | **日期**：2026-07-23 | **规格**：[spec.md](./spec.md)
 
 **输入**：来自 `/specs/012-e2e-test-infrastructure/spec.md` 的功能规格
 
@@ -10,11 +10,12 @@
 
 核心交付：
 - **集成测试层**：6 个 Repository 的 `@DataJpaTest` 集成测试（验证乐观锁、事务、幂等去重等数据完整性约束）+ AList 客户端的 WireMock 契约测试（验证 9 个公共方法符合 AList REST 契约）
-- **端到端测试层**：3 条核心业务链路（webhook 触发同步、手动同步、转码）+ traceId 全链路验证，通过真实二进制实例驱动
-- **环境准备脚本**：一键下载 AList 与录播姬二进制到项目 `scripts/e2e/bin/`，幂等可重复
-- **Maven profile 隔离**：`-Pe2e` 触发 E2E、`-Pintegration` 触发集成测试，不污染常规 `mvn test`
+- **端到端测试层**：3 条核心业务链路（webhook 触发同步、手动同步、转码）+ traceId 全链路验证，通过 **webhook payload 重放驱动**（版本化 fixtures 注入真实系统 + 真实 AList 二进制实例），录播姬仅作为可选验证，不依赖真实直播源（FR-011）
+- **环境准备脚本**：一键下载 AList 二进制（录播姬二进制可选）到项目 `scripts/e2e/bin/`，幂等可重复
+- **Maven profile 隔离**：`-Pe2e` 触发 E2E、`-Pintegration` 触发集成测试，不污染常规 `mvn test`；E2E 纳入 CI 仅以 nightly 定时运行，不阻塞 PR 流水线（FR-013）
+- **动态端口分配**：E2E 环境准备自动探测空闲端口并注入 AList/录播姬/系统配置，消除端口冲突风险（FR-014）
 
-技术方法：复用项目已有的 H2 嵌入式数据库（集成测试）+ 引入 WireMock（AList 契约模拟）+ maven-failsafe-plugin（慢速测试生命周期管理）；E2E 通过 `@SpringBootTest` 全量上下文 + 真实外部二进制实例实现。
+技术方法：复用项目已有的 H2 嵌入式数据库（集成测试）+ 引入 WireMock（AList 契约模拟）+ maven-failsafe-plugin（慢速测试生命周期管理）；E2E 通过 `@SpringBootTest` 全量上下文 + 真实 AList 二进制实例 + webhook payload 重放注入实现，失败时保留现场供诊断、下次运行前强制清理（FR-009）。
 
 ## 技术上下文
 
@@ -31,7 +32,7 @@
 **测试**：
 - 单元测试（已有 37 个）：JUnit 5 + Mockito + MockMvc，`@ExtendWith(MockitoExtension.class)` / `@WebMvcTest`
 - 集成测试（新增）：`@DataJpaTest`（Repository 层，真实 H2）+ WireMock（AList 客户端契约，端口动态分配）
-- 端到端测试（新增）：`@SpringBootTest(webEnvironment=RANDOM_PORT)` + 真实 AList/录播姬二进制 + TestRestTemplate
+- 端到端测试（新增）：`@SpringBootTest(webEnvironment=RANDOM_PORT)` + 真实 AList 二进制 + webhook payload 重放注入（`WebhookEventReplayer`）+ TestRestTemplate；录播姬二进制可选，不依赖真实直播源（FR-011）
 - 测试驱动：`maven-surefire-plugin`（单元测试，已有）+ `maven-failsafe-plugin`（集成/E2E，`*IT.java` 命名约定，新增）
 
 **目标平台**：Windows 开发环境优先（二进制本地启动，`scripts/e2e/*.ps1`）；Linux 通过已有 `specs/003-docker-deploy` Docker 方案覆盖（`scripts/e2e/*.sh` 备选）
@@ -40,15 +41,16 @@
 
 **性能目标**：
 - 集成测试套件（6 Repository + AList 契约）< 60 秒完成
-- E2E 单链路（含录播姬录制-关闭-触发）< 5 分钟完成
-- E2E 环境准备（下载+启动）< 10 分钟（SC-001）
+- E2E 单链路（webhook 重放注入 + 真实 AList 同步 + 转码）< 5 分钟完成（重放注入取代录制等待，时长更可控）
+- E2E 环境准备（下载 AList 二进制 + 启动）< 10 分钟（SC-001）
 
 **约束**：
-- E2E 必须幂等可重复运行（SC-004，连续 3 次通过），每次运行前清理数据库+文件系统+临时文件
+- E2E 必须幂等可重复运行（SC-004，连续 3 次通过），每次运行前清理数据库+文件系统+临时文件；中途失败时保留现场供诊断，由下次运行前强制清理（FR-009）
 - E2E 通过独立 Maven profile 触发，不污染常规 `mvn test`（FR-005）
-- 测试 fixtures 体积 < 10MB（小尺寸媒体样本，纳入版本控制）
-- E2E 不依赖真实 B 站直播流自然结束，通过手动关闭直播触发"录制完成"事件（FR-011）
-- 端口冲突可检测与自动避让（AList 5344、录播姬 2356、系统 8080 占用时降级报告）
+- 测试 fixtures 体积 < 10MB（小尺寸媒体样本 + webhook payload JSON，纳入版本控制）
+- E2E 录播姬事件通过 webhook payload 重放驱动，不依赖真实直播源（FR-011）；录播姬二进制仅作为可选验证
+- E2E 纳入 CI 仅以 nightly 定时运行，PR 流水线不触发 E2E（FR-013）
+- 端口采用动态分配：自动探测空闲端口注入 AList/录播姬/系统配置，消除冲突风险（FR-014）
 
 **规模/范围**：
 - 6 个 Repository 集成测试（含 `@Query`、乐观锁、幂等去重等自定义方法）
@@ -69,7 +71,7 @@
 | V | 测试不可省略 | 本功能直接服务于原则 V：补全 Repository 集成测试（>60%）与外部 API 客户端集成测试，新增 E2E 覆盖核心链路。覆盖率目标对齐章程要求 | ✅ 通过 |
 | VI | 简洁至上（YAGNI） | **2 处违规需证明合理性**（见复杂性追踪）：① 引入 `wiremock-standalone`；② 引入 `maven-failsafe-plugin`。明确拒绝 Testcontainers（H2+二进制已够）与手写 stub 服务（易漂移） | ⚠️ 违规已证明（见下表） |
 | VII | 日志规范 | E2E 验证 traceId 全链路传播（`TraceContext.runWith` MDC 注入）、`error.log` 分流、`X-Trace-Id` 响应头覆盖 `/api/**`；E2E 复用 `scripts/diagnose.{sh,bat}` 收集诊断包验证链路可追溯 | ✅ 通过 |
-| VIII | 规格状态同步 | plan 完成后将 spec.md 状态从"草案"更新为"已计划" | ✅ 通过（本计划收尾执行） |
+| VIII | 规格状态同步 | plan 完成后将 spec.md 状态从"已澄清"更新为"已计划" | ✅ 通过（本计划收尾执行） |
 | IX | 实现后文档同步 | 实现后更新 `docs/02-开发环境搭建.md`（E2E 环境准备）、`docs/06-运维部署.md`（测试 profile 用法）、`CHANGELOG.md` 新增版本条目 | ✅ 通过（实现阶段执行） |
 | X | 章程更新与 AGENTS.md 同步 | 本功能不涉及章程修订，N/A | ✅ N/A |
 | XI | 文档体系结构 | E2E 环境准备文档同步到 `docs/02`，配置项（`app.e2e.*` 若有）同步到 `docs/04` SSOT，spec 冻结于 `specs/012` | ✅ 通过 |
@@ -115,20 +117,20 @@ src/
     │   │   └── client/                  #   AList 客户端 WireMock 契约测试
     │   │       └── AListStorageStrategyIT.java
     │   ├── e2e/                         # 【新增】端到端测试层
-    │   │   ├── E2ETestBase.java         #   基类：启动外部依赖、清理状态
+    │   │   ├── E2ETestBase.java         #   基类：启动外部依赖、清理状态、失败保留现场（FR-009）
     │   │   ├── WebhookSyncE2ETest.java  #   链路1：webhook 触发同步
     │   │   ├── ManualSyncE2ETest.java   #   链路2：手动同步任务
     │   │   ├── TranscodeE2ETest.java    #   链路3：转码任务
     │   │   └── TraceIdChainE2ETest.java #   traceId 全链路验证
     │   └── support/                     # 【新增】测试支持工具
-    │       ├── E2ELifecycleManager.java #   外部依赖生命周期管理
+    │       ├── E2ELifecycleManager.java #   外部依赖生命周期管理（AList 必启、录播姬可选、动态端口分配 FR-014）
     │       ├── AListTestClient.java     #   AList 真实操作封装
-    │       └── DanmujiEventTrigger.java #   录播姬录制-关闭-触发封装
+    │       └── WebhookEventReplayer.java #   webhook payload 重放注入封装（FR-011 主路径，录播姬可选验证）
     └── resources/
         ├── application-test.yaml        # 已有（集成测试用，H2 内存）
         ├── application-e2e.yaml         # 【新增】E2E 专用配置（H2 文件、端口、路径）
         ├── fixtures/                    # 【新增】测试 fixtures
-        │   ├── webhook/                 #   录播姬 webhook 事件样本
+        │   ├── webhook/                 #   录播姬 webhook 事件样本（E2E 重放主路径输入，FR-011）
         │   │   ├── fileclosed-event.json
         │   │   └── sessionstarted-event.json
         │   ├── media/                   #   小尺寸测试媒体（<5MB）
@@ -140,7 +142,7 @@ src/
 
 scripts/
 └── e2e/                                 # 【新增】E2E 环境准备脚本
-    ├── prepare-e2e-env.ps1              #   Windows：一键下载 alist+录播姬
+    ├── prepare-e2e-env.ps1              #   Windows：一键下载 alist（录播姬可选）
     ├── prepare-e2e-env.sh               #   Linux 备选
     ├── start-alist.ps1                  #   启动 AList 实例
     ├── start-danmuji.ps1                #   启动录播姬实例
@@ -156,7 +158,9 @@ scripts/
 **结构决策**：
 - 测试目录分层镜像 `src/main/java` 业务结构，`integration/` 与 `e2e/` 物理隔离，对应 Maven profile 隔离
 - 集成测试用 `*IT.java` 后缀（failsafe 约定），E2E 用 `*E2ETest.java` 明示语义
-- 外部二进制存放于 `scripts/e2e/bin/`（`.gitignore` 忽略，不纳入版本控制），配置模板 `e2e-config/` 纳入版本控制
+- E2E 事件驱动采用 webhook payload 重放（`fixtures/webhook/` 样本 + `WebhookEventReplayer`），取代真实录制直播流，消除外部直播源依赖（FR-011）
+- 外部二进制存放于 `scripts/e2e/bin/`（`.gitignore` 忽略，不纳入版本控制），配置模板 `e2e-config/` 纳入版本控制；录播姬二进制可选（仅可选验证路径下载）
+- E2E 端口采用动态分配（`E2ELifecycleManager` 探测空闲端口注入配置），不依赖固定端口假设（FR-014）
 - 复用 `scripts/diagnose.{sh,bat}`（009-lightweight-diagnostics 产出）验证 traceId，不重复造轮子
 - 环境准备脚本风格对齐 `specs/005-standalone-bootstrap` 的 `download-jre.sh` 模式（幂等下载、支持本地路径跳过）
 
@@ -166,5 +170,5 @@ scripts/
 
 | 违规 | 为什么需要 | 被拒绝的更简单替代方案及原因 |
 |------|-----------|------------------------|
-| 引入 `wiremock-standalone` 依赖（违反原则 VI YAGNI） | AList 客户端集成测试需要模拟 AList REST 契约（9 个端点，含 `/ping` text/plain、`/api/fs/put` 二进制流、统一 `{code,message,data}` 响应结构）。WireMock 是 Spring 生态标准契约模拟工具，支持端口动态分配、请求匹配、响应模板、录制回放，能检测契约漂移 | ① 手写 `@RestController` stub 服务：需重复实现 9 个端点，易与真实契约漂移，维护成本高；② Testcontainers + 真实 AList 容器：偏离用户决策 Q1:A（二进制本地启动），引入 Docker 强依赖，与 E2E 层重复；③ 直接调用真实 AList（无桩）：集成测试变 E2E，失去"快速定位契约层问题"的中间层价值 |
+| 引入 `wiremock-standalone` 依赖（违反原则 VI YAGNI） | AList 客户端集成测试需要模拟 AList REST 契约（9 个端点，含 `/ping` text/plain、`/api/fs/put` 二进制流、统一 `{code,message,data}` 响应结构）。WireMock 是 Spring 生态标准契约模拟工具，支持端口动态分配、请求匹配、响应模板、录制回放，能检测契约漂移 | ① 手写 `@RestController` stub 服务：需重复实现 9 个端点，易与真实契约漂移，维护成本高；② Testcontainers + 真实 AList 容器：偏离用户决策 FR-010（二进制本地启动），引入 Docker 强依赖，与 E2E 层重复；③ 直接调用真实 AList（无桩）：集成测试变 E2E，失去"快速定位契约层问题"的中间层价值 |
 | 引入 `maven-failsafe-plugin`（违反原则 VI YAGNI） | 集成测试与 E2E 测试耗时显著高于单元测试（集成 <60s，E2E 单链路 <5min），需独立生命周期管理。failsafe 通过 `*IT.java` 命名约定与 `integration-test`/`verify` 阶段绑定，支持与 surefire 分离执行 | ① 全部用 surefire 驱动：E2E 会拖慢常规 `mvn test`，违反 FR-005（不污染常规测试）；② 手写 shell 脚本驱动测试：绕过 Maven 生命周期，依赖管理与报告生成缺失，CI 集成困难；③ 拆分为独立 Maven 模块：过度设计，项目单模块结构足以承载测试分层 |
