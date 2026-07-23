@@ -64,12 +64,12 @@ description: "端到端测试基础设施的实现任务列表"
 
 ### 用户故事 1 的实现
 
-- [ ] T012 [P] [US1] 创建 `src/test/java/top/lldwb/alistmediasync/support/WebhookEventReplayer.java`：读取 `fixtures/webhook/` 样本，以 HTTP POST 注入系统 `/api/webhooks/recorder` 端点（FR-011 主路径），支持参数化（fixtures 路径、重复发送次数验证幂等、自定义 EventId）
-- [ ] T013 [P] [US1] 创建 `src/test/java/top/lldwb/alistmediasync/support/AListTestClient.java`：封装 AList 真实操作（`/ping` 探活、`/api/fs/list` 查询文件落盘、`/api/fs/detail` 验证转码产物）
-- [ ] T014 [US1] 创建 `src/test/java/top/lldwb/alistmediasync/e2e/WebhookSyncE2ETest.java`：链路 1 - `WebhookEventReplayer` 重放 FileClosed -> 系统处理 -> 同步到 AList，断言 AP1（webhook 接收）、AP2（事件持久化）、AP3（幂等去重）、AP4（任务创建）、AP5（任务执行）、AP6（文件落盘）
-- [ ] T015 [US1] 创建 `src/test/java/top/lldwb/alistmediasync/e2e/ManualSyncE2ETest.java`：链路 2 - 手动同步任务执行，通过 API 触发同步并断言任务执行历史持久化与文件落盘
-- [ ] T016 [US1] 创建 `src/test/java/top/lldwb/alistmediasync/e2e/TranscodeE2ETest.java`：链路 3 - 转码任务执行，断言 AP7（转码完成，转码后文件存在 AList，体积合理）
-- [ ] T017 [US1] 创建 `src/test/java/top/lldwb/alistmediasync/e2e/TraceIdChainE2ETest.java`：traceId 全链路验证，断言 AP8（`X-Trace-Id` 响应头 + 诊断包 traceId 一致）、AP9（`error.log` 与 `app.log` 双写），复用 `scripts/diagnose.{sh,bat}` 收集诊断包（FR-006，原则 VII §7.3-7.5）
+- [X] T012 [P] [US1] 创建 `src/test/java/top/lldwb/alistmediasync/support/WebhookEventReplayer.java`：读取 `fixtures/webhook/` 样本，以 HTTP POST 注入系统 `/api/webhooks/recorder` 端点（FR-011 主路径），支持参数化（fixtures 路径、重复发送次数验证幂等、自定义 EventId）
+- [X] T013 [P] [US1] 创建 `src/test/java/top/lldwb/alistmediasync/support/AListTestClient.java`：封装 AList 真实操作（`/ping` 探活、`/api/fs/list` 查询文件落盘、`/api/fs/detail` 验证转码产物）
+- [X] T014 [US1] 创建 `src/test/java/top/lldwb/alistmediasync/e2e/WebhookSyncE2ETest.java`：链路 1 - `WebhookEventReplayer` 重放 FileClosed -> 系统处理 -> 同步到 AList，断言 AP1（webhook 接收）、AP2（事件持久化）、AP3（幂等去重）、AP4（任务创建）、AP5（任务执行）、AP6（文件落盘）
+- [X] T015 [US1] 创建 `src/test/java/top/lldwb/alistmediasync/e2e/ManualSyncE2ETest.java`：链路 2 - 手动同步任务执行，通过 API 触发同步并断言任务执行历史持久化与文件落盘
+- [X] T016 [US1] 创建 `src/test/java/top/lldwb/alistmediasync/e2e/TranscodeE2ETest.java`：链路 3 - 转码任务执行，断言 AP7（转码完成，转码后文件存在 AList，体积合理）
+- [X] T017 [US1] 创建 `src/test/java/top/lldwb/alistmediasync/e2e/TraceIdChainE2ETest.java`：traceId 全链路验证，断言 AP8（`X-Trace-Id` 响应头 + 诊断包 traceId 一致）、AP9（`error.log` 与 `app.log` 双写），复用 `scripts/diagnose.{sh,bat}` 收集诊断包（FR-006，原则 VII §7.3-7.5）
 - [ ] T018 [US1] 验证 SC-004：连续 3 次运行 `mvn verify -Pe2e` 全部真实通过，确认环境清理幂等性与链路稳定性
 
 **检查点**：此时，用户故事 1 应完全功能可用且可独立测试
@@ -84,13 +84,13 @@ description: "端到端测试基础设施的实现任务列表"
 
 ### 用户故事 2 的实现
 
-- [ ] T019 [P] [US2] 创建 `src/test/java/top/lldwb/alistmediasync/integration/repository/StorageEngineRepositoryIT.java`：`@DataJpaTest` 验证 StorageEngine 实体持久化、乐观锁 `@Version`、CRUD 行为
-- [ ] T020 [P] [US2] 创建 `src/test/java/top/lldwb/alistmediasync/integration/repository/SyncTaskRepositoryIT.java`：验证 SyncTask 持久化、`@Query` 自定义方法、状态转换
-- [ ] T021 [P] [US2] 创建 `src/test/java/top/lldwb/alistmediasync/integration/repository/TaskExecutionRepositoryIT.java`：验证 TaskExecution 持久化、`markAllRunningAsInterrupted` 启动恢复行为、事务回滚
-- [ ] T022 [P] [US2] 创建 `src/test/java/top/lldwb/alistmediasync/integration/repository/WebhookEventRepositoryIT.java`：验证 `findByEventId` 幂等去重、EventId 唯一索引、DUPLICATE 状态转换（原则 II）
-- [ ] T023 [P] [US2] 创建 `src/test/java/top/lldwb/alistmediasync/integration/repository/WebhookRuleRepositoryIT.java`：验证 WebhookRule 持久化、规则匹配查询
-- [ ] T024 [P] [US2] 创建 `src/test/java/top/lldwb/alistmediasync/integration/repository/TranscodeTaskRepositoryIT.java`：验证 TranscodeTask 8 状态转换（specs/002）、乐观锁、级联关系
-- [ ] T025 [US2] 创建 `src/test/java/top/lldwb/alistmediasync/integration/client/AListStorageStrategyIT.java`：`@WireMockTest` 契约测试，覆盖 AListStorageStrategy 9 个公共方法（请求构造、响应解析、`File-Path` header URL 编码、`As-Task` header、错误处理 401/403/404/500、重试机制），桩映射引用 T009（research.md R1）
+- [X] T019 [P] [US2] 创建 `src/test/java/top/lldwb/alistmediasync/integration/repository/StorageEngineRepositoryIT.java`：`@DataJpaTest` 验证 StorageEngine 实体持久化、乐观锁 `@Version`、CRUD 行为
+- [X] T020 [P] [US2] 创建 `src/test/java/top/lldwb/alistmediasync/integration/repository/SyncTaskRepositoryIT.java`：验证 SyncTask 持久化、`@Query` 自定义方法、状态转换
+- [X] T021 [P] [US2] 创建 `src/test/java/top/lldwb/alistmediasync/integration/repository/TaskExecutionRepositoryIT.java`：验证 TaskExecution 持久化、`markAllRunningAsInterrupted` 启动恢复行为、事务回滚
+- [X] T022 [P] [US2] 创建 `src/test/java/top/lldwb/alistmediasync/integration/repository/WebhookEventRepositoryIT.java`：验证 `findByEventId` 幂等去重、EventId 唯一索引、DUPLICATE 状态转换（原则 II）
+- [X] T023 [P] [US2] 创建 `src/test/java/top/lldwb/alistmediasync/integration/repository/WebhookRuleRepositoryIT.java`：验证 WebhookRule 持久化、规则匹配查询
+- [X] T024 [P] [US2] 创建 `src/test/java/top/lldwb/alistmediasync/integration/repository/TranscodeTaskRepositoryIT.java`：验证 TranscodeTask 8 状态转换（specs/002）、乐观锁、级联关系
+- [X] T025 [US2] 创建 `src/test/java/top/lldwb/alistmediasync/integration/client/AListStorageStrategyIT.java`：`@WireMockTest` 契约测试，覆盖 AListStorageStrategy 9 个公共方法（请求构造、响应解析、`File-Path` header URL 编码、`As-Task` header、错误处理 401/403/404/500、重试机制），桩映射引用 T009（research.md R1）
 
 **检查点**：此时，用户故事 1 和 2 应都能独立工作
 
