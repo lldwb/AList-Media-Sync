@@ -1,6 +1,6 @@
 # 数据模型：端到端测试基础设施
 
-**功能**：`012-e2e-test-infrastructure` | **阶段**：1（设计） | **日期**：2026-07-19
+**功能**：`012-e2e-test-infrastructure` | **阶段**：1（设计） | **日期**：2026-07-23
 
 **说明**：本功能为测试基础设施，**不引入新业务实体**（不修改 `src/main/java` 下的 Entity 类）。本数据模型聚焦测试侧的"实体"：测试环境实例、测试 fixtures、链路断言点、测试 profile 配置。业务实体（SyncTask、TaskExecution、WebhookEvent、TranscodeTask 等）的状态转换作为 E2E 断言对象，此处仅引用验证点，不重复定义。
 
@@ -8,28 +8,30 @@
 
 ## 1. 测试环境实例实体
 
-E2E 运行时由三个真实实例组成，通过 `E2ELifecycleManager` 管理生命周期。
+E2E 运行时由真实实例组成（AList 必启、录播姬可选），通过 `E2ELifecycleManager` 管理生命周期，端口动态分配（FR-014）。
 
 ### 1.1 AListInstance
 
 | 字段 | 类型 | 说明 |
 |------|------|------|
 | binaryPath | Path | AList 可执行文件路径（`scripts/e2e/bin/alist/alist.exe`） |
-| port | int | HTTP 端口，默认 5344 |
+| port | int | HTTP 端口，动态分配（FR-014，探测空闲端口，非固定 5344） |
 | dataDir | Path | AList 数据目录（独立于生产，如 `scripts/e2e/data/alist/`） |
 | adminPassword | String | 初始管理员密码（E2E 固定值，非生产密码） |
 | storageMount | String | 测试存储挂载路径（如 `/e2e-test`） |
 | pid | int | 运行中进程 PID（写入 `alist.pid` 文件） |
-| readyCheck | URL | 就绪探活地址（`http://localhost:5344/ping`，期望返回 `pong`） |
+| readyCheck | URL | 就绪探活地址（`http://localhost:{port}/ping`，期望返回 `pong`） |
 
 **验证规则**：启动后 `/ping` 必须在 30 秒内返回 `pong`；存储挂载必须可读写。
 
-### 1.2 DanmujiInstance
+### 1.2 DanmujiInstance（可选验证，FR-011）
+
+> 录播姬实例仅当需验证真实录播姬 webhook 格式时启动（`-Ddanmuji.enabled=true`），默认 E2E 运行不启动，事件由 `WebhookEventReplayer` 重放 fixtures 驱动。
 
 | 字段 | 类型 | 说明 |
 |------|------|------|
 | binaryPath | Path | 录播姬可执行文件路径（`scripts/e2e/bin/danmuji/BililiveRecorder.exe`） |
-| webuiPort | int | WebUI 端口，默认 2356 |
+| webuiPort | int | WebUI 端口，动态分配（FR-014） |
 | workDir | Path | 录播姬工作目录（录制文件输出于此，如 `scripts/e2e/data/danmuji/`） |
 | webhookUrl | URL | webhook 回调地址（`http://localhost:{server.port}/api/webhooks/recorder`） |
 | configPath | Path | 配置文件路径（`scripts/e2e/e2e-config/danmuji.config.toml`） |
@@ -42,7 +44,7 @@ E2E 运行时由三个真实实例组成，通过 `E2ELifecycleManager` 管理�
 
 | 字段 | 类型 | 说明 |
 |------|------|------|
-| port | int | 系统端口（`application-e2e.yaml` 配置，默认 8080） |
+| port | int | 系统端口（动态分配，FR-014，注入 `application-e2e.yaml` 的 `server.port`） |
 | configProfile | String | 配置 profile（`e2e`） |
 | dataDir | Path | 系统数据目录（`./data-e2e/`，独立于生产 `./data/`） |
 | alistTargetEngine | String | E2E 预置的 AList 存储引擎配置（指向 AListInstance） |
@@ -72,7 +74,7 @@ fixtures 存放在 `src/test/resources/fixtures/`，作为测试输入的固定�
 
 **用途**：
 - 集成测试：直接作为 `WebhookService.receiveWebhookEvent` 输入验证去重逻辑
-- E2E 降级：当真实录播姬不可用时（R5 skip 机制），可作为契约基准对比真实事件格式
+- E2E 主路径：作为 `WebhookEventReplayer` 重放注入的输入（FR-011），驱动真实系统处理 + 真实 AList 同步链路
 
 ### 2.2 MediaFixture（测试媒体文件）
 
@@ -151,13 +153,13 @@ CREATED -> QUEUED -> RUNNING -> SUCCESS
 
 | 配置项 | 值 | 说明 |
 |--------|-----|------|
-| `server.port` | 8080（或避让端口） | E2E 系统端口 |
+| `server.port` | 动态分配（FR-014） | E2E 系统端口，由 `E2ELifecycleManager` 注入 |
 | `spring.datasource.url` | `jdbc:h2:file:./data-e2e/alistmediasync` | H2 文件模式，独立于生产 |
 | `spring.jpa.hibernate.ddl-auto` | `create-drop` | 每次启动重建 schema |
 | `app.data-dir` | `./data-e2e/app/` | 系统数据目录，独立 |
 | `app.transcode.temp-dir` | `./data-e2e/transcode-tmp/` | 转码临时目录 |
 | `app.auth.username` / `password` | E2E 固定值 | 测试认证（非生产密码） |
-| `alist.base-url` | `http://localhost:5344` | 指向 E2E AList 实例 |
+| `alist.base-url` | `http://localhost:{动态端口}` | 指向 E2E AList 实例（端口由 `E2ELifecycleManager` 注入） |
 | `logging.level.top.lldwb.alistmediasync` | `DEBUG` | E2E 期间开启 DEBUG 便于链路观察 |
 
 ### 4.2 Maven profile 配置实体
@@ -166,7 +168,7 @@ CREATED -> QUEUED -> RUNNING -> SUCCESS
 |---------|---------|---------|---------|
 | 默认 | `mvn test` | surefire: `*Test.java`（排除 IT/E2E） | 无 |
 | integration | `mvn verify -Pintegration` | failsafe: `*IT.java` | 无（H2 内存 + WireMock） |
-| e2e | `mvn verify -Pe2e` | failsafe: `*E2ETest.java` | 启动 AList + 录播姬 二进制 |
+| e2e | `mvn verify -Pe2e` | failsafe: `*E2ETest.java` | 启动 AList 二进制（录播姬可选，默认不启动） |
 
 **验证规则**：默认 profile 必须在 60 秒内完成；integration profile 必须在 120 秒内完成；e2e profile 单链路 <5 分钟。
 
@@ -177,22 +179,22 @@ CREATED -> QUEUED -> RUNNING -> SUCCESS
 ```
 ┌─────────────────┐     启动     ┌──────────────────┐
 │ E2ELifecycleMgr │─────────────>│  AListInstance   │
-│                 │              └──────────────────┘
-│                 │     启动     ┌──────────────────┐
-│                 │─────────────>│ DanmujiInstance  │
+│  (动态端口分配)  │              └──────────────────┘
+│                 │     可选启动  ┌──────────────────┐
+│                 │─────(默认关)─>│ DanmujiInstance  │
 └─────────────────┘              └────────┬─────────┘
-        │                                 │ webhook
+        │                                 │ 真实 webhook（仅可选验证）
         │ 管理                             v
         │                        ┌──────────────────┐
         │                        │ SystemInstance   │
-        │                        │  (app:8080)      │
+        │                        │ (app:动态端口)   │
         │                        └────────┬─────────┘
         │                                 │ 驱动
         v                                 v
 ┌─────────────────┐              ┌──────────────────┐
-│   fixtures/     │─────────────>│   链路断言点      │
-│ webhook/media/  │   作为输入    │ AP1..AP9         │
-│ alist/          │              └──────────────────┘
+│   fixtures/     │──重放注入───>│   链路断言点      │
+│ webhook(主路径) │   (Replayer) │ AP1..AP9         │
+│ media/alist/    │              └──────────────────┘
 └─────────────────┘
 ```
 
@@ -207,6 +209,7 @@ CREATED -> QUEUED -> RUNNING -> SUCCESS
 | fixtures 与契约一致 | WebhookEventFixture、AListResponseFixture | `md/danmuji/`、`md/alist/` |
 | 媒体体积 <5MB | MediaFixture | 假设 |
 | E2E 数据目录独立 | SystemInstance.dataDir | R7 |
-| 端口冲突可检测 | AListInstance.port、DanmujiInstance.webuiPort | R8 |
+| 失败现场保留 | SystemInstance.dataDir、数据库 | FR-009、R7 |
+| 端口动态分配 | AListInstance.port、DanmujiInstance.webuiPort、SystemInstance.port | FR-014、R8 |
 | traceId 全链路传播 | AP8 | 原则 VII §7.3 |
 | error.log 双写 | AP9 | 原则 VII §7.4 |
