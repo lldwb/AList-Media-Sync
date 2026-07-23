@@ -38,14 +38,15 @@
 **行为**：
 - 触发 `maven-failsafe-plugin` 执行端到端测试
 - 测试范围：`src/test/java/**/*E2ETest.java`（3 条核心链路 + traceId 链路验证）
-- 外部依赖：自动启动 AList 实例 + 录播姬实例（由 `E2ELifecycleManager` 管理）
+- 事件驱动：`WebhookEventReplayer` 重放 `fixtures/webhook/` 样本注入系统（FR-011），不依赖真实直播源
+- 外部依赖：自动启动 AList 实例（录播姬可选，默认不启动，`-Ddanmuji.enabled=true` 启用可选验证）；端口动态分配（FR-014，由 `E2ELifecycleManager` 管理）
 - 配置：使用 `application-e2e.yaml`（H2 文件模式，独立数据目录 `./data-e2e/`）
-- 前置条件：外部二进制已下载（`scripts/e2e/bin/` 存在；不存在时自动触发 `prepare-e2e-env` 脚本）
+- 前置条件：AList 二进制已下载（`scripts/e2e/bin/alist/` 存在；不存在时自动触发 `prepare-e2e-env` 脚本）
 - 预期完成时间：单链路 < 5 分钟，全套 < 15 分钟
 
-**适用场景**：发布前验证、重大变更后回归、手动全链路验证
+**适用场景**：发布前验证、重大变更后回归、手动全链路验证、CI nightly 定时运行（FR-013）
 
-**skip 机制**：录播姬真实直播源不可用时（R5），`E2ETestBase` 通过 `Assumptions.assumeTrue(false)` 跳过录播姬相关测试，不标记失败。
+**失败保留**：测试失败时保留现场（数据库 + 文件系统）供诊断，下次运行前强制清理（FR-009）；无直播源 skip 机制（重放方案下事件来源稳定）。
 
 ## profile 组合规则
 
@@ -53,8 +54,8 @@
 |------|---------|---------|---------|---------|
 | `mvn test` | ✅ | ❌ | ❌ | 无 |
 | `mvn verify -Pintegration` | ✅ | ✅ | ❌ | 无 |
-| `mvn verify -Pe2e` | ✅ | ✅ | ✅ | AList + 录播姬 |
-| `mvn verify -Pe2e -DskipUnitTests` | ❌ | ✅ | ✅ | AList + 录播姬 |
+| `mvn verify -Pe2e` | ✅ | ✅ | ✅ | AList（录播姬可选） |
+| `mvn verify -Pe2e -DskipUnitTests` | ❌ | ✅ | ✅ | AList（录播姬可选） |
 
 **说明**：`mvn verify` 隐含执行 `test` 阶段（单元测试），除非显式 `-DskipTests` 或 `-DskipUnitTests`。
 
@@ -75,9 +76,10 @@
 
 ## CI 集成建议
 
-- **PR 提交检查**：`mvn verify -Pintegration`（快速 + 集成，无外部依赖）
-- **主分支合并/发布**：`mvn verify -Pe2e`（全链路，需 E2E 环境就绪）
-- **E2E 失败处理**：先检查直播源可用性（R5），再排查真实链路
+- **PR 提交检查**：`mvn verify -Pintegration`（快速 + 集成，无外部依赖，不触发 E2E）
+- **nightly 定时运行**：`mvn verify -Pe2e`（全链路，CI 定时任务触发，FR-013；PR 流水线不触发 E2E）
+- **主分支发布**：手动 `mvn verify -Pe2e` 验证后发布
+- **E2E 失败处理**：检查重放 fixtures 契约一致性（R5）、AList 二进制可用性、动态端口分配日志；失败现场保留在 `./data-e2e/` 供诊断（FR-009）
 
 ## 引用
 

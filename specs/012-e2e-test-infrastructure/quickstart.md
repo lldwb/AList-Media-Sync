@@ -9,8 +9,8 @@
 - **JDK 21** 已安装（项目主开发环境，见 `docs/02-开发环境搭建.md`）
 - **Maven Wrapper**（`./mvnw` 或 `mvnw.cmd`）可用
 - **PowerShell**（Windows，运行 `scripts/e2e/*.ps1`）或 **Bash**（Linux，运行 `*.sh`）
-- **网络可达 GitHub Releases**（首次下载 AList/录播姬二进制；不可达时使用 `ALIST_LOCAL_PATH`/`DANMUJI_LOCAL_PATH` 指定本地二进制）
-- **B 站直播间可用**（E2E 录播姬链路需要稳定开播的直播源；不可用时 E2E 自动 skip，详见 [research.md R5](./research.md#r5-录播姬真实直播源依赖风险与缓解)）
+- **网络可达 GitHub Releases**（首次下载 AList 二进制；不可达时使用 `ALIST_LOCAL_PATH` 指定本地二进制；录播姬二进制可选，仅在可选验证路径需要）
+- E2E 通过 webhook payload 重放驱动，**不依赖真实直播源**（FR-011），无需 B 站直播间
 
 ## 场景 1：运行单元测试（默认 profile）
 
@@ -56,7 +56,7 @@
 
 **预期结果**：
 - 下载 AList 二进制到 `scripts/e2e/bin/alist/`（版本锁定，SHA256 校验通过）
-- 下载录播姬二进制到 `scripts/e2e/bin/danmuji/`（版本锁定，SHA256 校验通过）
+- 录播姬二进制可选（默认跳过，需可选验证时用 `-IncludeDanmuji` 下载到 `scripts/e2e/bin/danmuji/`）
 - 重复执行：跳过已存在下载，输出"已存在，跳过"（幂等）
 - 完成时间 < 10 分钟（SC-001）
 
@@ -70,25 +70,25 @@
 ```
 
 **预期结果**：
-- 自动启动 AList 实例（端口 5344，`/ping` 返回 `pong`）
-- 自动启动录播姬实例（WebUI 端口 2356，webhook 指向系统 `/api/webhooks/recorder`）
-- 启动系统实例（`application-e2e.yaml`，独立数据目录 `./data-e2e/`）
-- 执行 `src/test/java/**/*E2ETest.java`：
-  - `WebhookSyncE2ETest`：链路 1 - 录播姬录制-停止-触发 FileClosed -> 系统同步到 AList
+- 自动启动 AList 实例（端口动态分配 FR-014，`/ping` 返回 `pong`）
+- 录播姬实例默认**不启动**（可选验证路径需 `-Ddanmuji.enabled=true`）
+- 启动系统实例（`application-e2e.yaml`，独立数据目录 `./data-e2e/`，端口动态分配）
+- 执行 `src/test/java/**/*E2ETest.java`（事件由 `WebhookEventReplayer` 重放 `fixtures/webhook/` 样本注入，FR-011）：
+  - `WebhookSyncE2ETest`：链路 1 - webhook 重放注入 FileClosed -> 系统同步到 AList
   - `ManualSyncE2ETest`：链路 2 - 手动同步任务执行
   - `TranscodeE2ETest`：链路 3 - 转码任务执行
   - `TraceIdChainE2ETest`：traceId 全链路传播 + error.log 分流 + X-Trace-Id 响应头
 - 每条链路断言点 AP1-AP9 通过（见 [data-model.md §3](./data-model.md#3-链路断言点实体)）
 - 单链路完成时间 < 5 分钟
-- 测试后自动清理（数据库 + 文件系统 + 临时文件）
-- 连续 3 次运行全部通过（SC-004）
+- 测试通过后自动清理（数据库 + 文件系统 + 临时文件）；**失败时保留现场**供诊断（FR-009），下次运行前强制清理
+- 连续 3 次运行全部真实通过（SC-004，重放注入算真实执行，非 Mock）
 
 **验证点**：
 - 全链路真实可用（用户故事 1）
 - traceId 全链路传播与诊断包可追溯（原则 VII、FR-006）
 - 数据持久化完整与幂等去重（原则 II、FR-007）
 
-**直播源不可用时**：`E2ETestBase` 通过 `Assumptions.assumeTrue(false)` 跳过录播姬相关测试，报告"直播源不可用，跳过"，不标记失败（R5）。
+**失败诊断**：测试失败时现场保留在 `./data-e2e/`，运行 `./scripts/diagnose.sh` 收集诊断包定位问题（FR-009、R7）。
 
 ## 场景 5：停止与清理 E2E 环境
 
@@ -125,21 +125,23 @@
 |------|---------|---------|
 | 1 | FR-005 不污染常规测试 | `mvn test` 不触发 IT/E2E |
 | 2 | FR-003/FR-004 集成测试 | 6 Repository + 1 AList 契约测试通过 |
-| 3 | FR-002/FR-010 环境准备 | 二进制下载幂等，<10 分钟 |
-| 4 | FR-001/FR-006/FR-007 E2E | 3 链路 + traceId 通过，幂等 3 次 |
-| 5 | FR-009 状态清理 | 停止清理后无残留 |
+| 3 | FR-002/FR-010 环境准备 | AList 二进制下载幂等，<10 分钟；录播姬可选 |
+| 4 | FR-001/FR-006/FR-007/FR-011 E2E | 3 链路 + traceId 通过，重放驱动，幂等 3 次 |
+| 5 | FR-009 状态清理与失败保留 | 成功后清理无残留；失败时保留现场供诊断 |
 | 6 | FR-006 诊断协作 | traceId 链路可追溯 |
+| 7 | FR-013 CI nightly | E2E 纳入 nightly 定时运行，PR 流水线不触发 |
+| 8 | FR-014 动态端口 | 端口动态分配，无固定端口冲突 |
 
 ## 故障排查
 
 | 问题 | 可能原因 | 解决方案 |
 |------|---------|---------|
-| 下载失败 | 网络不可达 GitHub | 使用 `ALIST_LOCAL_PATH`/`DANMUJI_LOCAL_PATH` 指定本地二进制 |
-| 端口冲突 | 5344/2356/8080 被占用 | `stop-e2e-env.ps1` 停止残留进程，或修改脚本 `-Port` 参数 |
-| E2E 跳过 | 直播源不可用 | 检查 B 站直播间状态，或更换房间号（`application-e2e.yaml`） |
+| 下载失败 | 网络不可达 GitHub | 使用 `ALIST_LOCAL_PATH` 指定本地 AList 二进制 |
+| 端口分配失败 | 系统无可用端口 | 检查端口占用，或扩大 `E2ELifecycleManager` 候选端口范围（FR-014） |
 | AList 就绪超时 | 二进制损坏或配置错误 | 重新下载（`-Force`），检查 `e2e-config/alist.config.json` |
-| 录播姬 webhook 未收到 | webhookUrl 配置错误 | 确认 `danmuji.config.toml` 中 webhookUrl 指向系统端口 |
+| 重放注入失败 | fixtures 格式与契约不符 | 校验 `fixtures/webhook/` 样本与 `md/danmuji/webhook.md` v2 协议一致（R5） |
 | traceId 链路断裂 | MDC 未透传 | 检查 `TraceContext.runWith` 在异步边界是否正确传播 |
+| 失败现场未保留 | `@AfterEach` 误清理 | 确认失败路径跳过清理逻辑（FR-009、R7） |
 
 ## 引用
 
