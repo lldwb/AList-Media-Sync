@@ -21,13 +21,13 @@ set -e
 #   https://github.com/alist-org/alist/releases
 #   https://github.com/Bililive/BililiveRecorder/releases
 # ============================================================
-ALIST_VERSION="v3.x.x"
-ALIST_SHA256_LINUX="REPLACE_WITH_ACTUAL_SHA256"
-ALIST_DOWNLOAD_URL="https://github.com/alist-org/alist/releases/download/${ALIST_VERSION}/alist-${ALIST_VERSION}-linux-amd64.tar.gz"
+ALIST_VERSION="v3.62.0"
+ALIST_SHA256_LINUX="2ce6b4eccdda166eff5c575c956e64d983b1b7ac68b694dc7c159971267ca3c7"
+ALIST_DOWNLOAD_URL="https://github.com/AlistGo/alist/releases/download/${ALIST_VERSION}/alist-${ALIST_VERSION}-linux-amd64.tar.gz"
 
-DANMUJI_VERSION="v2.x.x"
+DANMUJI_VERSION="v2.18.0"
 DANMUJI_SHA256_LINUX="REPLACE_WITH_ACTUAL_SHA256"
-DANMUJI_DOWNLOAD_URL="https://github.com/Bililive/BililiveRecorder/releases/download/${DANMUJI_VERSION}/BililiveRecorder-${DANMUJI_VERSION}-linux-x64.zip"
+DANMUJI_DOWNLOAD_URL="https://github.com/Bililive/BililiveRecorder/releases/download/${DANMUJI_VERSION}/BililiveRecorder-CLI-${DANMUJI_VERSION}-linux-x64.zip"
 
 # 退出码
 EXIT_SUCCESS=0
