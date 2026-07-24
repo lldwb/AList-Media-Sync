@@ -26,7 +26,7 @@ ALIST_SHA256_LINUX="2ce6b4eccdda166eff5c575c956e64d983b1b7ac68b694dc7c159971267c
 ALIST_DOWNLOAD_URL="https://github.com/AlistGo/alist/releases/download/${ALIST_VERSION}/alist-${ALIST_VERSION}-linux-amd64.tar.gz"
 
 DANMUJI_VERSION="v2.18.0"
-DANMUJI_SHA256_LINUX="REPLACE_WITH_ACTUAL_SHA256"
+DANMUJI_SHA256_LINUX="d300bb9f70752419bf1f70ddae0da42dcf37fe005d5a68ccabc41b4b90f63935"
 DANMUJI_DOWNLOAD_URL="https://github.com/Bililive/BililiveRecorder/releases/download/${DANMUJI_VERSION}/BililiveRecorder-CLI-${DANMUJI_VERSION}-linux-x64.zip"
 
 # 退出码
