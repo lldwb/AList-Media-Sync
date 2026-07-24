@@ -1,0 +1,47 @@
+name: E2E Nightly
+
+# 端到端测试 nightly 定时运行（FR-013）
+# E2E 套件总时长约 60 分钟（SC-006），不阻塞 PR 协作流水线，仅定时触发
+# PR 流水线不触发 E2E，仅运行单元 + 集成测试层
+on:
+  schedule:
+    # 每日 UTC 18:00（北京时间次日 02:00）执行，避开日间协作高峰
+    - cron: '0 18 * * *'
+  workflow_dispatch: # 支持手动触发
+
+jobs:
+  e2e-test:
+    runs-on: ubuntu-latest
+    timeout-minutes: 90 # 总套件上限约 60 分钟（SC-006）+ 环境准备缓冲
+
+    steps:
+      - name: 检出代码
+        uses: actions/checkout@v4
+
+      - name: 设置 JDK 21
+        uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: '21'
+          cache: maven
+
+      - name: 准备 E2E 环境（下载 AList 二进制）
+        run: |
+          chmod +x scripts/e2e/prepare-e2e-env.sh
+          ./scripts/e2e/prepare-e2e-env.sh
+
+      - name: 运行端到端测试
+        env:
+          RUN_E2E: 'true' # 启用 @EnabledIfEnvironmentVariable 守卫的 E2E 测试
+        run: ./mvnw verify -Pe2e -Dskip.frontend=true
+
+      - name: 上传失败现场（仅测试失败时）
+        if: failure()
+        uses: actions/upload-artifact@v4
+        with:
+          name: e2e-failure-scene
+          path: |
+            data-e2e/
+            scripts/e2e/data/
+            logs/
+          retention-days: 7
