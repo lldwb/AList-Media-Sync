@@ -138,6 +138,13 @@
             <scope>test</scope>
         </dependency>
 
+        <!-- spring-boot-restclient：TestRestTemplate 自动配置依赖 RestTemplateBuilder（E2E 测试） -->
+        <dependency>
+            <groupId>org.springframework.boot</groupId>
+            <artifactId>spring-boot-restclient</artifactId>
+            <scope>test</scope>
+        </dependency>
+
         <!-- SpringDoc OpenAPI：通过代码注解自动生成 API 文档（@Tag/@Operation/@Schema） -->
         <!-- v3.0.3 基于 Spring Boot 4.0.5，官方支持 Spring Boot 4.x，与项目 4.1.0 兼容 -->
         <dependency>
