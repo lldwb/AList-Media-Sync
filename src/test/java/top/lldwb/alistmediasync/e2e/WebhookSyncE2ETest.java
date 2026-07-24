@@ -121,7 +121,7 @@ class WebhookSyncE2ETest extends E2ETestBase {
     @Test
     @DisplayName("AP3 - 同步完成后文件出现在目标 AList")
     void shouldSyncFileToTargetAList() throws IOException {
-        AListTestClient alistClient = new AListTestClient("http://localhost:" + alistPort);
+        AListTestClient alistClient = new AListTestClient("http://localhost:" + alistPort, alistToken);
         assertTrue(alistClient.ping(), "AList 服务应可达");
 
         WebhookEventReplayer replayer = newReplayer();
