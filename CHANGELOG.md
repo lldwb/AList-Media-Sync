@@ -20,6 +20,10 @@
 ### Added
 
 - 文档体系优化功能（specs/011）：规范文档系统以支持手工引导区与生成区分界，新增 CONTRIBUTING.md 贡献者入口文档
+- 端到端测试基础设施（specs/012）：补全测试金字塔的集成测试层与端到端测试层，新增 6 个 Repository 集成测试（`@DataJpaTest`）、AList 客户端 WireMock 契约测试、3 条核心业务链路 E2E 测试 + traceId 全链路验证
+- Maven profile 隔离机制（specs/012）：通过 `maven-failsafe-plugin` 与 3 个 profile（默认/`-Pintegration`/`-Pe2e`）实现单元/集成/端到端测试物理隔离，E2E 串行执行 + 15 分钟超时兜底
+- E2E 环境准备脚本（specs/012）：一键下载 AList 二进制（录播姬可选），支持 SHA256 校验、幂等跳过、本地路径跳过（`ALIST_LOCAL_PATH`）、动态端口分配（FR-014）与失败现场保留（FR-009）
+- nightly CI 定时运行 E2E 测试（specs/012）：GitHub Actions `schedule.cron` 定时触发 `mvn verify -Pe2e`，PR 流水线不触发 E2E（FR-013）
 
 ## [0.0.1-SNAPSHOT] - 2026-07-02
 
