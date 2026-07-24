@@ -70,7 +70,7 @@ description: "端到端测试基础设施的实现任务列表"
 - [X] T015 [US1] 创建 `src/test/java/top/lldwb/alistmediasync/e2e/ManualSyncE2ETest.java`：链路 2 - 手动同步任务执行，通过 API 触发同步并断言任务执行历史持久化与文件落盘
 - [X] T016 [US1] 创建 `src/test/java/top/lldwb/alistmediasync/e2e/TranscodeE2ETest.java`：链路 3 - 转码任务执行，断言 AP7（转码完成，转码后文件存在 AList，体积合理）
 - [X] T017 [US1] 创建 `src/test/java/top/lldwb/alistmediasync/e2e/TraceIdChainE2ETest.java`：traceId 全链路验证，断言 AP8（`X-Trace-Id` 响应头 + 诊断包 traceId 一致）、AP9（`error.log` 与 `app.log` 双写），复用 `scripts/diagnose.{sh,bat}` 收集诊断包（FR-006，原则 VII §7.3-7.5）
-- [ ] T018 [US1] 验证 SC-004：连续 3 次运行 `mvn verify -Pe2e` 全部真实通过，确认环境清理幂等性与链路稳定性
+- [ ] T018 [US1] 验证 SC-004：连续 3 次运行 `mvn verify -Pe2e` 全部真实通过，确认环境清理幂等性与链路稳定性【待验证】代码层预置与断言已就位（E2ETestBase 数据预置、4 个 E2E 测试断言加强、application-e2e.yaml 认证修复），但需真实 AList 二进制 + RUN_E2E=true 运行验证，尚未执行
 
 **检查点**：此时，用户故事 1 应完全功能可用且可独立测试
 
@@ -104,12 +104,12 @@ description: "端到端测试基础设施的实现任务列表"
 
 ### 用户故事 3 的实现
 
-- [ ] T026 [P] [US3] 创建 `scripts/e2e/prepare-e2e-env.ps1`：下载 AList GitHub Releases 二进制到 `scripts/e2e/bin/alist/`（版本锁定、SHA256 校验、幂等跳过、`ALIST_LOCAL_PATH` 跳过、`-IncludeDanmuji` 可选下载录播姬、`-Force` 强制重下，contracts/env-prep-script.md）
-- [ ] T027 [P] [US3] 创建 `scripts/e2e/prepare-e2e-env.sh`：Linux 备选，Bash 实现同 T026 逻辑（FR-013 nightly CI 需要）
-- [ ] T028 [P] [US3] 创建 `scripts/e2e/start-alist.ps1`：接收 `-Port`（动态端口，FR-014）启动 `alist.exe server`，写入 PID 到 `alist.pid`，轮询 `/ping` 30 秒内返回 `pong` 视为就绪，初始化存储挂载 `/e2e-test`
-- [ ] T029 [P] [US3] 创建 `scripts/e2e/start-danmuji.ps1`：可选验证路径，接收 `-WebuiPort`（动态端口）启动录播姬，生成配置注入 webhookUrl，轮询 WebUI 就绪
-- [ ] T030 [US3] 创建 `scripts/e2e/stop-e2e-env.ps1`：基于 `alist.pid`/`danmuji.pid`（容忍录播姬未启动）与 `ports.json` 精准停止进程，`-CleanData` 清理 `scripts/e2e/data/`（不删除 `bin/`）
-- [ ] T031 [P] [US3] 创建 `scripts/e2e/e2e-config/alist.config.json` 与 `scripts/e2e/e2e-config/danmuji.config.toml`：外部依赖配置模板（数据目录、存储挂载、webhook URL 占位），纳入版本控制
+- [X] T026 [P] [US3] 创建 `scripts/e2e/prepare-e2e-env.ps1`：下载 AList GitHub Releases 二进制到 `scripts/e2e/bin/alist/`（版本锁定 v3.62.0 + SHA256 校验、幂等跳过、`ALIST_LOCAL_PATH` 跳过、`-IncludeDanmuji` 可选下载录播姬 v2.18.0、`-Force` 强制重下，contracts/env-prep-script.md）。AList SHA256 已填；录播姬 SHA256 待填（可选路径，占位时脚本跳过校验并 warning）
+- [X] T027 [P] [US3] 创建 `scripts/e2e/prepare-e2e-env.sh`：Linux 备选，Bash 实现同 T026 逻辑（FR-013 nightly CI 需要）。AList SHA256 已填；录播姬 SHA256 待填
+- [X] T028 [P] [US3] 创建 `scripts/e2e/start-alist.ps1`：接收 `-Port`（动态端口，FR-014）启动 `alist.exe server`，写入 PID 到 `alist.pid`，轮询 `/ping` 30 秒内返回 `pong` 视为就绪，初始化存储挂载 `/e2e-test`
+- [X] T029 [P] [US3] 创建 `scripts/e2e/start-danmuji.ps1`：可选验证路径，接收 `-WebuiPort`（动态端口）启动录播姬，生成配置注入 webhookUrl，轮询 WebUI 就绪
+- [X] T030 [US3] 创建 `scripts/e2e/stop-e2e-env.ps1`：基于 `alist.pid`/`danmuji.pid`（容忍录播姬未启动）与 `ports.json` 精准停止进程，`-CleanData` 清理 `scripts/e2e/data/`（不删除 `bin/`）
+- [X] T031 [P] [US3] 创建 `scripts/e2e/e2e-config/alist.config.json` 与 `scripts/e2e/e2e-config/danmuji.config.toml`：外部依赖配置模板（数据目录、存储挂载、webhook URL 占位），纳入版本控制
 
 **检查点**：此时所有用户故事应各自独立功能可用
 
