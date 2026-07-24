@@ -38,7 +38,7 @@ $ALIST_SHA256_WIN = "218121d76d8f2c82f8336707091c2bd0921c5a9b65c3484529c58edf83c
 $ALIST_DOWNLOAD_URL = "https://github.com/AlistGo/alist/releases/download/$ALIST_VERSION/alist-$ALIST_VERSION-windows-amd64.zip"
 
 $DANMUJI_VERSION = "v2.18.0"
-$DANMUJI_SHA256_WIN = "REPLACE_WITH_ACTUAL_SHA256"
+$DANMUJI_SHA256_WIN = "f793f6aecce3504cf0bc7b8434cb5432f10d8134fcc862f8f20126048da28154"
 $DANMUJI_DOWNLOAD_URL = "https://github.com/Bililive/BililiveRecorder/releases/download/$DANMUJI_VERSION/BililiveRecorder-CLI-$DANMUJI_VERSION-win-x64.zip"
 
 # 退出码
