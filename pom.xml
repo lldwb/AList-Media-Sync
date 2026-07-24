@@ -222,6 +222,35 @@
                     <argLine>-Dfile.encoding=UTF-8 -Dstdout.encoding=UTF-8 -Dstderr.encoding=UTF-8</argLine>
                 </configuration>
             </plugin>
+
+            <!-- maven-antrun-plugin：校验测试 fixtures 体积（T007） -->
+            <!-- validate 阶段校验 src/test/resources/fixtures/ 总体积 < 10MB，超阈构建失败，防止大体积媒体污染版本控制 -->
+            <plugin>
+                <groupId>org.apache.maven.plugins</groupId>
+                <artifactId>maven-antrun-plugin</artifactId>
+                <version>3.1.0</version>
+                <executions>
+                    <execution>
+                        <id>check-fixtures-size</id>
+                        <phase>validate</phase>
+                        <goals>
+                            <goal>run</goal>
+                        </goals>
+                        <configuration>
+                            <target>
+                                <length property="fixtures.size" mode="all">
+                                    <fileset dir="${project.basedir}/src/test/resources/fixtures" erroronmissingdir="false"/>
+                                </length>
+                                <echo message="T007 fixtures 总体积 = ${fixtures.size} 字节（上限 10485760）"/>
+                                <condition property="fixtures.too.large">
+                                    <matches string="${fixtures.size}" pattern="^(1048576[1-9]|104857[7-9][0-9]|10485[89][0-9]{2}|1048[6-9][0-9]{3}|1049[0-9]{4}|10[5-9][0-9]{5}|1[1-9][0-9]{6}|[2-9][0-9]{7}|[0-9]{9,})$"/>
+                                </condition>
+                                <fail if="fixtures.too.large" message="测试 fixtures 目录总体积 ${fixtures.size} 字节超过 10MB (10485760) 上限（T007，防止大体积媒体污染版本控制）"/>
+                            </target>
+                        </configuration>
+                    </execution>
+                </executions>
+            </plugin>
         </plugins>
     </build>
 
