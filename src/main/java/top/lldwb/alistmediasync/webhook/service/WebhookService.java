@@ -19,6 +19,7 @@ import top.lldwb.alistmediasync.sync.service.SyncService;
 import top.lldwb.alistmediasync.transcode.service.TranscodeService;
 import top.lldwb.alistmediasync.storage.repository.StorageEngineRepository;
 import top.lldwb.alistmediasync.sync.repository.TaskExecutionRepository;
+import top.lldwb.alistmediasync.sync.repository.SyncTaskRepository;
 import top.lldwb.alistmediasync.sync.entity.SyncTask;
 import top.lldwb.alistmediasync.sync.entity.TaskExecution;
 import top.lldwb.alistmediasync.storage.entity.StorageEngine;
@@ -55,6 +56,7 @@ public class WebhookService {
     private final TranscodeService transcodeService;
     private final StorageEngineRepository storageEngineRepository;
     private final TaskExecutionRepository taskExecutionRepository;
+    private final SyncTaskRepository syncTaskRepository;
     private final JsonMapper objectMapper;
     private final WsSessionManager wsSessionManager;
 
@@ -214,6 +216,7 @@ public class WebhookService {
                     tempTask.setTargetPath(rule.getTargetFilePath());
                     tempTask.setSyncMode(SyncTask.SyncMode.NEW_ONLY);
                     tempTask.setTranscodeEnabled(false);
+                    tempTask = syncTaskRepository.save(tempTask);
                     syncService.executeSyncTask(tempTask);
                 }
                 case TRANSCODE_ONLY -> {
@@ -241,6 +244,7 @@ public class WebhookService {
                     tempTask.setSyncMode(SyncTask.SyncMode.NEW_ONLY);
                     tempTask.setTranscodeEnabled(true);
                     tempTask.setTargetFormat(SyncTask.TargetFormat.MP3);
+                    tempTask = syncTaskRepository.save(tempTask);
                     syncService.executeSyncTask(tempTask);
                 }
             }
