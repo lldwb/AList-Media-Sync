@@ -7,9 +7,9 @@
     "ShortId": 0,
     "Name": "测试直播间",
     "Title": "端到端测试直播标题",
-    "RelativePath": "rec/测试直播间/2026-07-23_12-00-00.flv",
-    "FileSize": 5242880,
-    "Duration": 300.5,
+    "RelativePath": "/e2e-test/sample.mp4",
+    "FileSize": 35103,
+    "Duration": 3.0,
     "FileOpenTime": "2026-07-23T11:55:00.000+08:00",
     "FileCloseTime": "2026-07-23T12:00:00.000+08:00",
     "SessionId": "e2e-test-session-0001"

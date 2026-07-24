@@ -24,7 +24,9 @@ app:
   data-dir: ./data-e2e/app/
   auth:
     username: admin
-    password: "{bcrypt}$2a$10$e2etestplaceholderhashfore2e"
+    # 明文密码：启动时由 PasswordEncryptionPostProcessor 随机盐 BCrypt 加密（对齐生产 application.yaml 明文约定）
+    # {bcrypt} 预加密格式已废弃，此处曾用占位 hash 导致认证失败，改为明文便于 E2E Basic 认证
+    password: admin123
   transcode:
     temp-dir: ./data-e2e/transcode-tmp/
 

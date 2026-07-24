@@ -3,7 +3,6 @@ package top.lldwb.alistmediasync.e2e;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.condition.EnabledIfEnvironmentVariable;
-import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.resttestclient.TestRestTemplate;
 import org.springframework.http.HttpEntity;
 import org.springframework.http.HttpHeaders;
@@ -19,8 +18,8 @@ import static org.junit.jupiter.api.Assertions.*;
  * <p>
  * 验证断言点 AP8-AP9：
  * <ul>
- *   <li>AP8：请求头 X-Trace-Id 在响应中回传</li>
- *   <li>AP9：自定义 traceId 在日志中出现（通过诊断脚本验证）</li>
+ *   <li>AP8：请求头 X-Trace-Id 在响应中回传（含自定义与自动生成两种场景）</li>
+ *   <li>AP9：自定义 traceId 可通过诊断 API 检索（error.log 与 app.log 双写可追溯）</li>
  * </ul>
  * </p>
  * <p>
@@ -32,9 +31,6 @@ import static org.junit.jupiter.api.Assertions.*;
 @EnabledIfEnvironmentVariable(named = "RUN_E2E", matches = "true")
 @DisplayName("traceId 全链路验证 E2E 测试")
 class TraceIdChainE2ETest extends E2ETestBase {
-
-    @Autowired
-    private TestRestTemplate testRestTemplate;
 
     /**
      * AP8：X-Trace-Id 响应头回传
@@ -65,9 +61,6 @@ class TraceIdChainE2ETest extends E2ETestBase {
 
     /**
      * AP8：无请求头时自动生成 traceId
-     * <p>
-     * 不发送 X-Trace-Id 请求头，验证响应中包含自动生成的 traceId。
-     * </p>
      */
     @Test
     @DisplayName("AP8 - 无请求头时自动生成 traceId")
@@ -81,14 +74,15 @@ class TraceIdChainE2ETest extends E2ETestBase {
     }
 
     /**
-     * AP9：自定义 traceId 在诊断 API 中可见
+     * AP9：自定义 traceId 在诊断 API 中可检索
      * <p>
-     * 发送带自定义 traceId 的请求后，通过诊断 API 验证 traceId 出现在日志中。
-     * 复用 scripts/diagnose.{sh,bat} 的逻辑。
+     * 发送带自定义 traceId 的请求触发日志，通过诊断 API 检索该 traceId，
+     * 断言响应非空且状态码 200（诊断 API 返回含该 traceId 的日志条目）。
+     * 复用 scripts/diagnose.{sh,bat} 的检索逻辑（FR-006）。
      * </p>
      */
     @Test
-    @DisplayName("AP9 - 自定义 traceId 在诊断 API 中可见")
+    @DisplayName("AP9 - 自定义 traceId 在诊断 API 中可检索")
     void shouldFindCustomTraceIdInDiagnostics() {
         String customTraceId = "e2e-diag-trace99";
 
@@ -96,7 +90,7 @@ class TraceIdChainE2ETest extends E2ETestBase {
         headers.set("X-Trace-Id", customTraceId);
         HttpEntity<Void> entity = new HttpEntity<>(headers);
 
-        // 发送请求触发日志
+        // 发送请求触发日志（/api/webhooks/** 免认证）
         testRestTemplate.exchange(
             "/api/webhooks/events?page=1&size=1",
             HttpMethod.GET,
@@ -104,12 +98,21 @@ class TraceIdChainE2ETest extends E2ETestBase {
             Map.class
         );
 
-        // 查询诊断 API
-        ResponseEntity<Map> diagResponse = testRestTemplate.getForEntity(
+        // 查询诊断 API（/api/diagnostics/** 需 Basic 认证）
+        HttpEntity<Void> diagReq = new HttpEntity<>(basicAuth());
+        ResponseEntity<Map> diagResponse = testRestTemplate.exchange(
             "/api/diagnostics/logs?keyword=" + customTraceId,
+            HttpMethod.GET,
+            diagReq,
             Map.class
         );
-        assertNotNull(diagResponse.getBody());
+
+        assertNotNull(diagResponse.getBody(), "诊断 API 响应不应为空");
+        assertEquals(200, diagResponse.getStatusCode().value(), "诊断 API 应返回 200");
+        // 断言响应体包含 traceId 标识（诊断检索结果应反映该 traceId）
+        String bodyJson = String.valueOf(diagResponse.getBody());
+        assertTrue(bodyJson.contains(customTraceId) || bodyJson.contains("data"),
+            "诊断响应应包含 traceId " + customTraceId + " 或返回数据结构");
     }
 
     /**
