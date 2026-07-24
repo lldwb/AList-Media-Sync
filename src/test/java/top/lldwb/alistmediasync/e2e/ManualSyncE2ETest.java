@@ -37,16 +37,16 @@ class ManualSyncE2ETest extends E2ETestBase {
     @Test
     @DisplayName("手动触发同步任务执行，文件落盘目标 AList")
     void shouldExecuteManualSync() {
-        AListTestClient alistClient = new AListTestClient("http://localhost:" + alistPort);
+        AListTestClient alistClient = new AListTestClient("http://localhost:" + alistPort, alistToken);
         assertTrue(alistClient.ping(), "AList 服务应可达");
 
-        // 创建同步任务（使用预置引擎，源 /e2e-test -> 目标 /e2e-test-sync-manual）
+        // 创建同步任务（使用预置引擎，源 /e2e-test -> 目标 /e2e-test-sync）
         Map<String, Object> task = Map.of(
             "name", "E2E手动同步",
             "sourceEngineId", sourceEngineId,
             "targetEngineId", targetEngineId,
             "sourcePath", "/e2e-test",
-            "targetPath", "/e2e-test-sync-manual",
+            "targetPath", "/e2e-test-sync",
             "syncMode", "NEW_ONLY",
             "enabled", true
         );
@@ -56,14 +56,14 @@ class ManualSyncE2ETest extends E2ETestBase {
         Long taskId = extractId(createResp.getBody());
         assertNotNull(taskId, "应返回任务 ID");
 
-        // 手动触发同步执行
-        HttpEntity<Map<String, Object>> triggerReq = new HttpEntity<>(Map.of("taskId", taskId), basicAuth());
-        testRestTemplate.postForEntity("/api/sync-tasks/trigger", triggerReq, Map.class);
+        // 手动触发同步执行（POST /api/sync-tasks/{id}/execute）
+        HttpEntity<Void> triggerReq = new HttpEntity<>(basicAuth());
+        testRestTemplate.postForEntity("/api/sync-tasks/" + taskId + "/execute", triggerReq, Map.class);
 
         // 轮询目标路径文件落盘（替代 Thread.sleep）
-        boolean found = await(() -> hasFileInList(alistClient.listFiles("/e2e-test-sync-manual")),
+        boolean found = await(() -> hasFileInList(alistClient.listFiles("/e2e-test-sync")),
             Duration.ofSeconds(90), Duration.ofSeconds(2));
-        assertTrue(found, "90 秒内手动同步目标路径 /e2e-test-sync-manual 应出现文件");
+        assertTrue(found, "90 秒内手动同步目标路径 /e2e-test-sync 应出现文件");
     }
 
     /**

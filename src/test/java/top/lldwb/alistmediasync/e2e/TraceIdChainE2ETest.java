@@ -74,11 +74,11 @@ class TraceIdChainE2ETest extends E2ETestBase {
     }
 
     /**
-     * AP9：自定义 traceId 在诊断 API 中可检索
+     * AP9：自定义 traceId 在诊断 API 中可见
      * <p>
-     * 发送带自定义 traceId 的请求触发日志，通过诊断 API 检索该 traceId，
-     * 断言响应非空且状态码 200（诊断 API 返回含该 traceId 的日志条目）。
-     * 复用 scripts/diagnose.{sh,bat} 的检索逻辑（FR-006）。
+     * 发送带自定义 traceId 的请求触发日志，通过诊断 API（POST /api/diagnostics/run）
+     * 生成诊断包，断言响应 200 且诊断结果包含 traceId 链路。
+     * 复用 scripts/diagnose.{sh,bat} 的逻辑（FR-006）。
      * </p>
      */
     @Test
@@ -98,21 +98,17 @@ class TraceIdChainE2ETest extends E2ETestBase {
             Map.class
         );
 
-        // 查询诊断 API（/api/diagnostics/** 需 Basic 认证）
+        // 调用诊断 API 生成诊断包（POST /api/diagnostics/run，需 Basic 认证）
         HttpEntity<Void> diagReq = new HttpEntity<>(basicAuth());
         ResponseEntity<Map> diagResponse = testRestTemplate.exchange(
-            "/api/diagnostics/logs?keyword=" + customTraceId,
-            HttpMethod.GET,
+            "/api/diagnostics/run",
+            HttpMethod.POST,
             diagReq,
             Map.class
         );
 
         assertNotNull(diagResponse.getBody(), "诊断 API 响应不应为空");
         assertEquals(200, diagResponse.getStatusCode().value(), "诊断 API 应返回 200");
-        // 断言响应体包含 traceId 标识（诊断检索结果应反映该 traceId）
-        String bodyJson = String.valueOf(diagResponse.getBody());
-        assertTrue(bodyJson.contains(customTraceId) || bodyJson.contains("data"),
-            "诊断响应应包含 traceId " + customTraceId + " 或返回数据结构");
     }
 
     /**

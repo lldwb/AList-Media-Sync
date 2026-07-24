@@ -41,15 +41,15 @@ class TranscodeE2ETest extends E2ETestBase {
     @Test
     @DisplayName("AP7 - 转码完成后产物出现在目标 AList")
     void shouldTranscodeFileAndVerify() {
-        AListTestClient alistClient = new AListTestClient("http://localhost:" + alistPort);
+        AListTestClient alistClient = new AListTestClient("http://localhost:" + alistPort, alistToken);
         assertTrue(alistClient.ping(), "AList 服务应可达");
 
-        // 创建转码任务（源 /e2e-test/sample.mp4 -> 目标 /e2e-test-transcoded/output.mp3）
+        // 创建转码任务（源 /e2e-test/sample.mp4 -> 目标 /e2e-test-transcoded/，系统自动用源文件名+目标格式后缀生成 sample.mp3）
         Map<String, Object> task = Map.of(
             "sourceEngineId", sourceEngineId,
             "targetEngineId", targetEngineId,
-            "sourcePath", "/e2e-test/sample.mp4",
-            "targetPath", "/e2e-test-transcoded/output.mp3",
+            "sourceFilePath", "/e2e-test/sample.mp4",
+            "targetFilePath", "/e2e-test-transcoded",
             "targetFormat", "MP3",
             "bitrate", 128000
         );
@@ -59,10 +59,10 @@ class TranscodeE2ETest extends E2ETestBase {
         Long taskId = extractId(createResp.getBody());
         assertNotNull(taskId, "应返回转码任务 ID");
 
-        // 轮询转码产物出现（转码耗时较长，放宽到 120 秒）
-        boolean found = await(() -> fileExists(alistClient.getFileDetail("/e2e-test-transcoded/output.mp3")),
+        // 轮询转码产物出现（转码产物为 sample.mp3，系统用源文件名 + 目标格式后缀）
+        boolean found = await(() -> fileExists(alistClient.getFileDetail("/e2e-test-transcoded/sample.mp3")),
             Duration.ofSeconds(120), Duration.ofSeconds(3));
-        assertTrue(found, "120 秒内转码产物 output.mp3 应出现在目标 AList（AP7 转码完成）");
+        assertTrue(found, "120 秒内转码产物 sample.mp3 应出现在目标 AList（AP7 转码完成）");
     }
 
     /**
