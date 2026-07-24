@@ -6,6 +6,7 @@ import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.data.jpa.test.autoconfigure.DataJpaTest;
 import jakarta.persistence.OptimisticLockException;
+import org.springframework.jdbc.core.JdbcTemplate;
 import org.springframework.test.context.ActiveProfiles;
 import top.lldwb.alistmediasync.transcode.entity.TranscodeTask;
 import top.lldwb.alistmediasync.transcode.repository.TranscodeTaskRepository;
@@ -34,6 +35,9 @@ class TranscodeTaskRepositoryIT {
 
     @Autowired
     private EntityManager entityManager;
+
+    @Autowired
+    private JdbcTemplate jdbcTemplate;
 
     @BeforeEach
     void setUp() {
@@ -190,18 +194,20 @@ class TranscodeTaskRepositoryIT {
         TranscodeTask task = repository.findByStatus(
             TranscodeTask.TranscodeStatus.PENDING).get(0);
         entityManager.flush();
+        Long id = task.getId();
 
-        // 两个线程同时读取
-        TranscodeTask t1 = repository.findById(task.getId()).orElseThrow();
-        TranscodeTask t2 = repository.findById(task.getId()).orElseThrow();
+        // 加载托管实体，Hibernate 记录 loaded state 中 version=0
+        TranscodeTask t2 = repository.findById(id).orElseThrow();
 
-        // 第一个更新成功
-        t1.setStatus(TranscodeTask.TranscodeStatus.DOWNLOADING);
-        repository.save(t1);
-        entityManager.flush();
+        // 用原生 JDBC 直接递增数据库 version，模拟另一事务已提交
+        // jdbcTemplate 绕过 Hibernate 持久化上下文，t2 的 loaded state 仍为旧值 0
+        jdbcTemplate.update("UPDATE transcode_task SET version = version + 1 WHERE id = ?", id);
 
-        // 第二个更新应抛出 OptimisticLockException
-        t2.setStatus(TranscodeTask.TranscodeStatus.DOWNLOADING);
+        // 修改 t2 字段使其成为 dirty，flush 时触发版本检查
+        t2.setStatus(TranscodeTask.TranscodeStatus.TRANSCODING);
+
+        // flush 时 Hibernate 用 loaded state version=0 做 WHERE 条件
+        // 数据库 version 已被 JDBC 改为 1，不匹配，抛出 OptimisticLockException
         assertThrows(OptimisticLockException.class, () -> {
             repository.save(t2);
             entityManager.flush();

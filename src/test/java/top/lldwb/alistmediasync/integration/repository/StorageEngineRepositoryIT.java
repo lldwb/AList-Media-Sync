@@ -6,6 +6,7 @@ import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.data.jpa.test.autoconfigure.DataJpaTest;
 import jakarta.persistence.OptimisticLockException;
+import org.springframework.jdbc.core.JdbcTemplate;
 import org.springframework.test.context.ActiveProfiles;
 import top.lldwb.alistmediasync.storage.entity.StorageEngine;
 import top.lldwb.alistmediasync.storage.repository.StorageEngineRepository;
@@ -34,6 +35,9 @@ class StorageEngineRepositoryIT {
 
     @Autowired
     private EntityManager entityManager;
+
+    @Autowired
+    private JdbcTemplate jdbcTemplate;
 
     private StorageEngine engine;
 
@@ -88,19 +92,21 @@ class StorageEngineRepositoryIT {
     @DisplayName("@Version 乐观锁冲突检测")
     void shouldDetectOptimisticLockConflict() {
         StorageEngine saved = repository.save(engine);
-        entityManager.flush(); // 确保 version 刷新
-
-        // 两个线程同时读取同一实体
-        StorageEngine e1 = repository.findById(saved.getId()).orElseThrow();
-        StorageEngine e2 = repository.findById(saved.getId()).orElseThrow();
-
-        // 第一个更新成功
-        e1.setName("线程1更新");
-        repository.save(e1);
         entityManager.flush();
+        Long id = saved.getId();
 
-        // 第二个更新应抛出 OptimisticLockException
+        // 加载托管实体，Hibernate 记录 loaded state 中 version=0
+        StorageEngine e2 = repository.findById(id).orElseThrow();
+
+        // 用原生 JDBC 直接递增数据库 version，模拟另一事务已提交
+        // jdbcTemplate 绕过 Hibernate 持久化上下文，e2 的 loaded state 仍为旧值 0
+        jdbcTemplate.update("UPDATE storage_engine SET version = version + 1 WHERE id = ?", id);
+
+        // 修改 e2 字段使其成为 dirty，flush 时触发版本检查
         e2.setName("线程2更新");
+
+        // flush 时 Hibernate 用 loaded state version=0 做 WHERE 条件
+        // 数据库 version 已被 JDBC 改为 1，不匹配，抛出 OptimisticLockException
         assertThrows(OptimisticLockException.class, () -> {
             repository.save(e2);
             entityManager.flush();

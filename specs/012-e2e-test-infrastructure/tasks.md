@@ -119,11 +119,11 @@ description: "端到端测试基础设施的实现任务列表"
 
 **目的**：影响多个用户故事的文档同步、CI 集成与验证
 
-- [ ] T032 [P] 更新 `docs/02-开发环境搭建.md`：新增 E2E 环境准备章节（下载脚本用法、`ALIST_LOCAL_PATH`、动态端口说明），对齐 quickstart.md 场景 3（原则 IX、XI）
-- [ ] T033 [P] 更新 `docs/06-运维部署.md`：新增测试 profile 用法（`-Pintegration`/`-Pe2e`）与 nightly CI 说明，对齐 contracts/e2e-maven-profile.md（原则 IX、XI）
-- [ ] T034 更新 `CHANGELOG.md`：按 Keep a Changelog 格式新增版本条目，Added 分类记录集成测试层、E2E 测试层、环境准备脚本、nightly CI（原则 IX）
-- [ ] T035 [P] 创建 `.github/workflows/e2e-nightly.yml`：GitHub Actions `schedule.cron` 定时触发 `mvn verify -Pe2e`，CI 脚本调用 `prepare-e2e-env.sh` 下载 AList 二进制，PR 流水线不触发（FR-013，research.md R10）
-- [ ] T036 运行 `quickstart.md` 验证场景 1-8：确认单元/集成/E2E 三层测试均可独立运行，动态端口与失败保留行为符合预期
+- [X] T032 [P] 更新 `docs/02-开发环境搭建.md`：新增 E2E 环境准备章节（下载脚本用法、`ALIST_LOCAL_PATH`、动态端口说明），对齐 quickstart.md 场景 3（原则 IX、XI）
+- [X] T033 [P] 更新 `docs/06-运维部署.md`：新增测试 profile 用法（`-Pintegration`/`-Pe2e`）与 nightly CI 说明，对齐 contracts/e2e-maven-profile.md（原则 IX、XI）
+- [X] T034 更新 `CHANGELOG.md`：按 Keep a Changelog 格式新增版本条目，Added 分类记录集成测试层、E2E 测试层、环境准备脚本、nightly CI（原则 IX）
+- [X] T035 [P] 创建 `.github/workflows/e2e-nightly.yml`：GitHub Actions `schedule.cron` 定时触发 `mvn verify -Pe2e`，CI 脚本调用 `prepare-e2e-env.sh` 下载 AList 二进制，PR 流水线不触发（FR-013，research.md R10）
+- [X] T036 运行 `quickstart.md` 验证场景 1-8：确认单元/集成/E2E 三层测试均可独立运行，动态端口与失败保留行为符合预期
 
 ---
 

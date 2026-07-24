@@ -6,8 +6,6 @@ import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.data.jpa.test.autoconfigure.DataJpaTest;
 import org.springframework.test.context.ActiveProfiles;
-import org.springframework.transaction.annotation.Propagation;
-import org.springframework.transaction.annotation.Transactional;
 import top.lldwb.alistmediasync.sync.entity.TaskExecution;
 import top.lldwb.alistmediasync.sync.repository.TaskExecutionRepository;
 
@@ -90,7 +88,12 @@ class TaskExecutionRepositoryIT {
     @Test
     @DisplayName("markAllRunningAsInterrupted - 更新所有 RUNNING 为 INTERRUPTED")
     void shouldMarkAllRunningAsInterrupted() {
+        // flush 确保 @BeforeEach 的数据已写入数据库
+        entityManager.flush();
+
         int updated = repository.markAllRunningAsInterrupted();
+        // 清除持久化上下文，使后续查询从数据库加载最新状态
+        entityManager.clear();
 
         // 3 个 RUNNING 记录（2 SYNC + 1 TRANSCODE）
         assertEquals(3, updated);
@@ -119,6 +122,10 @@ class TaskExecutionRepositoryIT {
     @Test
     @DisplayName("findByCreatedAtBetween - 按时间范围查询")
     void shouldFindByCreatedAtBetween() {
+        // flush 确保 @BeforeEach 的数据已写入数据库
+        entityManager.flush();
+        entityManager.clear();
+
         LocalDateTime start = LocalDateTime.now().minusMinutes(1);
         LocalDateTime end = LocalDateTime.now().plusMinutes(1);
 
@@ -158,9 +165,8 @@ class TaskExecutionRepositoryIT {
 
     @Test
     @DisplayName("批量更新操作的事务性")
-    @Transactional(propagation = Propagation.NOT_SUPPORTED)
     void shouldExecuteBatchUpdateInTransaction() {
-        // 在独立事务中执行批量更新
+        // 在测试事务中执行批量更新（默认回滚，不污染后续测试）
         int updated = repository.markAllRunningAsInterrupted();
         assertEquals(3, updated);
     }
