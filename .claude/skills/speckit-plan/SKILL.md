@@ -52,11 +52,12 @@ $ARGUMENTS
 
     请等待钩子命令的结果，然后再继续后续大纲。
     ```
+    在发出上述块后，你**必须**实际调用钩子并等待其完成后再继续。以你在此代理/会话中运行命令的相同方式运行它（调用方式可能与上面显示的字面 `{command}` ID 不同，例如 skills-mode 代理将其作为 `/skill:speckit-...` 或 `$speckit-...` 运行）。仅发出块不会运行钩子。
 - 如果没有注册钩子或 `.specify/extensions.yml` 不存在，静默跳过。
 
 ## 大纲
 
-1. **设置**：从仓库根目录运行 `pwsh -File ".specify/scripts/powershell/setup-plan.ps1" -Json`，解析 JSON 获取 FEATURE_SPEC、IMPL_PLAN、SPECS_DIR、BRANCH。对于参数中的单引号，如 "I'm Groot"，使用转义语法：例如 'I'\''m Groot'（或尽可能使用双引号："I'm Groot"）。
+1. **设置**：从仓库根目录运行 `{SCRIPT}`，解析 JSON 获取 FEATURE_SPEC、IMPL_PLAN、SPECS_DIR、BRANCH。对于参数中的单引号，如 "I'm Groot"，使用转义语法：例如 'I'\''m Groot'（或尽可能使用双引号："I'm Groot"）。
 
 2. **加载上下文**：读取 FEATURE_SPEC 和 `.specify/memory/constitution.md`。加载 IMPL_PLAN 模板（已复制）。
 
@@ -66,7 +67,6 @@ $ARGUMENTS
    - 评估门禁（如果违规无正当理由则报错）
    - 阶段 0：生成 research.md（解决所有"需要澄清"项）
    - 阶段 1：生成 data-model.md、contracts/、quickstart.md
-   - 阶段 1：通过运行代理脚本更新代理上下文
    - 设计后重新评估章程检查
 
 ## 强制执行后钩子
@@ -91,6 +91,7 @@ $ARGUMENTS
     正在执行：`/{command}`
     EXECUTE_COMMAND：{command}
     ```
+    在发出上述块后，你**必须**实际调用钩子并等待其完成后再继续。以你在此代理/会话中运行命令的相同方式运行它（调用方式可能与上面显示的字面 `{command}` ID 不同，例如 skills-mode 代理将其作为 `/skill:speckit-...` 或 `$speckit-...` 运行）。仅发出块不会运行钩子。
   - **可选钩子**（`optional: true`）：
     ```
     ## 扩展钩子
@@ -105,7 +106,7 @@ $ARGUMENTS
 
 ## 完成报告
 
-命令在阶段 2 规划之后结束。报告分支、IMPL_PLAN 路径和生成的制品。
+命令在阶段 1 设计之后结束。报告分支、IMPL_PLAN 路径和生成的制品。
 
 ## 阶段
 
@@ -154,10 +155,7 @@ $ARGUMENTS
    - 不要包含完整的实现代码、模型/服务/控制器主体、迁移或完整的测试套件。
    - 将此制品保持为验证/运行指南；实现细节属于 `tasks.md` 和实现阶段。
 
-4. **代理上下文更新**：
-   - 更新 `AGENTS.md` 中 `<!-- SPECKIT START -->` 和 `<!-- SPECKIT END -->` 标记之间的计划引用，指向步骤 1 中创建的计划文件（IMPL_PLAN 路径）。
-
-**输出**：data-model.md、/contracts/*、quickstart.md、更新后的代理上下文文件。
+**输出**：data-model.md、/contracts/*、quickstart.md
 
 ### 更新 spec.md 状态（原则 VIII）
 
