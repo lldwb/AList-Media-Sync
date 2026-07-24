@@ -33,13 +33,13 @@ $DanmujiDir = Join-Path $BinRoot "danmuji"
 #   https://github.com/alist-org/alist/releases
 #   https://github.com/Bililive/BililiveRecorder/releases
 # ============================================================
-$ALIST_VERSION = "v3.x.x"
-$ALIST_SHA256_WIN = "REPLACE_WITH_ACTUAL_SHA256"
-$ALIST_DOWNLOAD_URL = "https://github.com/alist-org/alist/releases/download/$ALIST_VERSION/alist-$ALIST_VERSION-windows-amd64.zip"
+$ALIST_VERSION = "v3.62.0"
+$ALIST_SHA256_WIN = "218121d76d8f2c82f8336707091c2bd0921c5a9b65c3484529c58edf83cc0b38"
+$ALIST_DOWNLOAD_URL = "https://github.com/AlistGo/alist/releases/download/$ALIST_VERSION/alist-$ALIST_VERSION-windows-amd64.zip"
 
-$DANMUJI_VERSION = "v2.x.x"
+$DANMUJI_VERSION = "v2.18.0"
 $DANMUJI_SHA256_WIN = "REPLACE_WITH_ACTUAL_SHA256"
-$DANMUJI_DOWNLOAD_URL = "https://github.com/Bililive/BililiveRecorder/releases/download/$DANMUJI_VERSION/BililiveRecorder-$DANMUJI_VERSION-win-x64.zip"
+$DANMUJI_DOWNLOAD_URL = "https://github.com/Bililive/BililiveRecorder/releases/download/$DANMUJI_VERSION/BililiveRecorder-CLI-$DANMUJI_VERSION-win-x64.zip"
 
 # 退出码
 $EXIT_SUCCESS = 0
