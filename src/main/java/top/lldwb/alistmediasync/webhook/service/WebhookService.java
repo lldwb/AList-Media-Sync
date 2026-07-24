@@ -25,12 +25,16 @@ import top.lldwb.alistmediasync.sync.entity.TaskExecution;
 import top.lldwb.alistmediasync.storage.entity.StorageEngine;
 import top.lldwb.alistmediasync.transcode.entity.TranscodeTask;
 import top.lldwb.alistmediasync.common.service.WsSessionManager;
+import top.lldwb.alistmediasync.common.util.TraceContext;
 
 import java.time.Instant;
 import java.time.LocalDateTime;
 import java.time.ZoneId;
 import java.util.List;
 import java.util.Map;
+
+import org.springframework.transaction.support.TransactionSynchronization;
+import org.springframework.transaction.support.TransactionSynchronizationManager;
 
 /**
  * Webhook 事件处理服务
@@ -212,12 +216,19 @@ public class WebhookService {
                     tempTask.setName("Webhook-" + rule.getName());
                     tempTask.setSourceEngine(sourceEngine);
                     tempTask.setTargetEngine(rule.getTargetEngine());
-                    tempTask.setSourcePath(event.getRelativePath());
+                    // 使用 recordingPath（目录路径）作为源路径，event.getRelativePath() 为具体文件
+                    tempTask.setSourcePath(rule.getRecordingPath());
                     tempTask.setTargetPath(rule.getTargetFilePath());
                     tempTask.setSyncMode(SyncTask.SyncMode.NEW_ONLY);
                     tempTask.setTranscodeEnabled(false);
                     tempTask = syncTaskRepository.save(tempTask);
-                    syncService.executeSyncTask(tempTask);
+                    final SyncTask syncTask = tempTask;
+                    TransactionSynchronizationManager.registerSynchronization(new TransactionSynchronization() {
+                        @Override
+                        public void afterCommit() {
+                            syncService.executeSyncTask(syncTask);
+                        }
+                    });
                 }
                 case TRANSCODE_ONLY -> {
                     if (event.getRelativePath() != null && rule.getRecordingEngine() != null) {
@@ -239,13 +250,20 @@ public class WebhookService {
                     tempTask.setName("Webhook-" + rule.getName());
                     tempTask.setSourceEngine(sourceEngine);
                     tempTask.setTargetEngine(rule.getTargetEngine());
-                    tempTask.setSourcePath(event.getRelativePath());
+                    // 使用 recordingPath（目录路径）作为源路径，event.getRelativePath() 为具体文件
+                    tempTask.setSourcePath(rule.getRecordingPath());
                     tempTask.setTargetPath(rule.getTargetFilePath());
                     tempTask.setSyncMode(SyncTask.SyncMode.NEW_ONLY);
                     tempTask.setTranscodeEnabled(true);
                     tempTask.setTargetFormat(SyncTask.TargetFormat.MP3);
                     tempTask = syncTaskRepository.save(tempTask);
-                    syncService.executeSyncTask(tempTask);
+                    final SyncTask syncTask = tempTask;
+                    TransactionSynchronizationManager.registerSynchronization(new TransactionSynchronization() {
+                        @Override
+                        public void afterCommit() {
+                            syncService.executeSyncTask(syncTask);
+                        }
+                    });
                 }
             }
 
