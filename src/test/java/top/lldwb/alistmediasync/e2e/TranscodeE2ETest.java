@@ -3,10 +3,13 @@ package top.lldwb.alistmediasync.e2e;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.condition.EnabledIfEnvironmentVariable;
-import org.springframework.beans.factory.annotation.Autowired;
-import org.springframework.boot.resttestclient.TestRestTemplate;
+import org.springframework.http.HttpEntity;
+import org.springframework.http.HttpMethod;
 import org.springframework.http.ResponseEntity;
 
+import top.lldwb.alistmediasync.support.AListTestClient;
+
+import java.time.Duration;
 import java.util.Map;
 
 import static org.junit.jupiter.api.Assertions.*;
@@ -15,11 +18,12 @@ import static org.junit.jupiter.api.Assertions.*;
  * 链路3：转码 E2E 测试
  * <p>
  * 验证转码流程完整执行（AP7）：
- * 文件同步后触发转码，源文件转码为目标格式并上传到目标引擎。
- * 断言：转码产物出现在目标 AList 中。
+ * 创建转码任务（mp4 -> mp3），轮询目标 AList 直到转码产物出现。
+ * 断言：转码产物存在且 getFileDetail 返回有效数据。
  * </p>
  * <p>
- * 仅在 {@code RUN_E2E=true} 环境变量下执行，需真实 AList 二进制。
+ * 仅在 {@code RUN_E2E=true} 环境变量下执行，需真实 AList 二进制 + JAVE2 ffmpeg。
+ * 数据预置由 {@link E2ETestBase#setupE2EData()} 完成（sample.mp4 已上传到 /e2e-test/sample.mp4）。
  * </p>
  *
  * @author AList-Media-Sync
@@ -28,60 +32,59 @@ import static org.junit.jupiter.api.Assertions.*;
 @DisplayName("链路3：转码 E2E 测试")
 class TranscodeE2ETest extends E2ETestBase {
 
-    @Autowired
-    private TestRestTemplate testRestTemplate;
-
     /**
      * AP7：转码完成后产物出现在目标 AList
      * <p>
-     * 创建转码任务，等待转码完成，验证目标文件已生成。
+     * 创建 mp4->mp3 转码任务，轮询目标路径 /e2e-test-transcoded/output.mp3 直到产物出现。
      * </p>
      */
     @Test
     @DisplayName("AP7 - 转码完成后产物出现在目标 AList")
-    void shouldTranscodeFileAndVerify() throws InterruptedException {
-        // 查询转码任务列表
-        ResponseEntity<Map> listResponse = testRestTemplate.getForEntity(
-            "/api/transcode-tasks", Map.class);
-        assertNotNull(listResponse.getBody());
-    }
+    void shouldTranscodeFileAndVerify() {
+        AListTestClient alistClient = new AListTestClient("http://localhost:" + alistPort);
+        assertTrue(alistClient.ping(), "AList 服务应可达");
 
-    /**
-     * 创建转码任务并验证状态
-     * <p>
-     * 创建转码任务，等待处理完成后验证状态为 COMPLETED。
-     * </p>
-     */
-    @Test
-    @DisplayName("创建转码任务并验证状态")
-    void shouldCreateAndVerifyTranscodeTask() throws InterruptedException {
-        // 创建转码任务
-        ResponseEntity<Map> createResponse = testRestTemplate.postForEntity(
-            "/api/transcode-tasks",
-            Map.of(
-                "sourcePath", "/e2e-test/test-recording.mp4",
-                "targetPath", "/e2e-test-transcoded/output.mp3",
-                "sourceFormat", "MP4",
-                "targetFormat", "MP3",
-                "bitrate", 128000
-            ),
-            Map.class
+        // 创建转码任务（源 /e2e-test/sample.mp4 -> 目标 /e2e-test-transcoded/output.mp3）
+        Map<String, Object> task = Map.of(
+            "sourceEngineId", sourceEngineId,
+            "targetEngineId", targetEngineId,
+            "sourcePath", "/e2e-test/sample.mp4",
+            "targetPath", "/e2e-test-transcoded/output.mp3",
+            "targetFormat", "MP3",
+            "bitrate", 128000
         );
-        assertNotNull(createResponse.getBody());
-        assertEquals(200, createResponse.getStatusCode().value());
+        HttpEntity<Map<String, Object>> req = new HttpEntity<>(task, basicAuth());
+        ResponseEntity<Map> createResp = testRestTemplate.postForEntity("/api/transcode-tasks", req, Map.class);
+        assertEquals(200, createResp.getStatusCode().value(), "创建转码任务应成功");
+        Long taskId = extractId(createResp.getBody());
+        assertNotNull(taskId, "应返回转码任务 ID");
+
+        // 轮询转码产物出现（转码耗时较长，放宽到 120 秒）
+        boolean found = await(() -> fileExists(alistClient.getFileDetail("/e2e-test-transcoded/output.mp3")),
+            Duration.ofSeconds(120), Duration.ofSeconds(3));
+        assertTrue(found, "120 秒内转码产物 output.mp3 应出现在目标 AList（AP7 转码完成）");
     }
 
     /**
      * 查询转码任务列表
-     * <p>
-     * 验证转码任务列表 API 正常返回。
-     * </p>
      */
     @Test
     @DisplayName("查询转码任务列表")
     void shouldListTranscodeTasks() {
-        ResponseEntity<Map> response = testRestTemplate.getForEntity(
-            "/api/transcode-tasks", Map.class);
-        assertNotNull(response.getBody());
+        HttpEntity<Void> req = new HttpEntity<>(basicAuth());
+        ResponseEntity<Map> resp = testRestTemplate.exchange("/api/transcode-tasks", HttpMethod.GET, req, Map.class);
+        assertNotNull(resp.getBody());
+        assertEquals(200, resp.getStatusCode().value());
+    }
+
+    /**
+     * 检查 AList getFileDetail 响应是否表示文件存在（code=200 且 data 非空）
+     */
+    private static boolean fileExists(Map<String, Object> detail) {
+        if (detail == null) return false;
+        Object code = detail.get("code");
+        if (!(code instanceof Number n) || n.intValue() != 200) return false;
+        Object data = detail.get("data");
+        return data instanceof Map<?, ?> d && d.get("name") != null;
     }
 }
