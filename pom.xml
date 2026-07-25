@@ -10,7 +10,7 @@
     </parent>
     <groupId>top.lldwb</groupId>
     <artifactId>AList-Media-Sync</artifactId>
-    <version>0.0.1-SNAPSHOT</version>
+    <version>0.1.0</version>
     <name>AList-Media-Sync</name>
     <description>AList-Media-Sync</description>
     <url/>
