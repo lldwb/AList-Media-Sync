@@ -2,7 +2,7 @@
 
 ## AI 工作指令
 
-以下规则约束 AI 在此项目中的行为，优先级高于任何默认行为。**规则与 `.specify/memory/constitution.md`（章程版本 1.10.0）的不可协商原则对齐，冲突时以章程为准**。
+以下规则约束 AI 在此项目中的行为，优先级高于任何默认行为。**规则与 `.specify/memory/constitution.md`（章程版本 1.11.0）的不可协商原则对齐，冲突时以章程为准**。
 
 > **文件权重体系**：constitution.md（宪法）> AGENTS.md 根级（法律·全局）> 前端/后端 AGENTS.md（行政法规）> 模块 AGENTS.md（地方性法规）。本文件为全局级法律层，覆盖项目的日常修改和 AI 行为约束，前端/后端及各模块 AGENTS.md 在此基础上逐级细化。
 > **人类开发者文档体系**（与 AI 上下文体系并列）：根级入口（README/AGENTS/CHANGELOG/CONTRIBUTING）> docs/ 主题文档（系统当前状态）> specs/ 冻结档案（功能设计档案）。详见章程原则 XI。
@@ -19,6 +19,7 @@
 9. **日志规范不可省略** — 所有重要操作 MUST 按 DEBUG/INFO/WARN/ERROR 四级输出日志，API 调用和本地文件操作 MUST 记录输入输出。任务入口 MUST 通过 `TraceContext.runWith(...)` 注入 traceId / module / operation MDC 字段；ERROR 级别日志 MUST 同时写入 `app.log` 与 `error.log`；所有 `/api/**` 响应 MUST 携带 `X-Trace-Id`；日志与诊断包 MUST NOT 出现密码 / Token / 密钥等敏感原始值。（章程原则 VII）
 10. **中文优先** — 所有文档、注释、日志消息、提交信息 MUST 使用简体中文。对外 API 字段名和错误信息使用英文。（章程原则 IV）
 11. **实现后文档同步** — 实现完成后 MUST 同步更新 `docs/` 对应主题文档（配置→docs/04、API→docs/05、架构→docs/03+architecture/、运维→docs/06+operations/）与 `CHANGELOG.md`（Keep a Changelog 格式）。配置/API 以 docs/04、docs/05 为 SSOT，禁止在其他文档重复维护权威内容。（章程原则 IX、XI）
+12. **Git 提交规范** — 提交前 MUST 通过 `git status` + `git diff` 分析改动涉及的功能模块；多模块改动 MUST 按模块拆分为多次独立提交（业务逻辑/配置/文档/测试各归一次），单模块或单文件改动 MUST 合并为一次提交不可强制拆分；`git add` MUST 显式指定文件，禁止 `git add -A` / `git add .`；提交信息 MUST 使用中文，采用「简明摘要 + 必要详细说明」结构，遵循 Conventional Commits 与仓库现有风格。（章程原则 XII）
 
 ---
 
@@ -39,6 +40,7 @@
 | 9 | `/speckit-implement` 后 README.md 已更新 | IX |
 | 10 | `/speckit-constitution` 后 AGENTS.md 已同步 | X |
 | 11 | `docs/` 主题文档与 `CHANGELOG.md` 已同步，配置/API 以 SSOT 为准 | IX、XI |
+| 12 | Git 提交遵循单一职责拆分、显式 `git add`、结构化中文提交信息 | XII |
 
 ---
 
@@ -46,7 +48,7 @@
 
 项目采用三层文档结构（章程原则 XI）：根级入口（导航与速查）> `docs/` 主题文档（系统当前状态）> `specs/` 冻结档案（功能设计档案）。本文件仅保留 AI 协作指令与模块索引。
 
-- **根级入口**：[`README.md`](README.md)（快速开始）· [`CHANGELOG.md`](CHANGELOG.md)（版本演进）· [`CONTRIBUTING.md`](CONTRIBUTING.md)（贡献指南）· [`.specify/memory/constitution.md`](.specify/memory/constitution.md)（项目章程·11 条不可协商原则）
+- **根级入口**：[`README.md`](README.md)（快速开始）· [`CHANGELOG.md`](CHANGELOG.md)（版本演进）· [`CONTRIBUTING.md`](CONTRIBUTING.md)（贡献指南）· [`.specify/memory/constitution.md`](.specify/memory/constitution.md)（项目章程·12 条不可协商原则）
 - **主题文档**（`docs/`，SSOT 所在）：
   - 项目概述：[`docs/01-项目概述.md`](docs/01-项目概述.md)
   - 开发环境搭建：[`docs/02-开发环境搭建.md`](docs/02-开发环境搭建.md)
