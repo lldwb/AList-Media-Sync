@@ -102,7 +102,7 @@ app:
 
   # 应用名称和版本（启动横幅输出使用）
   name: AList-Media-Sync
-  version: 0.0.1-SNAPSHOT
+  version: 0.1.0
 
   # 历史记录保留天数（超过此天数的 TaskExecution 和 WebhookEvent 将被清理）
   retention-days: 30

@@ -15,7 +15,7 @@
 - **Fixed** 错误修复
 - **Security** 安全相关的修复
 
-## [Unreleased]
+## [0.1.0] - 2026-07-25
 
 ### Added
 
