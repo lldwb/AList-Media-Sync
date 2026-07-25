@@ -103,9 +103,12 @@ class ScheduleServiceTest {
 
         verify(taskExecutionRepository).markAllRunningAsInterrupted();
         verify(syncTaskRepository).findByEnabledTrue();
-        // intervalTask 使用 scheduleAtFixedRate 会立即执行一次
-        // cronTask 使用 CronTrigger 不会立即执行（只在 cron 匹配时触发）
-        // 因此至少 1 次（intervalTask），可能 2 次（如果 cronTask 恰好在当下匹配）
+        // scheduleAtFixedRate 使用真实的 ThreadPoolTaskScheduler，第一次执行
+        // 在独立线程中异步发生。短暂等待确保调度器线程有机会执行。
+        Thread.sleep(200);
+        // intervalTask（INTERVAL 模式）的 scheduleAtFixedRate 会立即触发第一次执行
+        // cronTask（CRON 模式）不会立即执行（仅在 cron 匹配时触发）
+        // manualTask（MANUAL 模式）不注册调度
         verify(syncService, atLeast(1)).executeSyncTask(any());
     }
 
