@@ -48,3 +48,6 @@ scripts/e2e/bin/
 scripts/e2e/data/
 data-e2e/
 scripts/e2e/data/ports.json
+
+### 诊断输出 ###
+diagnostics/
