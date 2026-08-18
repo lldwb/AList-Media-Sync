@@ -62,6 +62,10 @@ public class AppProperties {
     @NotNull
     private Storage storage = new Storage();
 
+    /** MCP 服务器配置 */
+    @NotNull
+    private Mcp mcp = new Mcp();
+
     /**
      * 认证配置内部类
      */
@@ -173,5 +177,24 @@ public class AppProperties {
         /** 存储引擎健康检查间隔（秒，默认 300 = 5 分钟） */
         @Min(10)
         private long healthCheckInterval = 300;
+    }
+
+    /**
+     * MCP 服务器配置内部类
+     */
+    @Data
+    public static class Mcp {
+        /**
+         * MCP 服务器总开关（默认 false，禁用）
+         * 可通过环境变量 MCP_ENABLED 覆盖
+         */
+        private boolean enabled = false;
+
+        /**
+         * MCP 专用访问令牌（Bearer Token），与 Web 管理 Basic Auth 凭据隔离（FR-008）
+         * 空值时强制不可用；属敏感凭据，日志与诊断包 MUST NOT 打印其值
+         * 可通过环境变量 MCP_TOKEN 覆盖
+         */
+        private String token = "";
     }
 }

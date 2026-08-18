@@ -1,12 +1,14 @@
 package top.lldwb.alistmediasync.common.config;
 
 import org.springframework.context.annotation.Configuration;
+import org.springframework.beans.factory.ObjectProvider;
 import org.springframework.web.servlet.config.annotation.CorsRegistry;
 import org.springframework.web.servlet.config.annotation.InterceptorRegistry;
 import org.springframework.web.servlet.config.annotation.ResourceHandlerRegistry;
 import org.springframework.web.servlet.config.annotation.ViewControllerRegistry;
 import org.springframework.web.servlet.config.annotation.WebMvcConfigurer;
 import top.lldwb.alistmediasync.common.interceptor.AuthInterceptor;
+import top.lldwb.alistmediasync.common.interceptor.McpAuthInterceptor;
 
 /**
  * Web MVC 配置
@@ -21,9 +23,11 @@ import top.lldwb.alistmediasync.common.interceptor.AuthInterceptor;
 public class WebMvcConfig implements WebMvcConfigurer {
 
     private final AuthInterceptor authInterceptor;
+    private final ObjectProvider<McpAuthInterceptor> mcpAuthInterceptor;
 
-    public WebMvcConfig(AuthInterceptor authInterceptor) {
+    public WebMvcConfig(AuthInterceptor authInterceptor, ObjectProvider<McpAuthInterceptor> mcpAuthInterceptor) {
         this.authInterceptor = authInterceptor;
+        this.mcpAuthInterceptor = mcpAuthInterceptor;
     }
 
     @Override
@@ -40,6 +44,10 @@ public class WebMvcConfig implements WebMvcConfigurer {
         registry.addInterceptor(authInterceptor)
             .addPathPatterns("/api/**")
             .excludePathPatterns("/api/webhooks/**", "/actuator/health", "/h2-console/**");
+
+        // MCP 端点认证（独立 Bearer Token，FR-008）：仅在 MCP 服务器启用时注册
+        mcpAuthInterceptor.ifAvailable(interceptor ->
+            registry.addInterceptor(interceptor).addPathPatterns("/mcp"));
     }
 
     @Override
