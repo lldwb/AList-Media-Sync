@@ -38,6 +38,23 @@
         <!-- 临时工作目录 -->
         <bootstrap.tmp.dir>${project.build.directory}/bootstrap-tmp</bootstrap.tmp.dir>
     </properties>
+
+    <!-- ============================================================
+         依赖版本统一管理
+         ============================================================ -->
+    <dependencyManagement>
+        <!-- Spring AI：MCP 服务器集成（research.md R1）版本由 BOM 统一管理 -->
+        <dependencies>
+            <dependency>
+                <groupId>org.springframework.ai</groupId>
+                <artifactId>spring-ai-bom</artifactId>
+                <version>2.0.0</version>
+                <type>pom</type>
+                <scope>import</scope>
+            </dependency>
+        </dependencies>
+    </dependencyManagement>
+
     <dependencies>
         <dependency>
             <groupId>org.springframework.boot</groupId>
@@ -151,6 +168,14 @@
             <groupId>org.springdoc</groupId>
             <artifactId>springdoc-openapi-starter-webmvc-ui</artifactId>
             <version>3.0.3</version>
+        </dependency>
+
+        <!-- Spring AI MCP Server（Web MVC 变体）：嵌入标准 MCP 服务器，端点 /mcp 同端口提供工具（FR-001/FR-002） -->
+        <!-- 版本由 spring-ai-bom 统一管理；注解式 @Tool/@ToolParam 自动扫描注册，复用现有 Service 层（FR-009） -->
+        <!-- 依赖链全程 Jackson 3（tools.jackson），与项目 JSON 库一致，无 com.fasterxml.jackson 混入（research.md R2） -->
+        <dependency>
+            <groupId>org.springframework.ai</groupId>
+            <artifactId>spring-ai-starter-mcp-server-webmvc</artifactId>
         </dependency>
     </dependencies>
 

@@ -32,6 +32,20 @@ spring:
   threads:
     virtual:
       enabled: true                    # 启用 Java 21 虚拟线程
+  # Spring AI MCP Server 配置（FR-012：默认禁用，由 app.mcp.enabled 派生保持一致）
+  ai:
+    mcp:
+      server:
+        # 与 app.mcp.enabled 联动：二者同源于 MCP_ENABLED 环境变量或 yaml 的 app.mcp.enabled。
+        # 默认 false 关闭 MCP 服务器，显式开启后才提供服务（research.md R4）
+        enabled: ${app.mcp.enabled:false}
+        # 传输协议：Streamable HTTP（MCP 2025-03-26 规范）。
+        # MUST 显式声明为 STREAMABLE——Spring AI @ConditionalOnProperty 读取的是环境属性而非 Java 默认值，
+        # 若此处缺失，环境无该 key 时 matchIfMissing=true 触发弃用的 SSE 分支，Streamable 端点 /mcp 不会注册。
+        protocol: STREAMABLE
+        streamable-http:
+          # MCP 端点路径（research.md R6，与主应用同端口嵌入）
+          mcp-endpoint: /mcp
 
 # Actuator 健康检查端点配置
 management:
@@ -181,3 +195,16 @@ app:
   storage:
     # 存储引擎健康检查间隔（秒，默认 300 = 5 分钟）
     health-check-interval: 300
+
+  # ----------------------------------------
+  # MCP 服务器配置（FR-012：默认禁用）
+  # ----------------------------------------
+  mcp:
+    # MCP 服务器总开关（默认 false，禁用）。仅当 enabled=true 且 token 非空时才提供服务
+    # 通过环境变量 MCP_ENABLED 覆盖（Relaxed Binding：${MCP_ENABLED:false}）
+    # 注意：MUST 使用占位符而非字面值，否则环境变量无法覆盖、@ConditionalOnProperty 永远读取 yaml 默认值
+    enabled: ${MCP_ENABLED:false}
+    # MCP 专用访问令牌（Bearer Token），与 Web 管理 Basic Auth 凭据隔离（FR-008）
+    # 空值时强制不可用；属敏感凭据，日志与诊断包 MUST NOT 打印其值
+    # 可通过环境变量 MCP_TOKEN 覆盖
+    token: ${MCP_TOKEN:}
