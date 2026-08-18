@@ -65,12 +65,12 @@ cd src/main/frontend && npm ci && npm run build && cd ../../..
 |------|------|
 | [docs/01-项目概述.md](./docs/01-项目概述.md) | 项目背景、核心功能、技术栈、非目标边界 |
 | [docs/02-开发环境搭建.md](./docs/02-开发环境搭建.md) | JDK 21 / Maven Wrapper / 前端构建 / 必填配置 / 启动排障 |
-| `docs/03-*` | 项目结构与模块说明（规划中） |
-| `docs/04-*` | 配置详解（规划中） |
-| `docs/05-*` | 部署与运维（规划中） |
-| `docs/06-*` | 常见问题（规划中） |
+| [docs/03-架构设计.md](./docs/03-架构设计.md) | 分层结构、核心类职责、MCP 接入层、模块边界 |
+| [docs/04-配置说明.md](./docs/04-配置说明.md) | 配置 SSOT：`app.*` 全部配置项（含 `app.mcp.*`）与 Relaxed Binding 映射 |
+| [docs/05-API接口文档.md](./docs/05-API接口文档.md) | API SSOT：`/api/**` REST 接口 + MCP 服务器接入（36 工具） |
+| [docs/06-运维部署.md](./docs/06-运维部署.md) | Docker 部署、MCP 启用指引、健康检查、备份恢复 |
 | [docs/architecture/](./docs/architecture/) | 架构设计文档 |
-| [docs/operations/](./docs/operations/) | 运维与诊断手册 |
+| [docs/operations/](./docs/operations/) | 运维与诊断手册（环境变量清单 SSOT、故障排查） |
 | [CHANGELOG.md](./CHANGELOG.md) | 变更日志 |
 | [CONTRIBUTING.md](./CONTRIBUTING.md) | 贡献指南 |
 | [AGENTS.md](./AGENTS.md) | AI 工作指令、模块索引、章程合规检查清单 |

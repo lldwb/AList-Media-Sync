@@ -15,6 +15,16 @@
 - **Fixed** 错误修复
 - **Security** 安全相关的修复
 
+## [0.2.0] - 2026-08-18
+
+### Added
+
+- MCP 服务器（AI 操作接口）（specs/013）：嵌入标准 MCP 服务器（Streamable HTTP 传输），端点 `POST /mcp` 与主应用同端口，使 AI 客户端（如 Claude Code）可按模块发现并调用工具操作系统
+- 五大模块 36 个 MCP 工具（specs/013）：存储引擎 8（CRUD/连接测试/目录浏览）、同步任务 9（CRUD/触发/启停/执行历史）、转码任务 8（CRUD/重试/清理/批量）、Webhook 8（规则 CRUD/启停/事件查询）、系统运维 2（仪表盘统计/诊断包生成），另含 1 个流程级快捷工具「创建并立即触发一次同步」
+- MCP 独立 Bearer Token 认证（specs/013）：`app.mcp.token`（环境变量 `MCP_TOKEN`）与 Web 管理 Basic Auth 凭据隔离，未认证/无效令牌 100% 拒绝且不泄露业务数据
+- MCP 默认禁用机制（specs/013）：`app.mcp.enabled=false` 默认关闭，仅显式开启且令牌非空时提供服务，未配置令牌时启动报错拒绝启用，不影响现有 Web 管理界面与 `/api/**`
+- MCP 工具可观测性（specs/013）：每次工具调用注入唯一 traceId 与 module=mcp/operation=工具名 日志，敏感凭据（存储引擎 Token 等）脱敏后返回
+
 ## [0.1.0] - 2026-07-25
 
 ### Added

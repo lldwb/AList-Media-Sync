@@ -182,6 +182,59 @@ SPRINGDOC_SWAGGER_UI_ENABLED=false
 
 ---
 
+## 6. MCP 服务器接入（AI 操作接口）
+
+> MCP（Model Context Protocol）服务器为 AI 客户端（如 Claude Code）提供标准化的工具调用入口，覆盖存储引擎、同步任务、转码任务、Webhook、系统运维五大模块共 36 个工具。详细契约见 `specs/013-mcp-server/contracts/`。
+
+### 6.1 启用条件
+
+MCP 服务器**默认禁用**，需同时满足以下条件才提供服务：
+
+| 条件 | 配置 | 默认值 |
+|---|---|---|
+| 总开关 | `app.mcp.enabled=true`（环境变量 `MCP_ENABLED=true`） | `false` |
+| 访问令牌 | `app.mcp.token` 非空（环境变量 `MCP_TOKEN`） | 空 |
+
+`enabled=true` 且令牌为空时应用**启动报错拒绝启用**，防止接口裸奔。
+
+### 6.2 端点与认证
+
+| 维度 | 契约 |
+|---|---|
+| 端点 | `POST /mcp`（与主应用同端口，Streamable HTTP 传输） |
+| 认证 | `Authorization: Bearer <MCP_TOKEN>`，与 Web 管理 Basic Auth 凭据隔离 |
+| 认证失败 | HTTP 401 + 统一错误结构，不泄露业务数据 |
+
+### 6.3 客户端接入示例（Claude Code）
+
+```jsonc
+// .mcp.json
+{
+  "mcpServers": {
+    "alist-media-sync": {
+      "type": "http",
+      "url": "http://localhost:8080/mcp",
+      "headers": { "Authorization": "Bearer <MCP_TOKEN>" }
+    }
+  }
+}
+```
+
+### 6.4 工具总览（36 个）
+
+| 模块 | 工具前缀 | 数量 | 覆盖操作 |
+|---|---|---|---|
+| 存储引擎 | `storage_engine_*` | 8 | 列表/详情/创建/更新/删除/连接测试/目录浏览/条目浏览 |
+| 同步任务 | `sync_task_*` | 9 | 列表/详情/创建/更新/删除/触发/启停调度/执行历史 |
+| 转码任务 | `transcode_task_*` | 8 | 列表/详情/创建/重试/清理临时/批量删失败/批量删完成/重试全部 |
+| Webhook | `webhook_rule_*` + `webhook_event_*` | 8 | 规则 CRUD/启停 + 事件分页查询 |
+| 系统运维 | `system_*` | 2 | 仪表盘统计/诊断包生成 |
+| 流程级快捷 | `sync_flow_*` | 1 | 创建并立即触发一次同步 |
+
+> 工具名称使用英文 snake_case，描述为简体中文；触发长任务的工具采用异步提交（立即返回任务 ID）；Webhook 不提供事件注入工具。
+
+---
+
 <!-- GENERATED START -->
 <!-- 生成区由 scripts/gen-api-doc 自动填充，首次执行 T022 后生效 -->
 <!-- GENERATED END -->
