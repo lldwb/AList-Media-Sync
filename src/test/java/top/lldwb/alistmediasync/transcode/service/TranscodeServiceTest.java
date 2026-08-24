@@ -20,6 +20,7 @@ import top.lldwb.alistmediasync.transcode.repository.TranscodeTaskRepository;
 import java.util.List;
 import java.util.NoSuchElementException;
 import java.util.Optional;
+import org.springframework.beans.factory.ObjectProvider;
 
 import static org.junit.jupiter.api.Assertions.*;
 import static org.mockito.ArgumentMatchers.*;
@@ -58,8 +59,14 @@ class TranscodeServiceTest {
     @Mock
     private TranscodeFileProcessor fileProcessor;
 
+    @Mock
+    private ObjectProvider<TranscodeService> selfProvider;
+
     @InjectMocks
     private TranscodeService service;
+
+    /** 自代理返回的 mock 实例，用于验证 executeTask 被真正触发 */
+    private TranscodeService self;
 
     private TranscodeTask mockTask;
     private StorageEngine targetEngine;
@@ -70,6 +77,9 @@ class TranscodeServiceTest {
         when(transcodeConfig.getTempSuffix()).thenReturn(".tmp");
         when(transcodeConfig.getTempDir()).thenReturn(System.getProperty("java.io.tmpdir"));
         when(transcodeConfig.getDefaultBitrate()).thenReturn(128000);
+
+        self = mock(TranscodeService.class);
+        when(selfProvider.getObject()).thenReturn(self);
 
         targetEngine = new StorageEngine();
         targetEngine.setId(2L);
@@ -246,7 +256,7 @@ class TranscodeServiceTest {
     }
 
     @Test
-    @DisplayName("重试 — 下载失败应回退到 DOWNLOADING")
+    @DisplayName("重试 — 下载失败应回退到 DOWNLOADING 并触发执行")
     void shouldRetryFromDownloadFailed() {
         mockTask.setStatus(TranscodeTask.TranscodeStatus.DOWNLOAD_FAILED);
         mockTask.setTempSourcePath("/tmp/src-test.mp4");
@@ -257,6 +267,7 @@ class TranscodeServiceTest {
         assertEquals(TranscodeTask.TranscodeStatus.DOWNLOADING, mockTask.getStatus());
         assertNull(mockTask.getTempSourcePath());
         assertNull(mockTask.getErrorMessage());
+        verify(self).executeTask(mockTask);
     }
 
     @Test
@@ -268,7 +279,7 @@ class TranscodeServiceTest {
     }
 
     @Test
-    @DisplayName("重试 — 转码失败应回退到 TRANSCODING")
+    @DisplayName("重试 — 转码失败应回退到 TRANSCODING 并触发执行")
     void shouldRetryFromTranscodeFailed() {
         mockTask.setStatus(TranscodeTask.TranscodeStatus.TRANSCODE_FAILED);
         mockTask.setTempSourcePath("/tmp/src-test.mp4");
@@ -278,10 +289,11 @@ class TranscodeServiceTest {
 
         assertEquals(TranscodeTask.TranscodeStatus.TRANSCODING, mockTask.getStatus());
         assertNull(mockTask.getErrorMessage());
+        verify(self).executeTask(mockTask);
     }
 
     @Test
-    @DisplayName("重试 — 上传失败应回退到 UPLOADING")
+    @DisplayName("重试 — 上传失败应回退到 UPLOADING 并触发执行")
     void shouldRetryFromUploadFailed() {
         mockTask.setStatus(TranscodeTask.TranscodeStatus.UPLOAD_FAILED);
         mockTask.setTempFilePath("/tmp/out-test.mp3");
@@ -291,5 +303,19 @@ class TranscodeServiceTest {
 
         assertEquals(TranscodeTask.TranscodeStatus.UPLOADING, mockTask.getStatus());
         assertNull(mockTask.getErrorMessage());
+        verify(self).executeTask(mockTask);
+    }
+
+    @Test
+    @DisplayName("重试 — 编排级 FAILED 应清空错误并重新执行")
+    void shouldRetryFromOrchestrationFailed() {
+        mockTask.setStatus(TranscodeTask.TranscodeStatus.FAILED);
+        mockTask.setErrorMessage("扫描失败");
+        when(repository.findById(1L)).thenReturn(Optional.of(mockTask));
+
+        service.retry(1L);
+
+        assertNull(mockTask.getErrorMessage());
+        verify(self).executeTask(mockTask);
     }
 }
