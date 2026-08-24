@@ -148,6 +148,26 @@ class WebhookServiceTest {
     }
 
     @Test
+    @DisplayName("接收事件 — 并发重发唯一索引冲突时重查返回既有事件")
+    void shouldRecoverWhenUniqueIndexConflict() {
+        WebhookEvent existing = new WebhookEvent();
+        existing.setId(1L);
+        existing.setEventId("evt-race");
+        existing.setStatus(WebhookEvent.EventStatus.PENDING);
+        // 去重检查未发现 → save 触发唯一索引冲突 → 重查返回既有事件
+        when(eventRepository.findByEventId("evt-race"))
+            .thenReturn(Optional.empty())
+            .thenReturn(Optional.of(existing));
+        when(eventRepository.save(any(WebhookEvent.class)))
+            .thenThrow(new org.springframework.dao.DataIntegrityViolationException("unique constraint"));
+
+        WebhookEvent result = service.receiveWebhookEvent(
+            "FileClosed", "evt-race", "1718841600000", eventData);
+
+        assertEquals(existing, result, "唯一索引冲突时应返回既有事件而非抛异常");
+    }
+
+    @Test
     @DisplayName("接收事件 — EventId 为 null 时跳过去重")
     void shouldSkipDedupWhenEventIdIsNull() {
         when(eventRepository.findByEventId(null)).thenReturn(Optional.empty());
