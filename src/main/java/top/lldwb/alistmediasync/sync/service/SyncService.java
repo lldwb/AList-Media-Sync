@@ -6,7 +6,9 @@ import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.scheduling.annotation.Async;
 import org.springframework.stereotype.Service;
+import org.springframework.transaction.PlatformTransactionManager;
 import org.springframework.transaction.annotation.Transactional;
+import org.springframework.transaction.support.TransactionTemplate;
 import top.lldwb.alistmediasync.storage.entity.StorageEngine;
 import top.lldwb.alistmediasync.storage.service.StorageEngineService;
 import top.lldwb.alistmediasync.common.service.WsSessionManager;
@@ -58,51 +60,74 @@ public class SyncService {
     private final TranscodeService transcodeService;
     private final JsonMapper objectMapper;
     private final WsSessionManager wsSessionManager;
+    private final PlatformTransactionManager transactionManager;
 
     /** 正在执行的任务执行记录缓存（用于进度查询） */
     private final Map<Long, TaskExecution> activeExecutions = new ConcurrentHashMap<>();
+    /** 正在执行的任务 ID 集合（防止同一任务并发重复触发） */
+    private final Set<Long> runningTaskIds = ConcurrentHashMap.newKeySet();
 
     /**
      * 执行同步任务（异步）
+     * <p>
+     * 仅"加载任务 + 创建执行记录"使用短事务，随后立即提交；
+     * 扫描/下载/上传等网络 I/O 在事务外执行，避免长事务持锁数小时、
+     * 中途失败导致已复制的文件与执行记录一并回滚。
+     * </p>
      *
-     * @param task 同步任务实体（仅使用其 ID，方法内通过 Repository 重新加载以避免 LazyInitializationException）
+     * @param task 同步任务实体（仅使用其 ID，方法内通过 Repository 重新加载）
      */
     @Async
-    @Transactional
     public void executeSyncTask(SyncTask task) {
         TraceContext.runWith("sync", "同步任务执行", () -> {
-            // 异步线程独立 Session：必须按 ID 重新加载，确保 @ManyToOne(LAZY) 关联（sourceEngine/targetEngine）
-            // 在当前事务 Session 内可被初始化，避免 detached 代理触发 LazyInitializationException
             final Long taskId = task.getId();
-            SyncTask reloaded = syncTaskRepository.findById(taskId)
-                .orElseThrow(() -> new NoSuchElementException("同步任务不存在：id=" + taskId));
 
-            executeSyncTaskInternal(reloaded);
+            // 防重：同一任务并发触发时直接忽略（定时调度与手动触发可能重叠）
+            if (!runningTaskIds.add(taskId)) {
+                log.warn("同步任务正在执行中，忽略重复触发：{}（taskId={}）", task.getName(), taskId);
+                return;
+            }
+            try {
+                final SyncTask[] reloadedRef = new SyncTask[1];
+                TransactionTemplate tt = new TransactionTemplate(transactionManager);
+                TaskExecution execution = tt.execute(status -> {
+                    // 短事务内重新加载，确保 @ManyToOne(LAZY) 关联（sourceEngine/targetEngine）
+                    // 在事务内初始化，避免 detached 代理触发 LazyInitializationException
+                    SyncTask reloaded = syncTaskRepository.findById(taskId)
+                        .orElseThrow(() -> new NoSuchElementException("同步任务不存在：id=" + taskId));
+                    reloaded.getSourceEngine().getId();
+                    reloaded.getTargetEngine().getId();
+                    reloadedRef[0] = reloaded;
+
+                    TaskExecution e = new TaskExecution();
+                    e.setSyncTask(reloaded);
+                    e.setTaskType(TaskExecution.TaskType.SYNC);
+                    e.setStartTime(LocalDateTime.now());
+                    e.setStatus(TaskExecution.ExecutionStatus.RUNNING);
+                    e.setTotalFiles(0);
+                    e.setSuccessFiles(0);
+                    e.setFailedFiles(0);
+                    return taskExecutionRepository.save(e);
+                });
+                activeExecutions.put(execution.getId(), execution);
+
+                executeSyncTaskInternal(reloadedRef[0], execution);
+            } finally {
+                runningTaskIds.remove(taskId);
+            }
         });
     }
 
     /**
-     * 同步任务执行内部逻辑（traceId 已由外层 {@link #executeSyncTask(SyncTask)} 设置）
+     * 同步任务执行内部逻辑（traceId 已由外层设置，执行记录由外层创建并提交）
      */
-    private void executeSyncTaskInternal(SyncTask task) {
-        // 冲突检测：是否有其他 SyncTask 向同一目标路径写入且正在运行中
+    private void executeSyncTaskInternal(SyncTask task, TaskExecution execution) {
+        // 冲突检测：是否有其他 SyncTask 向同一目标路径写入且正在运行中（仅告警，不阻断）
         List<TaskExecution> conflicting = taskExecutionRepository.findByStatusAndTaskType(
             TaskExecution.ExecutionStatus.RUNNING, TaskExecution.TaskType.SYNC);
         if (!conflicting.isEmpty()) {
             log.warn("存在正在运行的同步任务，当前任务将继续执行：{}", task.getName());
         }
-
-        // 创建执行记录
-        TaskExecution execution = new TaskExecution();
-        execution.setSyncTask(task);
-        execution.setTaskType(TaskExecution.TaskType.SYNC);
-        execution.setStartTime(LocalDateTime.now());
-        execution.setStatus(TaskExecution.ExecutionStatus.RUNNING);
-        execution.setTotalFiles(0);
-        execution.setSuccessFiles(0);
-        execution.setFailedFiles(0);
-        execution = taskExecutionRepository.save(execution);
-        activeExecutions.put(execution.getId(), execution);
 
         StorageEngine sourceEngine = task.getSourceEngine();
         StorageEngine targetEngine = task.getTargetEngine();
@@ -159,7 +184,10 @@ public class SyncService {
                             targetStrategy.deleteFile(targetEngine, f.path);
                             log.debug("已删除目标多余文件：{}", f.path);
                         } catch (Exception e) {
+                            // 删除失败计入失败明细，保证可见性
                             log.warn("删除目标文件失败：{}，原因：{}", f.path, e.getMessage());
+                            failedFiles.add(destRelativePath + ": " + e.getMessage());
+                            execution.setFailedFiles(execution.getFailedFiles() + 1);
                         }
                     }
                 }
@@ -344,8 +372,8 @@ public class SyncService {
             }
         }
 
-        // 分页处理：如果返回数量等于 perPage，可能还有更多
-        if (entries.size() == 100) {
+        // 分页处理：返回满页时继续翻页，并加页数上限保护（1000 页 ≈ 10 万文件）防止异常场景死循环
+        if (entries.size() == 100 && page < 1000) {
             scanDirectoryRecursive(engine, strategy, path, result, excludePatterns, page + 1);
         }
     }

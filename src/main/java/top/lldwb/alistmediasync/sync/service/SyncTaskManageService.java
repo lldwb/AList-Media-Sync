@@ -96,6 +96,12 @@ public class SyncTaskManageService {
     public void delete(Long id) {
         SyncTask entity = repository.findById(id)
             .orElseThrow(() -> new NoSuchElementException("同步任务不存在：id=" + id));
+        // 运行中任务禁止删除：删除实体后执行线程对已删任务 save 会失败，且文件操作仍在继续
+        List<TaskExecution> running = taskExecutionRepository.findBySyncTaskIdAndStatus(
+            id, TaskExecution.ExecutionStatus.RUNNING);
+        if (!running.isEmpty()) {
+            throw new IllegalStateException("任务正在执行中，无法删除");
+        }
         // 先取消调度
         scheduleService.unregisterSchedule(id);
         repository.delete(entity);
