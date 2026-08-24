@@ -7,6 +7,7 @@ import org.springframework.scheduling.annotation.Async;
 import org.springframework.stereotype.Service;
 import top.lldwb.alistmediasync.common.config.AppProperties;
 import top.lldwb.alistmediasync.common.exception.RetryableException;
+import top.lldwb.alistmediasync.common.exception.RetryableIOException;
 import top.lldwb.alistmediasync.common.service.RetryService;
 import top.lldwb.alistmediasync.common.service.WsSessionManager;
 import top.lldwb.alistmediasync.storage.entity.StorageEngine;
@@ -96,7 +97,7 @@ public class TranscodeFileProcessor {
 
         try {
             TranscodeResult result = doProcess(candidate, targetFormat, tempSuffix, tempDir,
-                    targetEngine, syncTask, execution);
+                    targetEngine, syncTask, execution, null);
             return CompletableFuture.completedFuture(result);
         } finally {
             semaphore.release();
@@ -152,56 +153,78 @@ public class TranscodeFileProcessor {
                                        Path tempDir,
                                        StorageEngine targetEngine,
                                        SyncTask syncTask,
-                                       TaskExecution execution) {
+                                       TaskExecution execution,
+                                       TranscodeTask existingTask) {
 
         log.debug("开始处理转码候选：name={}, format={}, size={}bytes", candidate.name(), candidate.format(), candidate.size());
 
         Path sourceTempFile = null;
         Path outputTempFile = null;
+        Path finalFile = null;
         TranscodeTask transcodeTask = null;
 
         try {
-            // 1. 创建 TranscodeTask 记录
-            transcodeTask = new TranscodeTask();
-            transcodeTask.setSyncTask(syncTask);
-            transcodeTask.setSourceFilePath(candidate.fullPath());
-            transcodeTask.setTargetFilePath(candidate.targetPath());
-            transcodeTask.setTargetFormat(targetFormat);
-            transcodeTask.setStatus(TranscodeTask.TranscodeStatus.DOWNLOADING);
-            if (targetEngine != null) {
-                transcodeTask.setTargetEngineId(targetEngine.getId());
+            if (existingTask != null) {
+                // 自动重试：复用同一任务记录（保持 retryCount 递增），
+                // 从失败步骤继续——下载失败需重下、转码失败需重转、仅上传失败复用转码产物
+                transcodeTask = reloadTask(existingTask.getId());
+                if (transcodeTask.getTempSourcePath() != null) {
+                    Path p = Path.of(transcodeTask.getTempSourcePath());
+                    if (Files.exists(p)) {
+                        sourceTempFile = p;
+                    }
+                }
+                if (transcodeTask.getStatus() == TranscodeTask.TranscodeStatus.UPLOAD_FAILED
+                    && transcodeTask.getTempFilePath() != null) {
+                    Path p = Path.of(transcodeTask.getTempFilePath());
+                    if (Files.exists(p)) {
+                        finalFile = p;
+                    }
+                }
+            } else {
+                // 首次执行：创建独立的文件级任务记录
+                transcodeTask = new TranscodeTask();
+                transcodeTask.setSyncTask(syncTask);
+                transcodeTask.setSourceFilePath(candidate.fullPath());
+                transcodeTask.setTargetFilePath(candidate.targetPath());
+                transcodeTask.setTargetFormat(targetFormat);
+                transcodeTask.setStatus(TranscodeTask.TranscodeStatus.DOWNLOADING);
+                if (targetEngine != null) {
+                    transcodeTask.setTargetEngineId(targetEngine.getId());
+                }
+                transcodeTask = repository.save(transcodeTask);
             }
-            transcodeTask = repository.save(transcodeTask);
-
-            // WebSocket 推送状态变更
             pushProgress(transcodeTask);
 
-            // 步骤 1：下载源文件
-            sourceTempFile = downloadStep(candidate, transcodeTask);
+            // 步骤 1：下载源文件（已有有效临时文件则跳过）
+            if (sourceTempFile == null) {
+                transcodeTask.setStatus(TranscodeTask.TranscodeStatus.DOWNLOADING);
+                transcodeTask = saveAndReload(transcodeTask);
+                sourceTempFile = downloadStep(candidate, transcodeTask);
+                transcodeTask.setTempSourcePath(sourceTempFile.toString());
+                transcodeTask = saveAndReload(transcodeTask);
+                pushProgress(transcodeTask);
+            }
 
-            // 步骤 2：转码
-            String outputExt = targetFormat.name().toLowerCase();
-            outputTempFile = TempFileManager.createTempFile(tempDir, candidate.name(), tempSuffix);
-            // 重新加载实体以获取最新版本号（downloadStep 内部已 save，版本号已递增）
-            transcodeTask = reloadTask(transcodeTask.getId());
-            transcodeTask.setStatus(TranscodeTask.TranscodeStatus.TRANSCODING);
-            transcodeTask.setTempSourcePath(sourceTempFile.toString());
-            transcodeTask = repository.save(transcodeTask);
+            // 步骤 2：转码（上传失败重试时已有完整转码产物则跳过）
+            if (finalFile == null) {
+                String outputExt = targetFormat.name().toLowerCase();
+                outputTempFile = TempFileManager.createTempFile(tempDir, candidate.name(), tempSuffix);
+                transcodeTask.setStatus(TranscodeTask.TranscodeStatus.TRANSCODING);
+                transcodeTask.setTempSourcePath(sourceTempFile.toString());
+                transcodeTask = saveAndReload(transcodeTask);
+                pushProgress(transcodeTask);
 
-            pushProgress(transcodeTask);
+                int bitrate = appProperties.getTranscode().getDefaultBitrate();
+                doTranscode(sourceTempFile, outputTempFile, targetFormat, bitrate, transcodeTask);
 
-            int bitrate = appProperties.getTranscode().getDefaultBitrate();
-            doTranscode(sourceTempFile, outputTempFile, targetFormat, bitrate, transcodeTask);
-
-            // 重命名去掉临时后缀
-            Path finalFile = TempFileManager.renameToFinal(outputTempFile, outputExt);
-            // 转码完成后重新加载实体（TranscodeProgressListener 可能已修改版本号）
-            transcodeTask = reloadTask(transcodeTask.getId());
-            transcodeTask.setTempFilePath(finalFile.toString());
-            transcodeTask.setStatus(TranscodeTask.TranscodeStatus.UPLOADING);
-            transcodeTask = repository.save(transcodeTask);
-
-            pushProgress(transcodeTask);
+                finalFile = TempFileManager.renameToFinal(outputTempFile, outputExt);
+                transcodeTask = reloadTask(transcodeTask.getId());
+                transcodeTask.setTempFilePath(finalFile.toString());
+                transcodeTask.setStatus(TranscodeTask.TranscodeStatus.UPLOADING);
+                transcodeTask = saveAndReload(transcodeTask);
+                pushProgress(transcodeTask);
+            }
 
             // 步骤 3：上传
             uploadStep(candidate, targetFormat, targetEngine, finalFile, transcodeTask);
@@ -212,6 +235,8 @@ public class TranscodeFileProcessor {
             transcodeTask = reloadTask(transcodeTask.getId());
             transcodeTask.setStatus(TranscodeTask.TranscodeStatus.COMPLETED);
             transcodeTask.setProgress(1000);
+            transcodeTask.setErrorMessage(null);
+            transcodeTask.setRetryCount(0); // 成功后重置重试计数
             repository.save(transcodeTask);
 
             pushProgress(transcodeTask);
@@ -226,32 +251,13 @@ public class TranscodeFileProcessor {
                 // 重新加载以获取最新版本号，避免乐观锁冲突
                 transcodeTask = reloadTask(transcodeTask.getId());
                 transcodeTask.setErrorMessage(e.getMessage());
-                if (outputTempFile != null && Files.exists(outputTempFile)) {
+                if (finalFile != null && Files.exists(finalFile)) {
+                    transcodeTask.setTempFilePath(finalFile.toString());
+                } else if (outputTempFile != null && Files.exists(outputTempFile)) {
                     transcodeTask.setTempFilePath(outputTempFile.toString());
                 }
-
-                // 判断是否可重试
-                if (retryService.isRetryable(e)
-                    && transcodeTask.getRetryCount() < retryService.getMaxAutoRetries()) {
-                    int nextAttempt = transcodeTask.getRetryCount() + 1;
-                    transcodeTask.setRetryCount(nextAttempt);
-                    log.info("调度自动重试：{}, 第 {}/{} 次", candidate.name(),
-                        nextAttempt, retryService.getMaxAutoRetries());
-
-                    final TranscodeTask finalTask = transcodeTask;
-                    retryService.scheduleRetry(nextAttempt, candidate.name(),
-                        () -> doProcess(candidate, targetFormat, tempSuffix, tempDir,
-                            targetEngine, syncTask, execution),
-                        () -> {
-                            // 重试用尽：标记为最终失败
-                            var exhausted = reloadTask(finalTask.getId());
-                            exhausted.setErrorMessage(e.getMessage() + "（自动重试用尽）");
-                            repository.save(exhausted);
-                            pushProgress(exhausted);
-                        }
-                    );
-                } else if (!retryService.isRetryable(e)) {
-                    log.info("业务错误，不进行自动重试：{} — {}", candidate.name(), e.getMessage());
+                if (sourceTempFile != null) {
+                    transcodeTask.setTempSourcePath(sourceTempFile.toString());
                 }
 
                 // 按步骤精确设置失败状态
@@ -263,8 +269,31 @@ public class TranscodeFileProcessor {
                     transcodeTask.setStatus(TranscodeTask.TranscodeStatus.UPLOAD_FAILED);
                 }
 
-                repository.save(transcodeTask);
-                pushProgress(transcodeTask);
+                // 瞬时故障（RetryableException）且未达上限：复用同一任务记录调度自动重试
+                if (retryService.isRetryable(e)
+                    && transcodeTask.getRetryCount() < retryService.getMaxAutoRetries()) {
+                    int nextAttempt = transcodeTask.getRetryCount() + 1;
+                    transcodeTask.setRetryCount(nextAttempt);
+                    repository.save(transcodeTask);
+                    pushProgress(transcodeTask);
+                    log.info("调度自动重试：{}, 第 {}/{} 次", candidate.name(),
+                        nextAttempt, retryService.getMaxAutoRetries());
+
+                    final TranscodeTask retryTask = transcodeTask;
+                    retryService.scheduleRetry(nextAttempt, candidate.name(),
+                        () -> doProcess(candidate, targetFormat, tempSuffix, tempDir,
+                            targetEngine, syncTask, execution, retryTask),
+                        () -> log.warn("自动重试用尽：{}", candidate.name()));
+                } else {
+                    if (retryService.isRetryable(e)) {
+                        transcodeTask.setErrorMessage(transcodeTask.getErrorMessage() + "（自动重试用尽）");
+                        log.warn("自动重试次数已达上限：{} — {}", candidate.name(), e.getMessage());
+                    } else {
+                        log.info("业务错误，不进行自动重试：{} — {}", candidate.name(), e.getMessage());
+                    }
+                    repository.save(transcodeTask);
+                    pushProgress(transcodeTask);
+                }
             }
 
             return new TranscodeResult(candidate.name(), false, e.getMessage());
@@ -273,6 +302,10 @@ public class TranscodeFileProcessor {
 
     /**
      * 步骤 1：下载源文件到临时位置
+     * <p>
+     * 网络/IO 瞬时故障包装为 {@link RetryableIOException}，触发自动重试；
+     * 业务错误（如源引擎未配置）保持原异常类型，不重试。
+     * </p>
      */
     private Path downloadStep(TranscodeCandidate candidate, TranscodeTask transcodeTask) throws IOException {
         log.debug("下载源文件：path={}", candidate.fullPath());
@@ -287,8 +320,17 @@ public class TranscodeFileProcessor {
 
         StorageEngineStrategy sourceStrategy = storageEngineService.resolve(sourceEngine);
         try (InputStream in = sourceStrategy.downloadFile(sourceEngine, candidate.fullPath())) {
-            if (in == null) throw new IOException("下载源文件失败：" + candidate.fullPath());
-            Files.copy(in, sourceTempFile, java.nio.file.StandardCopyOption.REPLACE_EXISTING);
+            if (in == null) throw new RetryableIOException("下载源文件失败：" + candidate.fullPath());
+            try {
+                Files.copy(in, sourceTempFile, java.nio.file.StandardCopyOption.REPLACE_EXISTING);
+            } catch (IOException e) {
+                throw new RetryableIOException("下载源文件失败：" + candidate.fullPath(), e);
+            }
+        } catch (IOException e) {
+            if (e instanceof RetryableIOException) {
+                throw e;
+            }
+            throw new RetryableIOException("下载源文件失败：" + candidate.fullPath(), e);
         }
 
         long downloadedSize = Files.size(sourceTempFile);
@@ -312,11 +354,23 @@ public class TranscodeFileProcessor {
     }
 
     /**
+     * 保存并重新加载，确保后续操作基于最新版本号
+     */
+    private TranscodeTask saveAndReload(TranscodeTask task) {
+        task = repository.save(task);
+        return reloadTask(task.getId());
+    }
+
+    /**
      * 步骤 3：上传转码输出到目标存储引擎
      * <p>
      * 输出路径规则：目标文件所在目录 / 源文件名（不含原扩展名）.目标格式扩展名。
      * 对于源目录转码（targetPath 与 fullPath 目录相同），输出文件与源文件在同一目录下。
      * 对于目录扫描模式，每个文件的输出路径独立计算。
+     * </p>
+     * <p>
+     * 上传失败统一包装为 {@link RetryableIOException}（上传幂等，重试安全），
+     * 由 doProcess 触发自动重试。
      * </p>
      */
     private void uploadStep(TranscodeCandidate candidate, TranscodeTask.TargetFormat targetFormat,
@@ -331,12 +385,23 @@ public class TranscodeFileProcessor {
         // 拼接完整目标路径：目标文件所在目录 / 输出文件名
         String remotePath = PathUtils.join(targetDir, targetFileName);
 
-        long fileSize = Files.size(finalFile);
+        long fileSize;
+        try {
+            fileSize = Files.size(finalFile);
+        } catch (IOException e) {
+            throw new RetryableIOException("读取转码产物失败：" + finalFile, e);
+        }
         log.debug("开始上传转码文件：localPath={}, remotePath={}, size={}bytes", finalFile, remotePath, fileSize);
 
         StorageEngineStrategy targetStrategy = storageEngineService.resolve(targetEngine);
         try (InputStream fileIn = Files.newInputStream(finalFile)) {
-            targetStrategy.uploadFile(targetEngine, remotePath, fileIn, fileSize);
+            try {
+                targetStrategy.uploadFile(targetEngine, remotePath, fileIn, fileSize);
+            } catch (RuntimeException e) {
+                throw new RetryableIOException("上传转码文件失败：" + remotePath, e);
+            }
+        } catch (IOException e) {
+            throw new RetryableIOException("上传转码文件失败：" + remotePath, e);
         }
 
         log.info("转码文件已上传：{} -> {}", finalFile, remotePath);

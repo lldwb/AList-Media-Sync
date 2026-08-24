@@ -173,7 +173,7 @@ export interface FailureDetail {
 
 export type TargetFormat = 'MP3' | 'MP4' | 'FLV';
 
-/** 转码状态（8 状态模型：三步流程，每步可独立失败和重试） */
+/** 转码状态（8 状态模型：三步流程，每步可独立失败和重试；FAILED 为编排级失败） */
 export type TranscodeStatus =
   | 'PENDING'
   | 'DOWNLOADING'
@@ -182,8 +182,8 @@ export type TranscodeStatus =
   | 'TRANSCODE_FAILED'
   | 'UPLOADING'
   | 'UPLOAD_FAILED'
-  | 'COMPLETED';
-  // 移除: SCANNING, FAILED
+  | 'COMPLETED'
+  | 'FAILED';
 
 export interface TranscodeTaskVO {
   id: number;
@@ -334,6 +334,7 @@ export const TRANSCODE_STATUS_LABELS: Record<TranscodeStatus, string> = {
   UPLOADING: '上传中',
   UPLOAD_FAILED: '上传失败',
   COMPLETED: '已完成',
+  FAILED: '失败',
 };
 
 /** Webhook 事件类型 → 中文描述 */

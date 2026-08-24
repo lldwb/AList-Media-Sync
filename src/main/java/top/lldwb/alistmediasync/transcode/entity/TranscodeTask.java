@@ -148,7 +148,9 @@ public class TranscodeTask {
         /** 上传失败 */
         UPLOAD_FAILED(6),
         /** 完成 */
-        COMPLETED(7);
+        COMPLETED(7),
+        /** 编排级失败（扫描/收集阶段异常或全部文件失败，非单步失败） */
+        FAILED(8);
 
         private final int code;
 

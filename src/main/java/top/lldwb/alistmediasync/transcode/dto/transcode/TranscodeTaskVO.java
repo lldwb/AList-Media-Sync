@@ -66,6 +66,7 @@ public class TranscodeTaskVO {
     private static boolean isRetryable(TranscodeTask.TranscodeStatus status) {
         return status == TranscodeTask.TranscodeStatus.DOWNLOAD_FAILED
             || status == TranscodeTask.TranscodeStatus.TRANSCODE_FAILED
-            || status == TranscodeTask.TranscodeStatus.UPLOAD_FAILED;
+            || status == TranscodeTask.TranscodeStatus.UPLOAD_FAILED
+            || status == TranscodeTask.TranscodeStatus.FAILED;
     }
 }

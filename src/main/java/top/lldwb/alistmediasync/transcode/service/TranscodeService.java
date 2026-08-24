@@ -26,6 +26,7 @@ import java.nio.file.Path;
 import java.util.*;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.TimeUnit;
+import org.springframework.beans.factory.ObjectProvider;
 
 /**
  * 转码引擎（编排层）
@@ -52,6 +53,8 @@ public class TranscodeService {
     private final AppProperties appProperties;
     private final TranscodeFileProcessor fileProcessor;
     private final JsonMapper objectMapper;
+    /** 自代理：@Transactional/@Async 注解经 Spring 代理才生效，同类自调用需经代理 */
+    private final ObjectProvider<TranscodeService> selfProvider;
 
     /**
      * 合法状态转换集合（8 状态模型）
@@ -122,10 +125,14 @@ public class TranscodeService {
 
     /**
      * 异步执行转码任务
+     * <p>
+     * 通过自代理调用 {@link #executeTask}，确保其 {@code @Transactional} 注解生效
+     * （同类直接调用不会经过 Spring AOP 代理，事务会静默失效）。
+     * </p>
      */
     @Async("transcodeExecutor")
     public void executeAsync(TranscodeTask task) {
-        TraceContext.runWith("transcode", "转码任务执行", () -> executeTask(task));
+        TraceContext.runWith("transcode", "转码任务执行", () -> selfProvider.getObject().executeTask(task));
     }
 
     /**
@@ -241,9 +248,11 @@ public class TranscodeService {
         } catch (Exception e) {
             TraceContext.setErrorType(e.getClass().getSimpleName());
             log.error("转码任务失败：{} — {}", managedTask.getSourceFilePath(), e.getMessage(), e);
-            // 仅在非失败状态时设置（可能已在处理流程中设置具体失败状态）
+            // 单步失败状态已由处理流程设置；编排级失败（扫描/收集异常、全部文件失败）设为 FAILED，
+            // 避免任务永久停留在 PENDING/DOWNLOADING 等中间状态
             if (!isFailureStatus(managedTask.getStatus())) {
                 managedTask.setErrorMessage(e.getMessage());
+                managedTask.setStatus(TranscodeStatus.FAILED);
             }
             execution.setStatus(TaskExecution.ExecutionStatus.FAILED);
             execution.setFailureDetails(e.getMessage());
@@ -466,8 +475,11 @@ public class TranscodeService {
 
     /**
      * 从任意失败状态重试
+     * <p>
+     * 状态回退并保存后，经自代理调用 {@link #executeTask} 真正触发执行，
+     * 避免任务仅被标记为"进行中"却无任何执行（此前缺陷）。
+     * </p>
      */
-    @Transactional
     public void retry(Long taskId) {
         TranscodeTask task = repository.findById(taskId)
             .orElseThrow(() -> new NoSuchElementException("转码任务不存在：id=" + taskId));
@@ -501,9 +513,18 @@ public class TranscodeService {
                 repository.save(task);
                 log.info("转码任务重试：{} — 跳过下载和转码，重新上传", task.getSourceFilePath());
             }
+            case FAILED -> {
+                // 编排级失败：清空错误，重新执行
+                task.setErrorMessage(null);
+                repository.save(task);
+                log.info("转码任务重试：{} — 重新执行", task.getSourceFilePath());
+            }
             default -> throw new IllegalStateException(
                 "仅失败状态的转码任务可重试，当前状态：" + status);
         }
+
+        // 状态回退提交后，真正触发执行（经自代理调用，确保 executeTask 的 @Transactional 生效）
+        selfProvider.getObject().executeTask(task);
     }
 
     // ================================================================
