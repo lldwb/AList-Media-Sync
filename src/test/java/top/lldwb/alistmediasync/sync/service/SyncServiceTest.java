@@ -75,6 +75,9 @@ class SyncServiceTest {
     @Mock
     private StorageEngineStrategy targetStrategy;
 
+    @Mock
+    private org.springframework.transaction.PlatformTransactionManager transactionManager;
+
     @InjectMocks
     private SyncService service;
 
@@ -110,6 +113,9 @@ class SyncServiceTest {
         // 默认 Mock：StorageEngineService 返回策略
         when(storageEngineService.resolve(sourceEngine)).thenReturn(sourceStrategy);
         when(storageEngineService.resolve(targetEngine)).thenReturn(targetStrategy);
+
+        // 默认 Mock：TransactionTemplate 依赖的事务管理器
+        when(transactionManager.getTransaction(any())).thenReturn(mock(org.springframework.transaction.TransactionStatus.class));
 
         // 默认 Mock：save 返回传入的参数
         when(taskExecutionRepository.save(any(TaskExecution.class))).thenAnswer(inv -> {
