@@ -110,7 +110,16 @@ public class WebhookService {
         }
 
         event.setStatus(WebhookEvent.EventStatus.PENDING);
-        event = eventRepository.save(event);
+        try {
+            event = eventRepository.save(event);
+        } catch (org.springframework.dao.DataIntegrityViolationException e) {
+            // 并发重发竞态：去重检查（findByEventId）与 save 非原子，唯一索引兜底。
+            // 此时另一事务已成功入库，重查返回既有事件即可，避免误报为异常
+            log.debug("Webhook 事件并发重复（唯一索引兜底）：EventId={}", eventId);
+            var existing = eventRepository.findByEventId(eventId)
+                .orElseThrow(() -> new IllegalStateException("事件唯一索引冲突且重查失败：EventId=" + eventId));
+            return existing;
+        }
 
         log.info("Webhook 事件已接收：Type={}, EventId={}", eventType, eventId);
         return event;
