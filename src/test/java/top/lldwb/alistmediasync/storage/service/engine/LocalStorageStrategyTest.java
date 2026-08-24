@@ -87,28 +87,46 @@ class LocalStorageStrategyTest {
     }
 
     @Test
-    @DisplayName("listFiles 应支持分页")
-    void listFilesShouldSupportPagination() throws IOException {
+    @DisplayName("listFiles 应一次性返回全量（忽略分页参数，避免 O(n²) 重复扫描）")
+    void listFilesShouldReturnAllEntriesIgnoringPagination() throws IOException {
         for (int i = 0; i < 5; i++) {
             Files.createFile(tempDir.resolve("file" + i + ".txt"));
         }
 
         List<FileEntry> page1 = strategy.listFiles(engine, "/", 1, 2);
-        assertEquals(2, page1.size());
+        assertEquals(5, page1.size(), "本地引擎应一次返回全部条目");
 
         List<FileEntry> page2 = strategy.listFiles(engine, "/", 2, 2);
-        assertEquals(2, page2.size());
+        assertEquals(5, page2.size(), "任意页码均返回全量");
     }
 
     @Test
-    @DisplayName("listFiles 请求超出范围的页码应返回空列表")
-    void listFilesShouldReturnEmptyForOutOfRangePage() throws IOException {
-        Files.createFile(tempDir.resolve("only.txt"));
-
-        // 总数=1, page=2, perPage=50 → fromIndex=50 ≥ size，应返回空
+    @DisplayName("listFiles 对空目录应返回空列表（不受分页参数影响）")
+    void listFilesShouldReturnEmptyForEmptyDirWithPagination() throws IOException {
         List<FileEntry> result = strategy.listFiles(engine, "/", 2, 50);
         assertNotNull(result);
         assertTrue(result.isEmpty());
+    }
+
+    @Test
+    @DisplayName("resolvePath 应拒绝包含 .. 的越界路径")
+    void resolvePathShouldRejectTraversal() throws IOException {
+        Files.createDirectories(tempDir.resolve("safe"));
+        Path outside = tempDir.resolveSibling("outside.txt");
+
+        assertThrows(IllegalArgumentException.class,
+            () -> strategy.downloadFile(engine, "/../../outside.txt"));
+        assertThrows(IllegalArgumentException.class,
+            () -> strategy.deleteFile(engine, "/../" + tempDir.getFileName() + "/.."));
+        // 正常路径不受影响
+        strategy.uploadFile(engine, "/safe/ok.txt",
+            new ByteArrayInputStream("ok".getBytes()), 2);
+        assertTrue(Files.exists(tempDir.resolve("safe/ok.txt")));
+        // 越界写入应被拒绝
+        assertThrows(IllegalArgumentException.class,
+            () -> strategy.uploadFile(engine, "/../../" + outside.getFileName(),
+                new ByteArrayInputStream("x".getBytes()), 1));
+        assertFalse(Files.exists(outside));
     }
 
     @Test
