@@ -106,7 +106,7 @@ public class StorageEngineMcpTools {
             @McpToolParam(description = "目录路径（默认 /）", required = false) String path) {
         return result.run("storage_engine_list_directories", () -> {
             StorageEngine engine = storageEngineService.getEntity(id);
-            return storageEngineService.resolve(engine).listDirectories(engine, path == null ? "/" : path);
+            return storageEngineService.resolve(engine).listDirectories(engine, normalizePath(path));
         });
     }
 
@@ -116,7 +116,12 @@ public class StorageEngineMcpTools {
             @McpToolParam(description = "目录路径（默认 /）", required = false) String path) {
         return result.run("storage_engine_list_entries", () -> {
             StorageEngine engine = storageEngineService.getEntity(id);
-            return storageEngineService.resolve(engine).listEntries(engine, path == null ? "/" : path);
+            return storageEngineService.resolve(engine).listEntries(engine, normalizePath(path));
         });
+    }
+
+    /** 空值/空串路径统一视为根目录 */
+    private static String normalizePath(String path) {
+        return (path == null || path.isBlank()) ? "/" : path;
     }
 }

@@ -37,40 +37,8 @@ public class LocalStorageStrategy implements StorageEngineStrategy {
 
     @Override
     public List<FileEntry> listFiles(StorageEngine engine, String path, int page, int perPage) {
-        Path dir = resolvePath(engine, path);
-        log.debug("列出本地文件：引擎={}, path={}, page={}, perPage={}", engine.getName(), dir, page, perPage);
-        if (!Files.exists(dir) || !Files.isDirectory(dir)) {
-            log.warn("本地目录不存在或不是目录：{}", dir);
-            return Collections.emptyList();
-        }
-        try (Stream<Path> stream = Files.list(dir)) {
-            List<FileEntry> allEntries = stream
-                .map(p -> toFileEntry(p, engine.getLocalPath()))
-                .filter(Objects::nonNull)
-                .sorted(Comparator.comparing(FileEntry::isDirectory).reversed()
-                    .thenComparing(FileEntry::name))
-                .toList();
-
-            // 空目录：直接返回，避免与"分页越界"混淆
-            if (allEntries.isEmpty()) {
-                log.debug("列出本地文件完成：path={}, 目录为空", dir);
-                return Collections.emptyList();
-            }
-
-            // 简单分页
-            int fromIndex = (page - 1) * perPage;
-            if (fromIndex >= allEntries.size()) {
-                log.debug("列出本地文件完成：path={}, 总数={}, 请求 page={} 超出范围", dir, allEntries.size(), page);
-                return Collections.emptyList();
-            }
-            int toIndex = Math.min(fromIndex + perPage, allEntries.size());
-            List<FileEntry> result = allEntries.subList(fromIndex, toIndex);
-            log.debug("列出本地文件完成：path={}, 总数={}, 返回 {} 条", dir, allEntries.size(), result.size());
-            return result;
-        } catch (IOException e) {
-            log.error("列出本地文件失败：{} — {}", dir, e.getMessage(), e);
-            return Collections.emptyList();
-        }
+        // 本地文件系统列目录成本低，一次性返回全量，避免逐页重复全量扫描+排序（O(n²)）
+        return listEntries(engine, path);
     }
 
     @Override
@@ -279,6 +247,10 @@ public class LocalStorageStrategy implements StorageEngineStrategy {
 
     /**
      * 将相对路径解析为本地绝对路径
+     * <p>
+     * 校验解析后的路径必须位于引擎根目录（localPath）之内，
+     * 防止 {@code ..} 或绝对路径第二段逃逸根目录造成路径穿越（读写/递归删除越界文件）。
+     * </p>
      */
     private Path resolvePath(StorageEngine engine, String path) {
         String relativePath = path != null ? path : "";
@@ -286,17 +258,23 @@ public class LocalStorageStrategy implements StorageEngineStrategy {
         if (relativePath.startsWith("/")) {
             relativePath = relativePath.substring(1);
         }
+        Path root = Path.of(engine.getLocalPath()).toAbsolutePath().normalize();
         if (relativePath.isEmpty()) {
-            return Path.of(engine.getLocalPath());
+            return root;
         }
-        return Path.of(engine.getLocalPath(), relativePath);
+        Path resolved = root.resolve(relativePath).normalize();
+        if (!resolved.startsWith(root)) {
+            log.warn("拒绝越界路径：引擎={}, path={}", engine.getName(), path);
+            throw new IllegalArgumentException("非法路径（超出引擎根目录）：" + path);
+        }
+        return resolved;
     }
 
     /**
      * 计算相对于 localPath 的路径
      */
     private String toRelativePath(Path absolutePath, String localPath) {
-        Path localRoot = Path.of(localPath);
+        Path localRoot = Path.of(localPath).toAbsolutePath().normalize();
         Path relative = localRoot.relativize(absolutePath);
         return relative.toString().replace('\\', '/');
     }
