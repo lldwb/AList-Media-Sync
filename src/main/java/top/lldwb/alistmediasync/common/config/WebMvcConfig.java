@@ -43,7 +43,8 @@ public class WebMvcConfig implements WebMvcConfigurer {
     public void addInterceptors(InterceptorRegistry registry) {
         registry.addInterceptor(authInterceptor)
             .addPathPatterns("/api/**")
-            .excludePathPatterns("/api/webhooks/**", "/actuator/health", "/h2-console/**");
+            // 仅放行录播姬 Webhook 回调，同前缀下的管理接口（事件查询等）仍需认证
+            .excludePathPatterns("/api/webhooks/recorder", "/actuator/health", "/h2-console/**");
 
         // MCP 端点认证（独立 Bearer Token，FR-008）：仅在 MCP 服务器启用时注册
         mcpAuthInterceptor.ifAvailable(interceptor ->

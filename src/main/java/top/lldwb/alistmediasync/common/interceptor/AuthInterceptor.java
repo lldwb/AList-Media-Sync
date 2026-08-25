@@ -35,8 +35,13 @@ import java.util.Base64;
 @Component
 public class AuthInterceptor implements HandlerInterceptor {
 
+    /**
+     * 免认证路径（精确前缀匹配）。
+     * 仅放行录播姬 Webhook 回调（/api/webhooks/recorder）；
+     * 同前缀下的事件查询（/api/webhooks/events）等管理接口仍需认证。
+     */
     private static final String[] EXCLUDE_PATHS = {
-        "/api/webhooks",
+        "/api/webhooks/recorder",
         "/actuator/health",
         "/h2-console",
         // SpringDoc OpenAPI 端点：放行以便开发环境访问 Swagger UI 与 OpenAPI JSON/YAML。
