@@ -48,10 +48,18 @@ class AuthInterceptorTest {
     }
 
     @Test
-    @DisplayName("排除路径 /api/webhooks 应跳过认证")
-    void shouldSkipAuthForWebhookPath() throws Exception {
-        request.setRequestURI("/api/webhooks/event");
+    @DisplayName("排除路径 /api/webhooks/recorder（录播姬回调）应跳过认证")
+    void shouldSkipAuthForWebhookRecorderPath() throws Exception {
+        request.setRequestURI("/api/webhooks/recorder");
         assertTrue(interceptor.preHandle(request, response, null));
+    }
+
+    @Test
+    @DisplayName("同前缀管理接口 /api/webhooks/events 无凭据时应拒绝认证")
+    void shouldRequireAuthForWebhookEventsPath() throws Exception {
+        request.setRequestURI("/api/webhooks/events");
+        assertFalse(interceptor.preHandle(request, response, null));
+        assertEquals(401, response.getStatus());
     }
 
     @Test
