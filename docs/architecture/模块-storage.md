@@ -46,8 +46,8 @@ type()                       → String  （策略标识，如 "ALIST" / "LOCAL"
 
 `@Component`，`type()` 返回 `"LOCAL"`。通过 `java.nio.file` 操作本地文件系统：
 
-- **路径解析**：`resolvePath()` 将相对路径解析为本地绝对路径（`localPath + relativePath`）
-- **列目录**：`listFiles()` 返回排序后的列表（目录在前、名称升序）
+- **路径解析**：`resolvePath()` 将相对路径解析为本地绝对路径（`localPath + relativePath`），解析后校验路径必须位于引擎根目录内（`normalize()` + `startsWith`），拒绝 `..` 与绝对路径逃逸（路径穿越防护）
+- **列目录**：`listFiles()` 一次性返回全量排序列表（目录在前、名称升序，忽略分页参数，避免逐页重复扫描的 O(n²)）
 - **上传**：自动创建父目录，8KB 缓冲区流式写入
 - **删除**：目录递归删除，文件直接删除
 - **列子目录**：`listDirectories()` 包含 `hasChildren` 判断（子目录探测）

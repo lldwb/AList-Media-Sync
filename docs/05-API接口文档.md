@@ -30,7 +30,7 @@ Authorization: Basic YWRtaW46YWRtaW4xMjM=
 
 | 路径 | 说明 |
 |---|---|
-| `/api/webhooks/**` | Webhook 回调入口，由 Webhook 签名机制独立校验 |
+| `/api/webhooks/recorder` | 录播姬 Webhook 回调入口（仅此路径免认证，同前缀的事件查询等管理接口仍需 Basic Auth） |
 | `/actuator/health` | 健康检查端点，供容器编排探针使用 |
 | `/v3/api-docs**` | OpenAPI JSON/YAML 文档端点（生产环境通过 `SPRINGDOC_API_DOCS_ENABLED=false` 禁用） |
 | `/swagger-ui**` | Swagger UI 界面（生产环境通过 `SPRINGDOC_SWAGGER_UI_ENABLED=false` 禁用） |

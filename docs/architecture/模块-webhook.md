@@ -6,8 +6,8 @@
 
 webhook 模块负责接收录播姬 Webhook v2 事件，通过规则匹配自动触发同步或转码操作。核心职责包括：
 
-- **事件接收**：接收录播姬 Webhook v2 事件（无需认证的公开端点）
-- **事件去重**：基于 EventId 幂等去重，防止重复处理
+- **事件接收**：接收录播姬 Webhook v2 事件（仅 `POST /api/webhooks/recorder` 免认证）
+- **事件去重**：基于 EventId 幂等去重，防止重复处理；并发重发由唯一索引兜底（捕获 `DataIntegrityViolationException` 后重查返回既有事件）
 - **规则匹配**：按事件类型和元数据匹配预配置规则
 - **任务触发**：根据规则动作触发同步和/或转码任务
 - **事件管理**：规则 CRUD、事件历史查询
@@ -18,8 +18,8 @@ webhook 模块是系统的外部事件入口，调用 sync 和 transcode 模块�
 
 ### WebhookController — 事件接收端点
 
-- `POST /api/webhooks/events` — 接收录播姬 Webhook v2 事件
-- **无认证路径**：在 `AuthInterceptor` 中排除 `/api/webhooks/**`，直接暴露
+- `POST /api/webhooks/recorder` — 接收录播姬 Webhook v2 事件（录播姬回调，免认证）
+- **无认证路径**：在 `AuthInterceptor` 中仅排除 `/api/webhooks/recorder`（精确前缀）；同前缀下的管理接口（如 `GET /api/webhooks/events` 事件查询）仍需 Basic Auth
 - 解析 Webhook v2 事件载荷，委托 `WebhookService` 处理
 
 ### WebhookService — 事件处理核心

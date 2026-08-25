@@ -63,7 +63,7 @@ JPA 实体，含 `@Version` 乐观锁。关键字段：
 | `TranscodeCandidate` | 转码候选文件 record |
 | `TranscodeResult` | 转码结果 record |
 
-## 8 状态模型
+## 8 状态模型（含编排级失败 FAILED）
 
 ```
 PENDING(0) → DOWNLOADING(1) → TRANSCODING(3) → UPLOADING(5) → COMPLETED(7)
@@ -78,6 +78,7 @@ PENDING(0) → DOWNLOADING(1) → TRANSCODING(3) → UPLOADING(5) → COMPLETED(
 - **TRANSCODING / TRANSCODE_FAILED**：转码中 / 转码失败
 - **UPLOADING / UPLOAD_FAILED**：上传中 / 上传失败
 - **COMPLETED**：全部完成
+- **FAILED**：编排级失败（扫描/收集阶段异常或全部文件失败），非单步失败；可重试
 
 设计意图：每个步骤独立可重试，重试时从失败步骤继续执行，已完成步骤的临时文件保留复用，避免重复下载和转码。
 
@@ -94,7 +95,7 @@ PENDING(0) → DOWNLOADING(1) → TRANSCODING(3) → UPLOADING(5) → COMPLETED(
 
 1. 状态变更为 DOWNLOADING
 2. `TempFileManager` 创建临时文件（UUID 命名，并发安全）
-3. 通过策略接口 `downloadFile()` 下载源文件
+3. 通过策略接口 `downloadFile()` 下载源文件（网络/IO 瞬时故障包装为 `RetryableIOException`，触发自动重试）
 4. `MagicBytesDetector` 验证文件格式
 5. 成功 → 状态变更为 TRANSCODING；失败 → 状态变更为 DOWNLOAD_FAILED
 
@@ -109,18 +110,30 @@ PENDING(0) → DOWNLOADING(1) → TRANSCODING(3) → UPLOADING(5) → COMPLETED(
 ### 上传流程
 
 1. 状态变更为 UPLOADING
-2. 通过策略接口 `uploadFile()` 上传转码产物
+2. 通过策略接口 `uploadFile()` 上传转码产物（上传失败同样包装为可重试异常）
 3. 如启用 `sourceDirectoryTranscode`，输出至源文件所在目录
 4. 清理临时文件
 5. 成功 → 状态变更为 COMPLETED；失败 → 状态变更为 UPLOAD_FAILED
 
 ### 重试流程
 
-1. `retry()` 方法读取任务当前状态，确定从哪步继续
-2. DOWNLOAD_FAILED → 从下载重新开始（临时文件已清理）
-3. TRANSCODE_FAILED → 从转码重新开始（保留已下载的临时文件）
-4. UPLOAD_FAILED → 从上传重新开始（保留已转码的临时文件）
-5. 重新执行对应步骤，状态流转同正常流程
+**手动重试（API/MCP `retry`）**：
+
+1. `retry()` 读取任务当前状态，确定从哪步继续
+2. DOWNLOAD_FAILED → 状态回退 DOWNLOADING（清理部分下载文件）
+3. TRANSCODE_FAILED → 状态回退 TRANSCODING（保留已下载的临时文件）
+4. UPLOAD_FAILED → 状态回退 UPLOADING（保留已转码的临时文件）
+5. FAILED（编排级）→ 清空错误信息后整体重新执行
+6. 状态回退提交后，经自代理调用 `executeTask()` 真正触发执行（此前缺陷：仅改状态不执行，任务卡死）
+
+**自动重试（瞬时故障）**：
+
+1. 下载/上传失败抛 `RetryableIOException`（实现 `RetryableException` 标记），`RetryService.isRetryable` 判定为可重试
+2. 未达上限（`app.retry.max-auto-retries`，默认 3）时按指数退避调度重试
+3. 重试**复用同一任务记录**并沿用 `retryCount` 递增（此前缺陷：重试新建任务导致计数归零、无限重试刷库）
+4. 断点续传：下载失败重试从下载开始；转码失败保留已下载源文件跳过下载；上传失败复用已转码产物直接上传
+5. 达上限后标记最终失败（错误信息追加"自动重试用尽"）
+6. 成功后重置 `retryCount`
 
 ## 扩展点
 
