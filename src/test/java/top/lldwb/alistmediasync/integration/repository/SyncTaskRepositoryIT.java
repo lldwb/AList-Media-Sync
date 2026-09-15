@@ -6,6 +6,7 @@ import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.data.jpa.test.autoconfigure.DataJpaTest;
 import org.springframework.test.context.ActiveProfiles;
+import top.lldwb.alistmediasync.common.enums.ConflictStrategy;
 import top.lldwb.alistmediasync.storage.entity.StorageEngine;
 import top.lldwb.alistmediasync.storage.repository.StorageEngineRepository;
 import top.lldwb.alistmediasync.sync.entity.SyncTask;
@@ -70,7 +71,7 @@ class SyncTaskRepositoryIT {
         assertEquals(SyncTask.SyncMode.NEW_ONLY, saved.getSyncMode());
         assertFalse(saved.getEnabled());
         assertEquals(SyncTask.ScheduleType.MANUAL, saved.getScheduleType());
-        assertEquals(SyncTask.ConflictStrategy.SKIP, saved.getConflictStrategy());
+        assertEquals(ConflictStrategy.SKIP, saved.getConflictStrategy());
         assertNotNull(saved.getCreatedAt());
         assertEquals(0L, saved.getVersion());
     }
@@ -169,10 +170,10 @@ class SyncTaskRepositoryIT {
     void shouldPersistConflictStrategy() {
         SyncTask task = createTask("覆盖策略", "/s", "/t",
             SyncTask.SyncMode.NEW_ONLY, true);
-        task.setConflictStrategy(SyncTask.ConflictStrategy.OVERWRITE);
+        task.setConflictStrategy(ConflictStrategy.OVERWRITE);
 
         SyncTask saved = repository.save(task);
-        assertEquals(SyncTask.ConflictStrategy.OVERWRITE, saved.getConflictStrategy());
+        assertEquals(ConflictStrategy.OVERWRITE, saved.getConflictStrategy());
     }
 
     private SyncTask createTask(String name, String sourcePath, String targetPath,

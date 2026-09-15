@@ -1,4 +1,4 @@
-package top.lldwb.alistmediasync.common.controller;
+package top.lldwb.alistmediasync.ops;
 
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.DisplayName;
@@ -12,7 +12,6 @@ import top.lldwb.alistmediasync.common.config.AppProperties;
 import top.lldwb.alistmediasync.common.config.TraceIdFilter;
 import top.lldwb.alistmediasync.common.dto.DiagnosticResultVO;
 import top.lldwb.alistmediasync.common.interceptor.AuthInterceptor;
-import top.lldwb.alistmediasync.common.service.DiagnosticService;
 
 import java.time.LocalDateTime;
 import java.util.List;

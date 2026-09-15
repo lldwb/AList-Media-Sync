@@ -10,11 +10,12 @@ import org.mockito.junit.jupiter.MockitoExtension;
 import org.mockito.junit.jupiter.MockitoSettings;
 import org.mockito.quality.Strictness;
 import top.lldwb.alistmediasync.common.config.AppProperties;
-import top.lldwb.alistmediasync.transcode.dto.transcode.TranscodeTaskVO;
+import top.lldwb.alistmediasync.common.enums.TargetFormat;
+import top.lldwb.alistmediasync.transcode.dto.TranscodeTaskVO;
 import top.lldwb.alistmediasync.storage.entity.StorageEngine;
 import top.lldwb.alistmediasync.transcode.entity.TranscodeTask;
 import top.lldwb.alistmediasync.storage.repository.StorageEngineRepository;
-import top.lldwb.alistmediasync.sync.repository.TaskExecutionRepository;
+import top.lldwb.alistmediasync.execution.TaskExecutionRepository;
 import top.lldwb.alistmediasync.transcode.repository.TranscodeTaskRepository;
 
 import java.util.List;
@@ -93,7 +94,7 @@ class TranscodeServiceTest {
         mockTask.setTargetEngineId(2L);
         mockTask.setSourceFilePath("/videos/test.mp4");
         mockTask.setTargetFilePath("/output/test.mp3");
-        mockTask.setTargetFormat(TranscodeTask.TargetFormat.MP3);
+        mockTask.setTargetFormat(TargetFormat.MP3);
         mockTask.setBitrate(128000);
         mockTask.setStatus(TranscodeTask.TranscodeStatus.PENDING);
         mockTask.setProgress(0);
@@ -114,11 +115,11 @@ class TranscodeServiceTest {
     void shouldCreateTask() {
         TranscodeTask result = service.createTask(
             1L, 2L, "/videos/test.mp4", "/output/test.mp3",
-            TranscodeTask.TargetFormat.MP3, 128000, false);
+            TargetFormat.MP3, 128000, false);
 
         assertNotNull(result);
         assertEquals("/videos/test.mp4", result.getSourceFilePath());
-        assertEquals(TranscodeTask.TargetFormat.MP3, result.getTargetFormat());
+        assertEquals(TargetFormat.MP3, result.getTargetFormat());
         assertEquals(128000, result.getBitrate());
         assertEquals(TranscodeTask.TranscodeStatus.PENDING, result.getStatus());
         verify(repository).save(any(TranscodeTask.class));
@@ -129,7 +130,7 @@ class TranscodeServiceTest {
     void shouldUseDefaultBitrateWhenNull() {
         TranscodeTask result = service.createTask(
             1L, 2L, "/videos/test.mp4", "/output/test.mp3",
-            TranscodeTask.TargetFormat.MP3, null, false);
+            TargetFormat.MP3, null, false);
 
         assertEquals(128000, result.getBitrate());
     }
@@ -139,7 +140,7 @@ class TranscodeServiceTest {
     void shouldAutoSetTargetPathWhenSameDirectoryTranscodeTrue() {
         TranscodeTask result = service.createTask(
             1L, 2L, "/videos/test.flv", null,
-            TranscodeTask.TargetFormat.MP3, 128000, true);
+            TargetFormat.MP3, 128000, true);
 
         assertEquals("/videos", result.getTargetFilePath(),
             "应自动使用源文件所在目录作为目标路径");
@@ -150,7 +151,7 @@ class TranscodeServiceTest {
     void shouldUseSpecifiedTargetPathWhenSameDirectoryTranscodeFalse() {
         TranscodeTask result = service.createTask(
             1L, 2L, "/videos/test.flv", "/output/",
-            TranscodeTask.TargetFormat.MP3, 128000, false);
+            TargetFormat.MP3, 128000, false);
 
         assertEquals("/output/", result.getTargetFilePath(),
             "应使用用户指定的目标路径");
@@ -161,7 +162,7 @@ class TranscodeServiceTest {
     void shouldIgnoreTargetPathWhenSameDirectoryTranscodeTrue() {
         TranscodeTask result = service.createTask(
             1L, 2L, "/videos/test.flv", "/ignored/path/",
-            TranscodeTask.TargetFormat.MP3, 128000, true);
+            TargetFormat.MP3, 128000, true);
 
         assertEquals("/videos", result.getTargetFilePath(),
             "应忽略传入的 targetPath，使用源文件目录");
@@ -172,7 +173,7 @@ class TranscodeServiceTest {
     void shouldSetTargetPathToRootWhenSourceInRoot() {
         TranscodeTask result = service.createTask(
             1L, 2L, "/test.flv", null,
-            TranscodeTask.TargetFormat.MP3, 128000, true);
+            TargetFormat.MP3, 128000, true);
 
         assertEquals("/", result.getTargetFilePath(),
             "源文件在根目录时目标路径应为 /");
@@ -183,7 +184,7 @@ class TranscodeServiceTest {
     void shouldThrowWhenSameDirectoryTranscodeFalseAndTargetPathEmpty() {
         assertThrows(IllegalArgumentException.class, () ->
             service.createTask(1L, 2L, "/videos/test.flv", null,
-                TranscodeTask.TargetFormat.MP3, 128000, false));
+                TargetFormat.MP3, 128000, false));
     }
 
     // ================================================================
@@ -197,7 +198,7 @@ class TranscodeServiceTest {
         task2.setId(2L);
         task2.setSourceFilePath("/videos/test2.mp4");
         task2.setTargetFilePath("/output/test2.mp3");
-        task2.setTargetFormat(TranscodeTask.TargetFormat.MP4);
+        task2.setTargetFormat(TargetFormat.MP4);
         task2.setStatus(TranscodeTask.TranscodeStatus.COMPLETED);
 
         when(repository.findAll()).thenReturn(List.of(mockTask, task2));

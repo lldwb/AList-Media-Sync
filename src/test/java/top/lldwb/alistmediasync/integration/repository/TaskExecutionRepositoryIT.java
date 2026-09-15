@@ -6,8 +6,8 @@ import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.data.jpa.test.autoconfigure.DataJpaTest;
 import org.springframework.test.context.ActiveProfiles;
-import top.lldwb.alistmediasync.sync.entity.TaskExecution;
-import top.lldwb.alistmediasync.sync.repository.TaskExecutionRepository;
+import top.lldwb.alistmediasync.execution.TaskExecution;
+import top.lldwb.alistmediasync.execution.TaskExecutionRepository;
 
 import jakarta.persistence.EntityManager;
 import java.time.LocalDateTime;
@@ -139,7 +139,7 @@ class TaskExecutionRepositoryIT {
         // 创建无关联 syncTask 的执行记录
         TaskExecution exec = createExecution(TaskExecution.TaskType.SYNC,
             TaskExecution.ExecutionStatus.SUCCESS);
-        exec.setSyncTask(null);
+        exec.setSyncTaskId(null);
         repository.save(exec);
 
         List<TaskExecution> result = repository.findBySyncTaskIdAndStatus(

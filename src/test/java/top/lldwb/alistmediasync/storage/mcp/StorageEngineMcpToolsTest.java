@@ -7,13 +7,13 @@ import org.junit.jupiter.api.Test;
 import org.mockito.ArgumentCaptor;
 import org.slf4j.MDC;
 import top.lldwb.alistmediasync.common.mcp.McpToolResult;
-import top.lldwb.alistmediasync.storage.dto.storage.StorageEngineCreateDTO;
-import top.lldwb.alistmediasync.storage.dto.storage.StorageEngineUpdateDTO;
-import top.lldwb.alistmediasync.storage.dto.storage.StorageEngineVO;
+import top.lldwb.alistmediasync.storage.dto.StorageEngineCreateDTO;
+import top.lldwb.alistmediasync.storage.dto.StorageEngineUpdateDTO;
+import top.lldwb.alistmediasync.storage.dto.StorageEngineVO;
 import top.lldwb.alistmediasync.storage.entity.StorageEngine;
 import top.lldwb.alistmediasync.storage.service.StorageEngineService;
 import top.lldwb.alistmediasync.storage.service.engine.StorageEngineStrategy;
-import top.lldwb.alistmediasync.sync.dto.sync.DirectoryEntryVO;
+import top.lldwb.alistmediasync.storage.dto.DirectoryEntryVO;
 import tools.jackson.databind.json.JsonMapper;
 
 import java.util.List;

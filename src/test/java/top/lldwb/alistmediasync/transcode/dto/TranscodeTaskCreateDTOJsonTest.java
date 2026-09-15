@@ -3,7 +3,7 @@ package top.lldwb.alistmediasync.transcode.dto;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
 import tools.jackson.databind.json.JsonMapper;
-import top.lldwb.alistmediasync.transcode.dto.transcode.TranscodeTaskCreateDTO;
+import top.lldwb.alistmediasync.transcode.dto.TranscodeTaskCreateDTO;
 
 import static org.junit.jupiter.api.Assertions.*;
 

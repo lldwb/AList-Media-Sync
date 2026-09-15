@@ -8,6 +8,7 @@ import org.springframework.boot.data.jpa.test.autoconfigure.DataJpaTest;
 import jakarta.persistence.OptimisticLockException;
 import org.springframework.jdbc.core.JdbcTemplate;
 import org.springframework.test.context.ActiveProfiles;
+import top.lldwb.alistmediasync.common.enums.TargetFormat;
 import top.lldwb.alistmediasync.transcode.entity.TranscodeTask;
 import top.lldwb.alistmediasync.transcode.repository.TranscodeTaskRepository;
 
@@ -248,7 +249,7 @@ class TranscodeTaskRepositoryIT {
         task.setSourceFilePath(sourcePath);
         task.setTargetFilePath(targetPath);
         task.setSourceFormat(TranscodeTask.SourceFormat.FLV);
-        task.setTargetFormat(TranscodeTask.TargetFormat.MP3);
+        task.setTargetFormat(TargetFormat.MP3);
         task.setStatus(status);
         task.setTargetEngineId(1L);
         return task;

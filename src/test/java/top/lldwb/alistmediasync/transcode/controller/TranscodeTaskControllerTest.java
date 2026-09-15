@@ -10,10 +10,11 @@ import org.springframework.http.MediaType;
 import org.springframework.test.context.bean.override.mockito.MockitoBean;
 import org.springframework.test.web.servlet.MockMvc;
 import top.lldwb.alistmediasync.common.config.AppProperties;
+import top.lldwb.alistmediasync.common.enums.TargetFormat;
 import top.lldwb.alistmediasync.common.interceptor.AuthInterceptor;
-import top.lldwb.alistmediasync.common.service.CleanupService;
+import top.lldwb.alistmediasync.common.service.TempFileCleanupTrigger;
 import top.lldwb.alistmediasync.common.service.WsSessionManager;
-import top.lldwb.alistmediasync.transcode.dto.transcode.TranscodeTaskCreateDTO;
+import top.lldwb.alistmediasync.transcode.dto.TranscodeTaskCreateDTO;
 import top.lldwb.alistmediasync.transcode.entity.TranscodeTask;
 import top.lldwb.alistmediasync.transcode.repository.TranscodeTaskRepository;
 import top.lldwb.alistmediasync.transcode.service.TranscodeService;
@@ -42,7 +43,7 @@ class TranscodeTaskControllerTest {
     private TranscodeService transcodeService;
 
     @MockitoBean
-    private CleanupService cleanupService;
+    private TempFileCleanupTrigger cleanupService;
 
     @MockitoBean
     private AuthInterceptor authInterceptor;
@@ -68,7 +69,7 @@ class TranscodeTaskControllerTest {
         mockTask.setId(1L);
         mockTask.setSourceFilePath("/videos/test.flv");
         mockTask.setTargetFilePath("/videos/test.mp3");
-        mockTask.setTargetFormat(TranscodeTask.TargetFormat.MP3);
+        mockTask.setTargetFormat(TargetFormat.MP3);
         mockTask.setStatus(TranscodeTask.TranscodeStatus.PENDING);
         when(transcodeService.createTask(any(), any(), any(), any(), any(), any(), anyBoolean()))
             .thenReturn(mockTask);
@@ -80,7 +81,7 @@ class TranscodeTaskControllerTest {
         TranscodeTaskCreateDTO dto = new TranscodeTaskCreateDTO();
         dto.setSourceFilePath("/videos/test.flv");
         dto.setTargetFilePath(null); // 不填目标路径
-        dto.setTargetFormat(TranscodeTask.TargetFormat.MP3);
+        dto.setTargetFormat(TargetFormat.MP3);
         dto.setTargetEngineId(1L);
         dto.setSourceDirectoryTranscode(true);
 
@@ -101,7 +102,7 @@ class TranscodeTaskControllerTest {
         TranscodeTaskCreateDTO dto = new TranscodeTaskCreateDTO();
         dto.setSourceFilePath("/videos/test.flv");
         dto.setTargetFilePath(null);
-        dto.setTargetFormat(TranscodeTask.TargetFormat.MP3);
+        dto.setTargetFormat(TargetFormat.MP3);
         dto.setTargetEngineId(1L);
         dto.setSourceDirectoryTranscode(false);
 
@@ -117,7 +118,7 @@ class TranscodeTaskControllerTest {
         TranscodeTaskCreateDTO dto = new TranscodeTaskCreateDTO();
         dto.setSourceFilePath("/videos/test.flv");
         dto.setTargetFilePath("/ignored/path/");
-        dto.setTargetFormat(TranscodeTask.TargetFormat.MP3);
+        dto.setTargetFormat(TargetFormat.MP3);
         dto.setTargetEngineId(1L);
         dto.setSourceDirectoryTranscode(true);
 

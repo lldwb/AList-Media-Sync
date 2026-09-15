@@ -7,16 +7,17 @@ import org.junit.jupiter.api.extension.ExtendWith;
 import org.mockito.InjectMocks;
 import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
-import top.lldwb.alistmediasync.sync.dto.sync.SyncTaskCreateDTO;
-import top.lldwb.alistmediasync.sync.dto.sync.SyncTaskUpdateDTO;
-import top.lldwb.alistmediasync.sync.dto.sync.SyncTaskVO;
-import top.lldwb.alistmediasync.sync.dto.sync.TaskExecutionVO;
+import top.lldwb.alistmediasync.common.enums.ConflictStrategy;
+import top.lldwb.alistmediasync.sync.dto.SyncTaskCreateDTO;
+import top.lldwb.alistmediasync.sync.dto.SyncTaskUpdateDTO;
+import top.lldwb.alistmediasync.sync.dto.SyncTaskVO;
+import top.lldwb.alistmediasync.execution.TaskExecutionVO;
 import top.lldwb.alistmediasync.sync.entity.SyncTask;
 import top.lldwb.alistmediasync.storage.entity.StorageEngine;
-import top.lldwb.alistmediasync.sync.entity.TaskExecution;
+import top.lldwb.alistmediasync.execution.TaskExecution;
 import top.lldwb.alistmediasync.storage.repository.StorageEngineRepository;
 import top.lldwb.alistmediasync.sync.repository.SyncTaskRepository;
-import top.lldwb.alistmediasync.sync.repository.TaskExecutionRepository;
+import top.lldwb.alistmediasync.execution.TaskExecutionRepository;
 
 import java.util.List;
 import java.util.NoSuchElementException;
@@ -79,7 +80,7 @@ class SyncTaskManageServiceTest {
         createDTO.setTargetPath("/target");
         createDTO.setSyncMode(SyncTask.SyncMode.NEW_ONLY);
         createDTO.setScheduleType(SyncTask.ScheduleType.MANUAL);
-        createDTO.setConflictStrategy(SyncTask.ConflictStrategy.SKIP);
+        createDTO.setConflictStrategy(ConflictStrategy.SKIP);
         createDTO.setTranscodeEnabled(false);
 
         updateDTO = new SyncTaskUpdateDTO();
@@ -94,7 +95,7 @@ class SyncTaskManageServiceTest {
         mockTask.setTargetPath("/target");
         mockTask.setSyncMode(SyncTask.SyncMode.NEW_ONLY);
         mockTask.setScheduleType(SyncTask.ScheduleType.MANUAL);
-        mockTask.setConflictStrategy(SyncTask.ConflictStrategy.SKIP);
+        mockTask.setConflictStrategy(ConflictStrategy.SKIP);
         mockTask.setTranscodeEnabled(false);
         mockTask.setEnabled(false);
     }
@@ -348,7 +349,7 @@ class SyncTaskManageServiceTest {
     void shouldGetExecutions() {
         TaskExecution exec1 = new TaskExecution();
         exec1.setId(1L);
-        exec1.setSyncTask(mockTask);
+        exec1.setSyncTaskId(mockTask.getId());
         exec1.setTaskType(TaskExecution.TaskType.SYNC);
         exec1.setStatus(TaskExecution.ExecutionStatus.SUCCESS);
         exec1.setTotalFiles(10);
@@ -357,7 +358,7 @@ class SyncTaskManageServiceTest {
 
         TaskExecution exec2 = new TaskExecution();
         exec2.setId(2L);
-        exec2.setSyncTask(mockTask);
+        exec2.setSyncTaskId(mockTask.getId());
         exec2.setTaskType(TaskExecution.TaskType.SYNC);
         exec2.setStatus(TaskExecution.ExecutionStatus.FAILED);
         exec2.setTotalFiles(5);

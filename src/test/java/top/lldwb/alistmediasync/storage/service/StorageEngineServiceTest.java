@@ -4,17 +4,22 @@ import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
+import org.junit.jupiter.api.io.TempDir;
+import org.mockito.ArgumentCaptor;
 import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
-import top.lldwb.alistmediasync.storage.dto.storage.StorageEngineCreateDTO;
-import top.lldwb.alistmediasync.storage.dto.storage.StorageEngineUpdateDTO;
-import top.lldwb.alistmediasync.storage.dto.storage.StorageEngineVO;
+import top.lldwb.alistmediasync.storage.dto.StorageEngineCreateDTO;
+import top.lldwb.alistmediasync.storage.dto.StorageEngineUpdateDTO;
+import top.lldwb.alistmediasync.storage.dto.StorageEngineVO;
 import top.lldwb.alistmediasync.storage.entity.StorageEngine;
 import top.lldwb.alistmediasync.storage.entity.StorageEngine.EngineType;
 import top.lldwb.alistmediasync.common.config.AppProperties;
 import top.lldwb.alistmediasync.storage.repository.StorageEngineRepository;
 import top.lldwb.alistmediasync.storage.service.engine.StorageEngineStrategy;
 
+import java.io.IOException;
+import java.nio.file.Files;
+import java.nio.file.Path;
 import java.util.List;
 import java.util.NoSuchElementException;
 import java.util.Optional;
@@ -49,6 +54,9 @@ class StorageEngineServiceTest {
 
     private StorageEngineService service;
 
+    @TempDir
+    Path tempDir;
+
     private StorageEngineCreateDTO createDTO;
     private StorageEngineUpdateDTO updateDTO;
     private StorageEngine mockEngine;
@@ -78,6 +86,14 @@ class StorageEngineServiceTest {
         mockEngine.setStatus(StorageEngine.EngineStatus.OFFLINE);
     }
 
+    /** 将 createDTO 切换为 LOCAL 类型并指向指定路径 */
+    private void useLocalEngineWithPath(String localPath) {
+        createDTO.setEngineType("LOCAL");
+        createDTO.setBaseUrl(null);
+        createDTO.setToken(null);
+        createDTO.setLocalPath(localPath);
+    }
+
     // ================================================================
     // 策略分发测试
     // ================================================================
@@ -99,11 +115,29 @@ class StorageEngineServiceTest {
     }
 
     @Test
-    @DisplayName("resolve 对 null engineType 应抛出 NullPointerException")
-    void resolveShouldThrowForUnsupportedType() {
+    @DisplayName("resolve 对 null engineType 实际抛出 NullPointerException（javadoc 只声明了 IllegalArgumentException）")
+    void resolveShouldThrowNullPointerExceptionForNullEngineType() {
         StorageEngine engine = new StorageEngine();
         engine.setEngineType(null);
+
+        // 现状：engine.getEngineType().name() 缺少 null 保护，NPE 先于"类型不支持"的判断抛出。
+        // javadoc 声明的 @throws IllegalArgumentException 只在类型查不到策略时触发，故此处如实断言实际异常类型。
         assertThrows(NullPointerException.class, () -> service.resolve(engine));
+    }
+
+    @Test
+    @DisplayName("resolve 对查不到策略的引擎类型应抛出 IllegalArgumentException")
+    void resolveShouldThrowIllegalArgumentExceptionWhenStrategyAbsent() {
+        // 只注册 LOCAL 策略的实例：ALIST 引擎在策略表中不存在，走文档化的 IllegalArgumentException 分支
+        StorageEngineService localOnlyService =
+            new StorageEngineService(repository, List.of(localStrategy), appProperties);
+        StorageEngine engine = new StorageEngine();
+        engine.setEngineType(EngineType.ALIST);
+
+        IllegalArgumentException ex = assertThrows(IllegalArgumentException.class,
+            () -> localOnlyService.resolve(engine));
+
+        assertTrue(ex.getMessage().contains("不支持的引擎类型"), "实际消息：" + ex.getMessage());
     }
 
     // ================================================================
@@ -186,6 +220,100 @@ class StorageEngineServiceTest {
         verify(repository, never()).save(any());
     }
 
+    @Test
+    @DisplayName("创建引擎 — engineType 大小写不敏感（alist 应解析为 ALIST）")
+    void shouldParseEngineTypeCaseInsensitively() {
+        createDTO.setEngineType("alist");
+        when(repository.save(any(StorageEngine.class))).thenAnswer(inv -> {
+            StorageEngine saved = inv.getArgument(0);
+            assertEquals(EngineType.ALIST, saved.getEngineType());
+            mockEngine.setLocalPath(saved.getLocalPath());
+            return mockEngine;
+        });
+
+        StorageEngineVO result = service.create(createDTO);
+
+        assertEquals("ALIST", result.getEngineType());
+        verify(repository).save(any(StorageEngine.class));
+    }
+
+    @Test
+    @DisplayName("创建引擎 — engineType 为 null 时实际抛出 NullPointerException（非文档化的 IllegalArgumentException）")
+    void shouldThrowNullPointerExceptionWhenEngineTypeIsNull() {
+        // 现状：parseEngineType 先做 engineTypeStr.toUpperCase()，null 时 NPE 直接逃逸出 catch (IllegalArgumentException)。
+        createDTO.setEngineType(null);
+
+        assertThrows(NullPointerException.class, () -> service.create(createDTO));
+        verify(repository, never()).save(any());
+    }
+
+    @Test
+    @DisplayName("创建 ALIST 引擎 — baseUrl 为空白字符串应抛出异常")
+    void shouldThrowWhenAListBaseUrlBlank() {
+        createDTO.setBaseUrl("   ");
+
+        IllegalArgumentException ex = assertThrows(IllegalArgumentException.class, () -> service.create(createDTO));
+
+        assertTrue(ex.getMessage().contains("服务器地址"), "实际消息：" + ex.getMessage());
+        verify(repository, never()).save(any());
+    }
+
+    @Test
+    @DisplayName("创建 ALIST 引擎 — token 为空白字符串应抛出异常")
+    void shouldThrowWhenAListTokenBlank() {
+        createDTO.setToken("   ");
+
+        IllegalArgumentException ex = assertThrows(IllegalArgumentException.class, () -> service.create(createDTO));
+
+        assertTrue(ex.getMessage().contains("API 令牌"), "实际消息：" + ex.getMessage());
+        verify(repository, never()).save(any());
+    }
+
+    // ---- validateFields 的 LOCAL 分支：路径存在性 / 目录性 ----
+
+    @Test
+    @DisplayName("创建 LOCAL 引擎 — 路径不存在应抛出异常且提示路径不存在")
+    void shouldThrowWhenLocalPathDoesNotExist() {
+        useLocalEngineWithPath(tempDir.resolve("no-such-dir").toString());
+
+        IllegalArgumentException ex = assertThrows(IllegalArgumentException.class, () -> service.create(createDTO));
+
+        assertTrue(ex.getMessage().contains("本地路径不存在"), "实际消息：" + ex.getMessage());
+        verify(repository, never()).save(any());
+    }
+
+    @Test
+    @DisplayName("创建 LOCAL 引擎 — 路径指向文件而非目录应抛出异常")
+    void shouldThrowWhenLocalPathIsAFile() throws IOException {
+        Path file = Files.createFile(tempDir.resolve("a-file.txt"));
+        useLocalEngineWithPath(file.toString());
+
+        IllegalArgumentException ex = assertThrows(IllegalArgumentException.class, () -> service.create(createDTO));
+
+        assertTrue(ex.getMessage().contains("本地路径不是目录"), "实际消息：" + ex.getMessage());
+        verify(repository, never()).save(any());
+    }
+
+    @Test
+    @DisplayName("创建 LOCAL 引擎 — 路径为已存在目录时应创建成功且初始状态 OFFLINE")
+    void shouldCreateLocalEngineWithExistingDirectory() {
+        useLocalEngineWithPath(tempDir.toString());
+        when(repository.save(any(StorageEngine.class))).thenAnswer(inv -> {
+            StorageEngine saved = inv.getArgument(0);
+            assertEquals(EngineType.LOCAL, saved.getEngineType());
+            assertEquals(tempDir.toString(), saved.getLocalPath());
+            assertEquals(StorageEngine.EngineStatus.OFFLINE, saved.getStatus());
+            return saved;
+        });
+
+        StorageEngineVO result = service.create(createDTO);
+
+        assertEquals("测试引擎", result.getName());
+        assertEquals("LOCAL", result.getEngineType());
+        assertEquals("OFFLINE", result.getStatus());
+        verify(repository).save(any(StorageEngine.class));
+    }
+
     // ================================================================
     // update 方法测试
     // ================================================================
@@ -224,6 +352,25 @@ class StorageEngineServiceTest {
         when(repository.findById(999L)).thenReturn(Optional.empty());
         assertThrows(NoSuchElementException.class, () -> service.update(999L, updateDTO));
         verify(repository, never()).save(any());
+    }
+
+    @Test
+    @DisplayName("更新引擎 — baseUrl 末尾斜杠应被移除，token 与 localPath 应被写入实体")
+    void shouldUpdateAllFieldsAndStripTrailingSlash() {
+        when(repository.findById(1L)).thenReturn(Optional.of(mockEngine));
+        when(repository.save(any(StorageEngine.class))).thenReturn(mockEngine);
+
+        StorageEngineUpdateDTO fullDTO = new StorageEngineUpdateDTO();
+        fullDTO.setBaseUrl("https://new.example.com/");
+        fullDTO.setToken("new-token");
+        fullDTO.setLocalPath("/data/media");
+
+        service.update(1L, fullDTO);
+
+        assertEquals("https://new.example.com", mockEngine.getBaseUrl(), "末尾斜杠应被移除");
+        assertEquals("new-token", mockEngine.getEncryptedToken());
+        assertEquals("/data/media", mockEngine.getLocalPath());
+        verify(repository).save(mockEngine);
     }
 
     // ================================================================
@@ -344,5 +491,116 @@ class StorageEngineServiceTest {
         when(repository.findById(1L)).thenReturn(Optional.of(mockEngine));
         StorageEngine result = service.getEntity(1L);
         assertSame(mockEngine, result);
+    }
+
+    // ================================================================
+    // healthCheck 方法测试（@Scheduled 定时健康检查）
+    // ================================================================
+
+    @Test
+    @DisplayName("healthCheck — 引擎列表为空时应直接返回，不做任何写库")
+    void healthCheckShouldReturnEarlyWhenNoEngines() {
+        when(repository.findAll()).thenReturn(List.of());
+
+        service.healthCheck();
+
+        verify(repository, never()).save(any());
+    }
+
+    @Test
+    @DisplayName("healthCheck — 引擎查不到策略时应跳过该引擎，同时仍检查其它引擎")
+    void healthCheckShouldSkipEngineWithoutStrategy() {
+        StorageEngine localEngine = new StorageEngine();
+        localEngine.setId(2L);
+        localEngine.setName("本地引擎");
+        localEngine.setEngineType(EngineType.LOCAL);
+        localEngine.setStatus(StorageEngine.EngineStatus.ONLINE);
+        // ALIST 引擎状态设为 ONLINE：连接测试返回 false 后应触发 OFFLINE 变更并落库
+        mockEngine.setStatus(StorageEngine.EngineStatus.ONLINE);
+
+        // 只注册 ALIST 策略的实例：LOCAL 引擎在策略表中查不到
+        StorageEngineService alistOnlyService =
+            new StorageEngineService(repository, List.of(alistStrategy), appProperties);
+        when(repository.findAll()).thenReturn(List.of(localEngine, mockEngine));
+        when(alistStrategy.testConnection(mockEngine)).thenReturn(false);
+        when(repository.save(any(StorageEngine.class))).thenReturn(mockEngine);
+
+        alistOnlyService.healthCheck();
+
+        // 缺策略的引擎被 continue：状态保持原值，且不写库
+        assertEquals(StorageEngine.EngineStatus.ONLINE, localEngine.getStatus(), "缺策略的引擎状态不应被改动");
+        ArgumentCaptor<StorageEngine> saved = ArgumentCaptor.forClass(StorageEngine.class);
+        verify(repository, times(1)).save(saved.capture());
+        assertSame(mockEngine, saved.getValue(), "只有能解析到策略的引擎才应被写库");
+        // 策略存在的引擎仍被探测
+        verify(alistStrategy).testConnection(mockEngine);
+    }
+
+    @Test
+    @DisplayName("healthCheck — 连接测试成功且状态由 OFFLINE 变化时应置 ONLINE 并落库")
+    void healthCheckShouldSetOnlineWhenStatusChanged() {
+        mockEngine.setStatus(StorageEngine.EngineStatus.OFFLINE);
+        when(repository.findAll()).thenReturn(List.of(mockEngine));
+        when(alistStrategy.testConnection(mockEngine)).thenReturn(true);
+        when(repository.save(any(StorageEngine.class))).thenReturn(mockEngine);
+
+        service.healthCheck();
+
+        assertEquals(StorageEngine.EngineStatus.ONLINE, mockEngine.getStatus());
+        verify(repository).save(mockEngine);
+    }
+
+    @Test
+    @DisplayName("healthCheck — 连接测试失败且状态由 ONLINE 变化时应置 OFFLINE 并落库")
+    void healthCheckShouldSetOfflineWhenConnectionFails() {
+        mockEngine.setStatus(StorageEngine.EngineStatus.ONLINE);
+        when(repository.findAll()).thenReturn(List.of(mockEngine));
+        when(alistStrategy.testConnection(mockEngine)).thenReturn(false);
+        when(repository.save(any(StorageEngine.class))).thenReturn(mockEngine);
+
+        service.healthCheck();
+
+        assertEquals(StorageEngine.EngineStatus.OFFLINE, mockEngine.getStatus());
+        verify(repository).save(mockEngine);
+    }
+
+    @Test
+    @DisplayName("healthCheck — 状态未变化时不应写库（避免无变化的定时写放大）")
+    void healthCheckShouldNotPersistWhenStatusUnchanged() {
+        mockEngine.setStatus(StorageEngine.EngineStatus.ONLINE);
+        when(repository.findAll()).thenReturn(List.of(mockEngine));
+        when(alistStrategy.testConnection(mockEngine)).thenReturn(true);
+
+        service.healthCheck();
+
+        assertEquals(StorageEngine.EngineStatus.ONLINE, mockEngine.getStatus());
+        verify(repository, never()).save(any());
+    }
+
+    @Test
+    @DisplayName("healthCheck — 连接测试抛出异常时应置 ERROR 并落库")
+    void healthCheckShouldSetErrorWhenStrategyThrows() {
+        mockEngine.setStatus(StorageEngine.EngineStatus.ONLINE);
+        when(repository.findAll()).thenReturn(List.of(mockEngine));
+        when(alistStrategy.testConnection(mockEngine)).thenThrow(new RuntimeException("连接超时"));
+        when(repository.save(any(StorageEngine.class))).thenReturn(mockEngine);
+
+        service.healthCheck();
+
+        assertEquals(StorageEngine.EngineStatus.ERROR, mockEngine.getStatus());
+        verify(repository).save(mockEngine);
+    }
+
+    @Test
+    @DisplayName("healthCheck — 引擎已处于 ERROR 时异常不应触发重复写库")
+    void healthCheckShouldNotPersistAgainWhenAlreadyError() {
+        mockEngine.setStatus(StorageEngine.EngineStatus.ERROR);
+        when(repository.findAll()).thenReturn(List.of(mockEngine));
+        when(alistStrategy.testConnection(mockEngine)).thenThrow(new RuntimeException("连接超时"));
+
+        service.healthCheck();
+
+        assertEquals(StorageEngine.EngineStatus.ERROR, mockEngine.getStatus());
+        verify(repository, never()).save(any());
     }
 }

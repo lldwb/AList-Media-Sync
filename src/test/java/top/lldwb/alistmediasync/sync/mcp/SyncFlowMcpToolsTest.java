@@ -6,9 +6,11 @@ import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
 import org.mockito.ArgumentCaptor;
 import org.slf4j.MDC;
+import top.lldwb.alistmediasync.common.enums.ConflictStrategy;
+import top.lldwb.alistmediasync.common.enums.TargetFormat;
 import top.lldwb.alistmediasync.common.mcp.McpToolResult;
-import top.lldwb.alistmediasync.sync.dto.sync.SyncTaskCreateDTO;
-import top.lldwb.alistmediasync.sync.dto.sync.SyncTaskVO;
+import top.lldwb.alistmediasync.sync.dto.SyncTaskCreateDTO;
+import top.lldwb.alistmediasync.sync.dto.SyncTaskVO;
 import top.lldwb.alistmediasync.sync.entity.SyncTask;
 import top.lldwb.alistmediasync.sync.service.SyncService;
 import top.lldwb.alistmediasync.sync.service.SyncTaskManageService;
@@ -80,8 +82,8 @@ class SyncFlowMcpToolsTest {
         SyncTaskCreateDTO dto = captor.getValue();
         assertEquals(SyncTask.SyncMode.FULL, dto.getSyncMode());
         assertEquals(Boolean.TRUE, dto.getTranscodeEnabled());
-        assertEquals(SyncTask.TargetFormat.MP4, dto.getTargetFormat());
-        assertEquals(SyncTask.ConflictStrategy.OVERWRITE, dto.getConflictStrategy());
+        assertEquals(TargetFormat.MP4, dto.getTargetFormat());
+        assertEquals(ConflictStrategy.OVERWRITE, dto.getConflictStrategy());
         assertEquals(SyncTask.ScheduleType.INTERVAL, dto.getScheduleType());
         assertEquals(3600, dto.getIntervalSeconds());
     }

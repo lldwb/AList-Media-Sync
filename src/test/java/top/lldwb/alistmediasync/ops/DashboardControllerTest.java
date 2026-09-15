@@ -1,4 +1,4 @@
-package top.lldwb.alistmediasync.common.controller;
+package top.lldwb.alistmediasync.ops;
 
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.DisplayName;
@@ -10,7 +10,6 @@ import org.springframework.test.web.servlet.MockMvc;
 import top.lldwb.alistmediasync.common.config.AppProperties;
 import top.lldwb.alistmediasync.common.dto.DashboardStatsVO;
 import top.lldwb.alistmediasync.common.interceptor.AuthInterceptor;
-import top.lldwb.alistmediasync.common.service.DashboardService;
 
 import static org.hamcrest.Matchers.is;
 import static org.hamcrest.Matchers.notNullValue;

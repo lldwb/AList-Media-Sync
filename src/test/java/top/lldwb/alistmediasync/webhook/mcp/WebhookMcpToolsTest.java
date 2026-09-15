@@ -8,7 +8,7 @@ import org.mockito.ArgumentCaptor;
 import org.slf4j.MDC;
 import org.springframework.ai.mcp.annotation.McpTool;
 import top.lldwb.alistmediasync.common.mcp.McpToolResult;
-import top.lldwb.alistmediasync.webhook.dto.webhook.WebhookRuleCreateDTO;
+import top.lldwb.alistmediasync.webhook.dto.WebhookRuleCreateDTO;
 import top.lldwb.alistmediasync.webhook.entity.WebhookRule;
 import top.lldwb.alistmediasync.webhook.service.WebhookRuleService;
 import top.lldwb.alistmediasync.webhook.service.WebhookService;

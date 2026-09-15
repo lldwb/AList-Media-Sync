@@ -1,4 +1,4 @@
-package top.lldwb.alistmediasync.common.mcp;
+package top.lldwb.alistmediasync.ops;
 
 import io.modelcontextprotocol.spec.McpSchema;
 import org.junit.jupiter.api.BeforeEach;
@@ -6,9 +6,8 @@ import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
 import org.slf4j.MDC;
 import top.lldwb.alistmediasync.common.dto.DashboardStatsVO;
+import top.lldwb.alistmediasync.common.mcp.McpToolResult;
 import top.lldwb.alistmediasync.common.dto.DiagnosticResultVO;
-import top.lldwb.alistmediasync.common.service.DashboardService;
-import top.lldwb.alistmediasync.common.service.DiagnosticService;
 import tools.jackson.databind.json.JsonMapper;
 
 import static org.junit.jupiter.api.Assertions.*;

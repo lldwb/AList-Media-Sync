@@ -1,4 +1,4 @@
-package top.lldwb.alistmediasync.common.service;
+package top.lldwb.alistmediasync.ops;
 
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
@@ -6,7 +6,7 @@ import org.junit.jupiter.api.io.TempDir;
 import org.springframework.mock.env.MockEnvironment;
 import top.lldwb.alistmediasync.common.config.AppProperties;
 import top.lldwb.alistmediasync.common.dto.DiagnosticResultVO;
-import top.lldwb.alistmediasync.sync.repository.TaskExecutionRepository;
+import top.lldwb.alistmediasync.execution.TaskExecutionRepository;
 
 import java.io.IOException;
 import java.nio.file.Files;

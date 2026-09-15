@@ -5,8 +5,9 @@ import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
 import org.slf4j.MDC;
+import top.lldwb.alistmediasync.common.enums.TargetFormat;
 import top.lldwb.alistmediasync.common.mcp.McpToolResult;
-import top.lldwb.alistmediasync.common.service.CleanupService;
+import top.lldwb.alistmediasync.common.service.TempFileCleanupTrigger;
 import top.lldwb.alistmediasync.transcode.entity.TranscodeTask;
 import top.lldwb.alistmediasync.transcode.service.TranscodeService;
 import tools.jackson.databind.json.JsonMapper;
@@ -32,13 +33,13 @@ import static org.mockito.Mockito.*;
 class TranscodeTaskMcpToolsTest {
 
     private TranscodeService transcodeService;
-    private CleanupService cleanupService;
+    private TempFileCleanupTrigger cleanupService;
     private TranscodeTaskMcpTools tools;
 
     @BeforeEach
     void setUp() {
         transcodeService = mock(TranscodeService.class);
-        cleanupService = mock(CleanupService.class);
+        cleanupService = mock(TempFileCleanupTrigger.class);
         tools = new TranscodeTaskMcpTools(transcodeService, cleanupService, new McpToolResult(new JsonMapper()));
     }
 
@@ -51,7 +52,7 @@ class TranscodeTaskMcpToolsTest {
         task.setId(1L);
         task.setSourceFilePath("/recordings/live.flv");
         task.setTargetFilePath("/media/live.mp4");
-        task.setTargetFormat(TranscodeTask.TargetFormat.MP4);
+        task.setTargetFormat(TargetFormat.MP4);
         task.setStatus(TranscodeTask.TranscodeStatus.PENDING);
         task.setProgress(0);
         task.setRetryCount(0);
@@ -90,7 +91,7 @@ class TranscodeTaskMcpToolsTest {
         assertFalse(r.isError());
         assertTrue(textOf(r).contains("\"id\":1"));
         verify(transcodeService).createTask(1L, 2L, "/recordings/live.flv", "/media/live.mp4",
-            TranscodeTask.TargetFormat.MP4, 256000, false);
+            TargetFormat.MP4, 256000, false);
         verify(transcodeService).executeAsync(task);
     }
 

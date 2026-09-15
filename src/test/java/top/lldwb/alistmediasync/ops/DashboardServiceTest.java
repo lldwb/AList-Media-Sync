@@ -1,4 +1,4 @@
-package top.lldwb.alistmediasync.common.service;
+package top.lldwb.alistmediasync.ops;
 
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.DisplayName;
@@ -8,10 +8,10 @@ import org.mockito.InjectMocks;
 import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
 import top.lldwb.alistmediasync.common.dto.DashboardStatsVO;
-import top.lldwb.alistmediasync.sync.entity.TaskExecution;
+import top.lldwb.alistmediasync.execution.TaskExecution;
 import top.lldwb.alistmediasync.transcode.entity.TranscodeTask;
 import top.lldwb.alistmediasync.storage.repository.StorageEngineRepository;
-import top.lldwb.alistmediasync.sync.repository.TaskExecutionRepository;
+import top.lldwb.alistmediasync.execution.TaskExecutionRepository;
 import top.lldwb.alistmediasync.transcode.repository.TranscodeTaskRepository;
 import top.lldwb.alistmediasync.webhook.repository.WebhookRuleRepository;
 
