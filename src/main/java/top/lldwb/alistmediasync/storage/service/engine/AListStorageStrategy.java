@@ -5,8 +5,8 @@ import org.springframework.stereotype.Component;
 import org.springframework.web.client.RestClient;
 import top.lldwb.alistmediasync.common.util.ApiUtil;
 import top.lldwb.alistmediasync.common.util.PathUtils;
-import top.lldwb.alistmediasync.sync.dto.sync.DirectoryEntryVO;
-import top.lldwb.alistmediasync.sync.dto.sync.FileEntry;
+import top.lldwb.alistmediasync.storage.dto.DirectoryEntryVO;
+import top.lldwb.alistmediasync.storage.dto.FileEntry;
 import top.lldwb.alistmediasync.storage.entity.StorageEngine;
 
 import java.io.InputStream;

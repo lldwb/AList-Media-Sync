@@ -6,17 +6,16 @@ import lombok.extern.slf4j.Slf4j;
 import org.springframework.scheduling.annotation.Async;
 import org.springframework.stereotype.Service;
 import top.lldwb.alistmediasync.common.config.AppProperties;
+import top.lldwb.alistmediasync.common.enums.TargetFormat;
 import top.lldwb.alistmediasync.common.exception.RetryableException;
 import top.lldwb.alistmediasync.common.exception.RetryableIOException;
 import top.lldwb.alistmediasync.common.service.RetryService;
-import top.lldwb.alistmediasync.common.service.WsSessionManager;
 import top.lldwb.alistmediasync.storage.entity.StorageEngine;
 import top.lldwb.alistmediasync.storage.service.StorageEngineService;
 import top.lldwb.alistmediasync.storage.service.engine.StorageEngineStrategy;
 import top.lldwb.alistmediasync.sync.entity.SyncTask;
-import top.lldwb.alistmediasync.sync.entity.TaskExecution;
+import top.lldwb.alistmediasync.execution.TaskExecution;
 import top.lldwb.alistmediasync.transcode.entity.TranscodeTask;
-import top.lldwb.alistmediasync.transcode.repository.TranscodeTaskRepository;
 import top.lldwb.alistmediasync.common.util.DiskSpaceChecker;
 import top.lldwb.alistmediasync.common.util.TempFileManager;
 import top.lldwb.alistmediasync.common.util.PathUtils;
@@ -31,7 +30,6 @@ import java.io.IOException;
 import java.io.InputStream;
 import java.nio.file.Files;
 import java.nio.file.Path;
-import java.util.Map;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.Semaphore;
 
@@ -52,14 +50,13 @@ import java.util.concurrent.Semaphore;
 @SuppressWarnings("deprecation") // JAVE2 3.5.0 Encoder/Attributes API
 public class TranscodeFileProcessor {
 
-    private final TranscodeTaskRepository repository;
     private final StorageEngineService storageEngineService;
     private final AppProperties appProperties;
-    private final WsSessionManager wsSessionManager;
     private final RetryService retryService;
+    private final TranscodeTaskStateWriter stateWriter;
 
     /** 并发转码信号量（由配置 maxConcurrentTranscode 控制上限） */
-    private Semaphore semaphore;
+    Semaphore semaphore;
 
     @PostConstruct
     void init() {
@@ -74,7 +71,7 @@ public class TranscodeFileProcessor {
     @Async("transcodeExecutor")
     public CompletableFuture<TranscodeResult> process(
             TranscodeCandidate candidate,
-            TranscodeTask.TargetFormat targetFormat,
+            TargetFormat targetFormat,
             String tempSuffix,
             Path tempDir,
             StorageEngine targetEngine,
@@ -114,7 +111,7 @@ public class TranscodeFileProcessor {
      * @param task         转码任务（用于进度持久化）
      */
     public void doTranscode(Path sourceFile, Path outputFile,
-                             TranscodeTask.TargetFormat targetFormat, int bitrate,
+                             TargetFormat targetFormat, int bitrate,
                              TranscodeTask task) {
         // 磁盘空间检查
         long durationMs = 0;
@@ -148,7 +145,7 @@ public class TranscodeFileProcessor {
     // ================================================================
 
     private TranscodeResult doProcess(TranscodeCandidate candidate,
-                                       TranscodeTask.TargetFormat targetFormat,
+                                       TargetFormat targetFormat,
                                        String tempSuffix,
                                        Path tempDir,
                                        StorageEngine targetEngine,
@@ -167,7 +164,7 @@ public class TranscodeFileProcessor {
             if (existingTask != null) {
                 // 自动重试：复用同一任务记录（保持 retryCount 递增），
                 // 从失败步骤继续——下载失败需重下、转码失败需重转、仅上传失败复用转码产物
-                transcodeTask = reloadTask(existingTask.getId());
+                transcodeTask = stateWriter.reloadTask(existingTask.getId());
                 if (transcodeTask.getTempSourcePath() != null) {
                     Path p = Path.of(transcodeTask.getTempSourcePath());
                     if (Files.exists(p)) {
@@ -184,7 +181,7 @@ public class TranscodeFileProcessor {
             } else {
                 // 首次执行：创建独立的文件级任务记录
                 transcodeTask = new TranscodeTask();
-                transcodeTask.setSyncTask(syncTask);
+                transcodeTask.setSyncTaskId(syncTask != null ? syncTask.getId() : null);
                 transcodeTask.setSourceFilePath(candidate.fullPath());
                 transcodeTask.setTargetFilePath(candidate.targetPath());
                 transcodeTask.setTargetFormat(targetFormat);
@@ -192,18 +189,18 @@ public class TranscodeFileProcessor {
                 if (targetEngine != null) {
                     transcodeTask.setTargetEngineId(targetEngine.getId());
                 }
-                transcodeTask = repository.save(transcodeTask);
+                transcodeTask = stateWriter.save(transcodeTask);
             }
-            pushProgress(transcodeTask);
+            stateWriter.pushProgress(transcodeTask);
 
             // 步骤 1：下载源文件（已有有效临时文件则跳过）
             if (sourceTempFile == null) {
                 transcodeTask.setStatus(TranscodeTask.TranscodeStatus.DOWNLOADING);
-                transcodeTask = saveAndReload(transcodeTask);
+                transcodeTask = stateWriter.saveAndReload(transcodeTask);
                 sourceTempFile = downloadStep(candidate, transcodeTask);
                 transcodeTask.setTempSourcePath(sourceTempFile.toString());
-                transcodeTask = saveAndReload(transcodeTask);
-                pushProgress(transcodeTask);
+                transcodeTask = stateWriter.saveAndReload(transcodeTask);
+                stateWriter.pushProgress(transcodeTask);
             }
 
             // 步骤 2：转码（上传失败重试时已有完整转码产物则跳过）
@@ -212,18 +209,18 @@ public class TranscodeFileProcessor {
                 outputTempFile = TempFileManager.createTempFile(tempDir, candidate.name(), tempSuffix);
                 transcodeTask.setStatus(TranscodeTask.TranscodeStatus.TRANSCODING);
                 transcodeTask.setTempSourcePath(sourceTempFile.toString());
-                transcodeTask = saveAndReload(transcodeTask);
-                pushProgress(transcodeTask);
+                transcodeTask = stateWriter.saveAndReload(transcodeTask);
+                stateWriter.pushProgress(transcodeTask);
 
                 int bitrate = appProperties.getTranscode().getDefaultBitrate();
                 doTranscode(sourceTempFile, outputTempFile, targetFormat, bitrate, transcodeTask);
 
                 finalFile = TempFileManager.renameToFinal(outputTempFile, outputExt);
-                transcodeTask = reloadTask(transcodeTask.getId());
+                transcodeTask = stateWriter.reloadTask(transcodeTask.getId());
                 transcodeTask.setTempFilePath(finalFile.toString());
                 transcodeTask.setStatus(TranscodeTask.TranscodeStatus.UPLOADING);
-                transcodeTask = saveAndReload(transcodeTask);
-                pushProgress(transcodeTask);
+                transcodeTask = stateWriter.saveAndReload(transcodeTask);
+                stateWriter.pushProgress(transcodeTask);
             }
 
             // 步骤 3：上传
@@ -232,14 +229,14 @@ public class TranscodeFileProcessor {
             // 成功 — 清理临时文件
             TempFileManager.deleteQuietly(finalFile);
             TempFileManager.deleteQuietly(sourceTempFile);
-            transcodeTask = reloadTask(transcodeTask.getId());
+            transcodeTask = stateWriter.reloadTask(transcodeTask.getId());
             transcodeTask.setStatus(TranscodeTask.TranscodeStatus.COMPLETED);
             transcodeTask.setProgress(1000);
             transcodeTask.setErrorMessage(null);
             transcodeTask.setRetryCount(0); // 成功后重置重试计数
-            repository.save(transcodeTask);
+            stateWriter.save(transcodeTask);
 
-            pushProgress(transcodeTask);
+            stateWriter.pushProgress(transcodeTask);
 
             log.info("转码完成：{}", candidate.name());
             return new TranscodeResult(candidate.name(), true, null);
@@ -249,7 +246,7 @@ public class TranscodeFileProcessor {
 
             if (transcodeTask != null) {
                 // 重新加载以获取最新版本号，避免乐观锁冲突
-                transcodeTask = reloadTask(transcodeTask.getId());
+                transcodeTask = stateWriter.reloadTask(transcodeTask.getId());
                 transcodeTask.setErrorMessage(e.getMessage());
                 if (finalFile != null && Files.exists(finalFile)) {
                     transcodeTask.setTempFilePath(finalFile.toString());
@@ -274,8 +271,8 @@ public class TranscodeFileProcessor {
                     && transcodeTask.getRetryCount() < retryService.getMaxAutoRetries()) {
                     int nextAttempt = transcodeTask.getRetryCount() + 1;
                     transcodeTask.setRetryCount(nextAttempt);
-                    repository.save(transcodeTask);
-                    pushProgress(transcodeTask);
+                    stateWriter.save(transcodeTask);
+                    stateWriter.pushProgress(transcodeTask);
                     log.info("调度自动重试：{}, 第 {}/{} 次", candidate.name(),
                         nextAttempt, retryService.getMaxAutoRetries());
 
@@ -291,8 +288,8 @@ public class TranscodeFileProcessor {
                     } else {
                         log.info("业务错误，不进行自动重试：{} — {}", candidate.name(), e.getMessage());
                     }
-                    repository.save(transcodeTask);
-                    pushProgress(transcodeTask);
+                    stateWriter.save(transcodeTask);
+                    stateWriter.pushProgress(transcodeTask);
                 }
             }
 
@@ -342,26 +339,6 @@ public class TranscodeFileProcessor {
     }
 
     /**
-     * 重新加载 TranscodeTask 实体以获取最新版本号
-     * <p>
-     * 在每次 save() 之后、下一次修改之前调用，避免 detached entity
-     * merge 时因版本号过期导致 ObjectOptimisticLockingFailureException。
-     * </p>
-     */
-    private TranscodeTask reloadTask(Long taskId) {
-        return repository.findById(taskId)
-            .orElseThrow(() -> new IllegalStateException("转码任务不存在：id=" + taskId));
-    }
-
-    /**
-     * 保存并重新加载，确保后续操作基于最新版本号
-     */
-    private TranscodeTask saveAndReload(TranscodeTask task) {
-        task = repository.save(task);
-        return reloadTask(task.getId());
-    }
-
-    /**
      * 步骤 3：上传转码输出到目标存储引擎
      * <p>
      * 输出路径规则：目标文件所在目录 / 源文件名（不含原扩展名）.目标格式扩展名。
@@ -373,7 +350,7 @@ public class TranscodeFileProcessor {
      * 由 doProcess 触发自动重试。
      * </p>
      */
-    private void uploadStep(TranscodeCandidate candidate, TranscodeTask.TargetFormat targetFormat,
+    private void uploadStep(TranscodeCandidate candidate, TargetFormat targetFormat,
                              StorageEngine targetEngine, Path finalFile,
                              TranscodeTask transcodeTask) throws IOException {
         // 构建输出文件名：源文件名（去扩展名）+ "." + 目标扩展名
@@ -411,7 +388,7 @@ public class TranscodeFileProcessor {
     // 转码参数构建（codec=null 让 FFmpeg 自动选择编解码器）
     // ================================================================
 
-    private EncodingAttributes buildEncodingAttributes(TranscodeTask.TargetFormat targetFormat, int bitrate) {
+    EncodingAttributes buildEncodingAttributes(TargetFormat targetFormat, int bitrate) {
         EncodingAttributes attrs = new EncodingAttributes();
 
         switch (targetFormat) {
@@ -468,17 +445,10 @@ public class TranscodeFileProcessor {
 
         @Override
         public void progress(int permil) {
+            // 50‰ 节流后交由 stateWriter 落库（持久化失败仅记 DEBUG 日志）
             if (permil - lastSavedProgress >= 50) {
                 lastSavedProgress = permil;
-                try {
-                    TranscodeTask managed = repository.findById(taskId).orElse(null);
-                    if (managed != null) {
-                        managed.setProgress(permil);
-                        repository.save(managed);
-                    }
-                } catch (Exception e) {
-                    log.debug("进度持久化失败（非关键）：{}", e.getMessage());
-                }
+                stateWriter.persistProgress(taskId, permil);
             }
         }
 
@@ -489,22 +459,5 @@ public class TranscodeFileProcessor {
         @Override
         public void message(String message) {
         }
-    }
-
-    // ================================================================
-    // 辅助方法
-    // ================================================================
-
-    /**
-     * 通过 WebSocket 推送转码任务进度
-     */
-    private void pushProgress(TranscodeTask task) {
-        wsSessionManager.broadcast("TRANSCODE_PROGRESS", Map.of(
-            "taskId", task.getId(),
-            "status", task.getStatus().name(),
-            "progressPercent", task.getProgress() / 10,
-            "retryCount", task.getRetryCount(),
-            "errorMessage", task.getErrorMessage() != null ? task.getErrorMessage() : ""
-        ));
     }
 }

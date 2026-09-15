@@ -7,8 +7,8 @@ import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
 import org.springframework.web.bind.annotation.*;
 import top.lldwb.alistmediasync.common.dto.ApiResult;
-import top.lldwb.alistmediasync.webhook.dto.webhook.WebhookRuleCreateDTO;
-import top.lldwb.alistmediasync.webhook.dto.webhook.WebhookRuleVO;
+import top.lldwb.alistmediasync.webhook.dto.WebhookRuleCreateDTO;
+import top.lldwb.alistmediasync.webhook.dto.WebhookRuleVO;
 import top.lldwb.alistmediasync.webhook.service.WebhookRuleService;
 
 import java.util.List;

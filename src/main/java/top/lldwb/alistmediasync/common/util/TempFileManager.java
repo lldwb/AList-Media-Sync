@@ -26,43 +26,6 @@ public final class TempFileManager {
     private TempFileManager() {}
 
     /**
-     * 规范化后缀：确保以点号开头、无路径分隔符、长度合法
-     *
-     * @param rawSuffix 原始后缀配置
-     * @param maxLength 最大长度
-     * @return 规范化后的后缀
-     */
-    public static String normalizeSuffix(String rawSuffix, int maxLength) {
-        String suffix = rawSuffix.trim();
-
-        // 空或仅点号 → 回退 .tmp
-        if (suffix.isEmpty() || suffix.equals(".")) {
-            log.warn("临时文件后缀无效（\"{}\"），使用默认值 .tmp", rawSuffix);
-            return ".tmp";
-        }
-
-        // 仅空白字符 → 回退
-        if (suffix.isBlank()) {
-            log.warn("临时文件后缀仅包含空白字符，使用默认值 .tmp");
-            return ".tmp";
-        }
-
-        // 长度截断
-        if (suffix.length() > maxLength) {
-            String truncated = suffix.substring(0, maxLength);
-            log.warn("临时文件后缀超过最大长度 {}，已截断为：{}", maxLength, truncated);
-            suffix = truncated;
-        }
-
-        // 补充点号前缀
-        if (!suffix.startsWith(".")) {
-            suffix = "." + suffix;
-        }
-
-        return suffix;
-    }
-
-    /**
      * 构建临时文件名
      *
      * @param originalName 原始文件名

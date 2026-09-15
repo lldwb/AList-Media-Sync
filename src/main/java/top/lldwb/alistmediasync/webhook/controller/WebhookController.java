@@ -9,6 +9,7 @@ import lombok.extern.slf4j.Slf4j;
 import org.springframework.web.bind.annotation.*;
 import top.lldwb.alistmediasync.common.config.AppProperties;
 import top.lldwb.alistmediasync.common.dto.ApiResult;
+import top.lldwb.alistmediasync.common.util.MapUtils;
 import top.lldwb.alistmediasync.webhook.entity.WebhookEvent;
 import top.lldwb.alistmediasync.webhook.service.WebhookService;
 
@@ -44,9 +45,9 @@ public class WebhookController {
     public ApiResult<String> receiveRecorder(@RequestBody Map<String, Object> body) {
         log.debug("收到录播姬 Webhook 请求：{}", body);
 
-        String eventType = getString(body, "EventType");
-        String eventId = getString(body, "EventId");
-        String timestamp = getString(body, "Timestamp");
+        String eventType = MapUtils.getString(body, "EventType");
+        String eventId = MapUtils.getString(body, "EventId");
+        String timestamp = MapUtils.getString(body, "Timestamp");
 
         @SuppressWarnings("unchecked")
         Map<String, Object> eventData = (Map<String, Object>) body.getOrDefault("EventData", Map.of());
@@ -84,10 +85,5 @@ public class WebhookController {
         // 去掉末尾斜杠
         serverAddress = serverAddress.replaceAll("/$", "");
         return ApiResult.success(serverAddress + "/api/webhooks/recorder");
-    }
-
-    private String getString(Map<String, Object> map, String key) {
-        Object val = map.get(key);
-        return val != null ? val.toString() : null;
     }
 }

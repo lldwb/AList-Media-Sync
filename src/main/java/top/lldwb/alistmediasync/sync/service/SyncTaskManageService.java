@@ -4,15 +4,17 @@ import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
-import top.lldwb.alistmediasync.sync.dto.sync.SyncTaskCreateDTO;
-import top.lldwb.alistmediasync.sync.dto.sync.SyncTaskUpdateDTO;
-import top.lldwb.alistmediasync.sync.dto.sync.SyncTaskVO;
-import top.lldwb.alistmediasync.sync.dto.sync.TaskExecutionVO;
+import top.lldwb.alistmediasync.common.enums.TargetFormat;
+import top.lldwb.alistmediasync.sync.dto.SyncTaskCreateDTO;
+import top.lldwb.alistmediasync.sync.dto.SyncTaskUpdateDTO;
+import top.lldwb.alistmediasync.sync.dto.SyncTaskVO;
+import top.lldwb.alistmediasync.execution.TaskExecutionVO;
 import top.lldwb.alistmediasync.sync.entity.SyncTask;
-import top.lldwb.alistmediasync.sync.entity.TaskExecution;
+import top.lldwb.alistmediasync.execution.TaskExecution;
 import top.lldwb.alistmediasync.sync.repository.SyncTaskRepository;
+import top.lldwb.alistmediasync.storage.entity.StorageEngine;
 import top.lldwb.alistmediasync.storage.repository.StorageEngineRepository;
-import top.lldwb.alistmediasync.sync.repository.TaskExecutionRepository;
+import top.lldwb.alistmediasync.execution.TaskExecutionRepository;
 
 import java.util.List;
 import java.util.NoSuchElementException;
@@ -193,5 +195,40 @@ public class SyncTaskManageService {
             .stream()
             .map(TaskExecutionVO::from)
             .toList();
+    }
+
+    /**
+     * 创建 Webhook 触发的临时同步任务
+     * <p>
+     * Webhook 规则匹配后的临时任务不在调度体系中注册（enabled 保持默认 false），
+     * 由调用方在事务提交后直接触发执行。任务的构造与持久化统一收归本服务，
+     * 避免 Webhook 模块绕过 Service 层直接写入 {@code sync_task} 表。
+     * </p>
+     *
+     * @param name             任务名称
+     * @param sourceEngine     源存储引擎
+     * @param targetEngine     目标存储引擎
+     * @param sourcePath       源目录路径
+     * @param targetPath       目标目录路径
+     * @param transcodeEnabled 是否启用同步后转码
+     * @param targetFormat     转码目标格式；为 null 时保持实体默认值
+     * @return 已持久化的临时同步任务
+     */
+    @Transactional
+    public SyncTask createWebhookTempTask(String name, StorageEngine sourceEngine, StorageEngine targetEngine,
+                                          String sourcePath, String targetPath, boolean transcodeEnabled,
+                                          TargetFormat targetFormat) {
+        SyncTask tempTask = new SyncTask();
+        tempTask.setName(name);
+        tempTask.setSourceEngine(sourceEngine);
+        tempTask.setTargetEngine(targetEngine);
+        tempTask.setSourcePath(sourcePath);
+        tempTask.setTargetPath(targetPath);
+        tempTask.setSyncMode(SyncTask.SyncMode.NEW_ONLY);
+        tempTask.setTranscodeEnabled(transcodeEnabled);
+        if (targetFormat != null) {
+            tempTask.setTargetFormat(targetFormat);
+        }
+        return repository.save(tempTask);
     }
 }

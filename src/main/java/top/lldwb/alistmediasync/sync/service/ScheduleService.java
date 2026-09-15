@@ -8,9 +8,8 @@ import org.springframework.scheduling.support.CronTrigger;
 import org.springframework.stereotype.Service;
 import top.lldwb.alistmediasync.common.util.TraceContext;
 import top.lldwb.alistmediasync.sync.entity.SyncTask;
-import top.lldwb.alistmediasync.sync.entity.TaskExecution;
 import top.lldwb.alistmediasync.sync.repository.SyncTaskRepository;
-import top.lldwb.alistmediasync.sync.repository.TaskExecutionRepository;
+import top.lldwb.alistmediasync.execution.TaskExecutionRepository;
 
 import java.util.Map;
 import java.util.concurrent.ConcurrentHashMap;

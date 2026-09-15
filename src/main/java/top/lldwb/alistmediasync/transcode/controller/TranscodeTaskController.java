@@ -8,9 +8,9 @@ import lombok.RequiredArgsConstructor;
 import org.springframework.http.HttpStatus;
 import org.springframework.web.bind.annotation.*;
 import top.lldwb.alistmediasync.common.dto.ApiResult;
-import top.lldwb.alistmediasync.transcode.dto.transcode.TranscodeTaskCreateDTO;
-import top.lldwb.alistmediasync.transcode.dto.transcode.TranscodeTaskVO;
-import top.lldwb.alistmediasync.common.service.CleanupService;
+import top.lldwb.alistmediasync.transcode.dto.TranscodeTaskCreateDTO;
+import top.lldwb.alistmediasync.transcode.dto.TranscodeTaskVO;
+import top.lldwb.alistmediasync.common.service.TempFileCleanupTrigger;
 import top.lldwb.alistmediasync.common.service.WsSessionManager;
 import top.lldwb.alistmediasync.transcode.entity.TranscodeTask;
 import top.lldwb.alistmediasync.transcode.service.TranscodeService;
@@ -34,7 +34,7 @@ import java.util.Map;
 public class TranscodeTaskController {
 
     private final TranscodeService transcodeService;
-    private final CleanupService cleanupService;
+    private final TempFileCleanupTrigger cleanupService;
     private final WsSessionManager wsSessionManager;
 
     /** 创建独立转码任务（支持源目录转码选项） */
@@ -113,11 +113,7 @@ public class TranscodeTaskController {
     @Operation(summary = "删除失败转码任务", operationId = "deleteFailed", description = "删除所有处于失败状态（下载失败、转码失败、上传失败）的转码任务，并通过 WebSocket 广播批量删除事件")
     @ApiResponse(responseCode = "200", description = "删除完成，返回删除的任务数量")
     public ApiResult<Map<String, Object>> deleteFailed() {
-        var failedStatuses = List.of(
-            TranscodeTask.TranscodeStatus.DOWNLOAD_FAILED,
-            TranscodeTask.TranscodeStatus.TRANSCODE_FAILED,
-            TranscodeTask.TranscodeStatus.UPLOAD_FAILED
-        );
+        var failedStatuses = TranscodeTask.TranscodeStatus.FAILED_STATUSES;
         long count = transcodeService.countByStatusIn(failedStatuses);
         if (count == 0) {
             return ApiResult.success("没有可操作的失败任务", Map.of("deletedCount", 0));
@@ -157,11 +153,7 @@ public class TranscodeTaskController {
     @Operation(summary = "重试所有失败转码任务", operationId = "retryAll", description = "异步重试所有处于失败状态的转码任务，立即返回 202，结果通过 WebSocket 实时推送")
     @ApiResponse(responseCode = "200", description = "已提交重试，返回提交的任务数量")
     public ApiResult<Map<String, Object>> retryAll() {
-        var failedStatuses = List.of(
-            TranscodeTask.TranscodeStatus.DOWNLOAD_FAILED,
-            TranscodeTask.TranscodeStatus.TRANSCODE_FAILED,
-            TranscodeTask.TranscodeStatus.UPLOAD_FAILED
-        );
+        var failedStatuses = TranscodeTask.TranscodeStatus.FAILED_STATUSES;
         var failedTasks = transcodeService.findByStatusIn(failedStatuses);
         if (failedTasks.isEmpty()) {
             return ApiResult.success("没有可操作的失败任务", Map.of("submittedCount", 0));

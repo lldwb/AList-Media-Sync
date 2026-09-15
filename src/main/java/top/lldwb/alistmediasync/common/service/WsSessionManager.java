@@ -13,10 +13,6 @@ import top.lldwb.alistmediasync.common.dto.WsMessage;
 import java.io.IOException;
 import java.time.Instant;
 import java.util.concurrent.ConcurrentHashMap;
-import java.util.concurrent.Executors;
-import java.util.concurrent.ScheduledExecutorService;
-import java.util.concurrent.ScheduledFuture;
-import java.util.concurrent.TimeUnit;
 import java.util.concurrent.atomic.AtomicInteger;
 
 /**
@@ -30,7 +26,6 @@ import java.util.concurrent.atomic.AtomicInteger;
  * <ul>
  *   <li>连接数上限控制：超过 app.websocket.max-connections 时拒绝新连接</li>
  *   <li>增量消息广播：向所有已连接会话推送 WsMessage</li>
- *   <li>DASHBOARD_UPDATE 防抖：2 秒内多次变更合并为一次推送</li>
  * </ul>
  *
  * @author AList-Media-Sync
@@ -44,15 +39,6 @@ public class WsSessionManager extends TextWebSocketHandler {
 
     /** 当前连接数计数器 */
     private final AtomicInteger connectionCount = new AtomicInteger(0);
-
-    /** 防抖调度器 */
-    private final ScheduledExecutorService debounceScheduler = Executors.newSingleThreadScheduledExecutor();
-
-    /** Dashboard 防抖推送的调度 Future，null 表示无待推送任务 */
-    private volatile ScheduledFuture<?> dashboardDebounceFuture;
-
-    /** 防抖时间窗口（毫秒） */
-    private static final long DASHBOARD_DEBOUNCE_MS = 2000;
 
     private final JsonMapper jsonMapper;
     private final AppProperties appProperties;
@@ -104,7 +90,7 @@ public class WsSessionManager extends TextWebSocketHandler {
     /**
      * 向所有已连接会话广播消息
      *
-     * @param type    消息类型（使用 MessageType 枚举值）
+     * @param type    消息类型标识（如 SYNC_PROGRESS、TASK_EVENT）
      * @param payload 增量数据载荷
      */
     public void broadcast(String type, Object payload) {
@@ -132,39 +118,5 @@ public class WsSessionManager extends TextWebSocketHandler {
             }
         }
         log.debug("广播 {} 消息至 {}/{} 个会话", type, sent, sessions.size());
-    }
-
-    /**
-     * 推送仪表板更新（带 2 秒防抖）
-     * <p>
-     * 任务状态变更后延迟 2 秒推送，2 秒内的多次变更合并为一次 Dashboard 更新，
-     * 保证数据新鲜度同时避免冗余推送和过度数据库查询。
-     * </p>
-     *
-     * @param payload 仪表板统计数据载荷
-     */
-    public void broadcastDashboardUpdate(Object payload) {
-        // 取消上一次待执行的防抖任务
-        ScheduledFuture<?> previous = dashboardDebounceFuture;
-        if (previous != null && !previous.isDone()) {
-            previous.cancel(false);
-        }
-
-        // 重新调度防抖推送
-        dashboardDebounceFuture = debounceScheduler.schedule(
-            () -> broadcast("DASHBOARD_UPDATE", payload),
-            DASHBOARD_DEBOUNCE_MS,
-            TimeUnit.MILLISECONDS
-        );
-    }
-
-    /** 获取当前连接数 */
-    public int getConnectionCount() {
-        return connectionCount.get();
-    }
-
-    /** 获取最大连接数 */
-    public int getMaxConnections() {
-        return appProperties.getWebsocket().getMaxConnections();
     }
 }

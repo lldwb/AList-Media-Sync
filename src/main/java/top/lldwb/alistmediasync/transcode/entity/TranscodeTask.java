@@ -4,9 +4,9 @@ import jakarta.persistence.*;
 import lombok.Data;
 import lombok.NoArgsConstructor;
 import lombok.AllArgsConstructor;
-import top.lldwb.alistmediasync.sync.entity.SyncTask;
-import top.lldwb.alistmediasync.webhook.entity.WebhookRule;
+import top.lldwb.alistmediasync.common.enums.TargetFormat;
 import java.time.LocalDateTime;
+import java.util.List;
 
 /**
  * 转码任务实体
@@ -29,14 +29,12 @@ public class TranscodeTask {
     private Long id;
 
     /** 关联的同步任务（可为空，独立创建的转码任务不关联同步任务） */
-    @ManyToOne(fetch = FetchType.LAZY)
-    @JoinColumn(name = "sync_task_id")
-    private SyncTask syncTask;
+    @Column(name = "sync_task_id")
+    private Long syncTaskId;
 
-    /** 关联的 Webhook 规则（可为空） */
-    @ManyToOne(fetch = FetchType.LAZY)
-    @JoinColumn(name = "webhook_rule_id")
-    private WebhookRule webhookRule;
+    /** 关联的 Webhook 规则 ID（可为空） */
+    @Column(name = "webhook_rule_id")
+    private Long webhookRuleId;
 
     /** 源文件在源存储引擎中的完整路径 */
     @Column(nullable = false, length = 1000)
@@ -121,11 +119,6 @@ public class TranscodeTask {
         FLV, MP4, M4V, UNKNOWN
     }
 
-    /** 目标转码格式枚举 */
-    public enum TargetFormat {
-        MP3, MP4, FLV
-    }
-
     /**
      * 转码状态枚举（8 状态模型）
      * <p>
@@ -152,6 +145,25 @@ public class TranscodeTask {
         /** 编排级失败（扫描/收集阶段异常或全部文件失败，非单步失败） */
         FAILED(8);
 
+        /**
+         * 反馈「失败状态」集合（下载/转码/上传三个失败阶段，不含编排级 FAILED）
+         * <p>
+         * 用于批量删除失败任务、批量重试前筛选、编排级失败判定等场景，替代各处重复定义的等价集合。
+         * </p>
+         */
+        public static final List<TranscodeStatus> FAILED_STATUSES = List.of(
+            DOWNLOAD_FAILED, TRANSCODE_FAILED, UPLOAD_FAILED);
+
+        /**
+         * 反馈「可重试状态」集合（三个失败阶段 + 编排级 FAILED）
+         * <p>
+         * 比 {@link #FAILED_STATUSES} 多一个编排级 {@link #FAILED}：编排级失败同样允许重试，
+         * 但按「下载/转码/上传失败」语义批量清理任务时不纳入。
+         * </p>
+         */
+        public static final List<TranscodeStatus> RETRYABLE_STATUSES = List.of(
+            DOWNLOAD_FAILED, TRANSCODE_FAILED, UPLOAD_FAILED, FAILED);
+
         private final int code;
 
         TranscodeStatus(int code) {
@@ -160,6 +172,24 @@ public class TranscodeTask {
 
         public int getCode() {
             return code;
+        }
+
+        /**
+         * 是否为失败状态（三个失败阶段，语义与 {@link #FAILED_STATUSES} 一致）
+         *
+         * @return 命中失败状态集合时为 {@code true}
+         */
+        public boolean isFailure() {
+            return FAILED_STATUSES.contains(this);
+        }
+
+        /**
+         * 是否可重试（语义与 {@link #RETRYABLE_STATUSES} 一致）
+         *
+         * @return 命中可重试状态集合时为 {@code true}
+         */
+        public boolean isRetryable() {
+            return RETRYABLE_STATUSES.contains(this);
         }
     }
 }

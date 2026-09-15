@@ -6,8 +6,8 @@ import org.springframework.ai.mcp.annotation.McpToolParam;
 import org.springframework.boot.autoconfigure.condition.ConditionalOnProperty;
 import org.springframework.stereotype.Component;
 import top.lldwb.alistmediasync.common.mcp.McpToolResult;
-import top.lldwb.alistmediasync.storage.dto.storage.StorageEngineCreateDTO;
-import top.lldwb.alistmediasync.storage.dto.storage.StorageEngineUpdateDTO;
+import top.lldwb.alistmediasync.storage.dto.StorageEngineCreateDTO;
+import top.lldwb.alistmediasync.storage.dto.StorageEngineUpdateDTO;
 import top.lldwb.alistmediasync.storage.entity.StorageEngine;
 import top.lldwb.alistmediasync.storage.service.StorageEngineService;
 

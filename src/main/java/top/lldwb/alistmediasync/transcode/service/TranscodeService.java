@@ -7,12 +7,14 @@ import org.springframework.scheduling.annotation.Async;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 import top.lldwb.alistmediasync.common.config.AppProperties;
+import top.lldwb.alistmediasync.common.enums.ConflictStrategy;
+import top.lldwb.alistmediasync.common.enums.TargetFormat;
 import top.lldwb.alistmediasync.common.util.*;
-import top.lldwb.alistmediasync.sync.dto.sync.FileEntry;
 import top.lldwb.alistmediasync.sync.entity.SyncTask;
-import top.lldwb.alistmediasync.sync.entity.TaskExecution;
-import top.lldwb.alistmediasync.sync.repository.TaskExecutionRepository;
-import top.lldwb.alistmediasync.transcode.dto.transcode.TranscodeTaskVO;
+import top.lldwb.alistmediasync.sync.service.PostSyncTranscodeTrigger;
+import top.lldwb.alistmediasync.execution.TaskExecution;
+import top.lldwb.alistmediasync.execution.TaskExecutionRepository;
+import top.lldwb.alistmediasync.transcode.dto.TranscodeTaskVO;
 import top.lldwb.alistmediasync.storage.entity.StorageEngine;
 import top.lldwb.alistmediasync.storage.service.StorageEngineService;
 import top.lldwb.alistmediasync.transcode.entity.TranscodeTask;
@@ -39,55 +41,45 @@ import org.springframework.beans.factory.ObjectProvider;
  * </ol>
  * 采用 8 状态模型，每步可独立失败和重试。
  * </p>
+ * <p>
+ * 职责拆分：状态机规则见 {@link TranscodeStateMachine}，源目录扫描见 {@link TranscodeScanner}；
+ * 本类保留同名并作为编排门面，对外方法签名不变。
+ * </p>
+ * <p>
+ * 依赖倒置：实现 {@code sync} 模块定义的 {@link PostSyncTranscodeTrigger} 接口，
+ * 使 {@code sync} 无需 import 本模块即可在同步成功后触发后置转码。
+ * </p>
  *
  * @author AList-Media-Sync
  */
 @Slf4j
 @Service
 @RequiredArgsConstructor
-public class TranscodeService {
+public class TranscodeService implements PostSyncTranscodeTrigger {
 
     private final TranscodeTaskRepository repository;
     private final TaskExecutionRepository taskExecutionRepository;
     private final StorageEngineService storageEngineService;
     private final AppProperties appProperties;
     private final TranscodeFileProcessor fileProcessor;
+    /** 源目录扫描器（路径类型判定 + 目录递归扫描） */
+    private final TranscodeScanner scanner;
     private final JsonMapper objectMapper;
     /** 自代理：@Transactional/@Async 注解经 Spring 代理才生效，同类自调用需经代理 */
     private final ObjectProvider<TranscodeService> selfProvider;
 
     /**
-     * 合法状态转换集合（8 状态模型）
-     * <p>
-     * 三步流程：PENDING → DOWNLOADING → TRANSCODING → UPLOADING → COMPLETED，
-     * 每步可独立失败，重试从失败步骤继续。
-     * </p>
-     */
-    private static final Set<Map.Entry<TranscodeStatus, TranscodeStatus>> VALID_TRANSITIONS = Set.of(
-        Map.entry(TranscodeStatus.PENDING, TranscodeStatus.DOWNLOADING),
-        Map.entry(TranscodeStatus.DOWNLOADING, TranscodeStatus.TRANSCODING),
-        Map.entry(TranscodeStatus.DOWNLOADING, TranscodeStatus.DOWNLOAD_FAILED),
-        Map.entry(TranscodeStatus.DOWNLOAD_FAILED, TranscodeStatus.DOWNLOADING),    // 重试
-        Map.entry(TranscodeStatus.TRANSCODING, TranscodeStatus.UPLOADING),
-        Map.entry(TranscodeStatus.TRANSCODING, TranscodeStatus.TRANSCODE_FAILED),
-        Map.entry(TranscodeStatus.TRANSCODE_FAILED, TranscodeStatus.TRANSCODING),   // 重试
-        Map.entry(TranscodeStatus.UPLOADING, TranscodeStatus.COMPLETED),
-        Map.entry(TranscodeStatus.UPLOADING, TranscodeStatus.UPLOAD_FAILED),
-        Map.entry(TranscodeStatus.UPLOAD_FAILED, TranscodeStatus.UPLOADING)         // 重试
-    );
-
-    /**
      * 验证状态转换是否合法
+     * <p>
+     * 门面方法：保留原有对外签名与异常行为，规则实现见 {@link TranscodeStateMachine}。
+     * </p>
      *
      * @param from 当前状态
      * @param to   目标状态
      * @throws IllegalStateException 如果转换非法
      */
     public void validateTransition(TranscodeStatus from, TranscodeStatus to) {
-        if (!VALID_TRANSITIONS.contains(Map.entry(from, to))) {
-            throw new IllegalStateException(
-                String.format("非法的转码状态转换：%s → %s", from, to));
-        }
+        TranscodeStateMachine.validateTransition(from, to);
     }
 
     /**
@@ -98,7 +90,7 @@ public class TranscodeService {
     @Transactional
     public TranscodeTask createTask(Long sourceEngineId, Long targetEngineId,
                                      String sourcePath, String targetPath,
-                                     TranscodeTask.TargetFormat targetFormat, Integer bitrate,
+                                     TargetFormat targetFormat, Integer bitrate,
                                      boolean sourceDirectoryTranscode) {
         // 源目录转码：自动计算目标路径（源文件所在的父目录）
         if (sourceDirectoryTranscode) {
@@ -136,6 +128,21 @@ public class TranscodeService {
     }
 
     /**
+     * 触发同步后置转码（{@link PostSyncTranscodeTrigger} 实现，由 SyncService 注入接口后调用）
+     * <p>
+     * 转调 {@link #executePostSyncTranscode(SyncTask, TaskExecution)}：两者同为同步的直接方法调用，
+     * 不引入 Spring 事件、异步或新的事务边界，调用时序与运行结果完全一致。
+     * </p>
+     *
+     * @param task      本次已同步成功的同步任务
+     * @param execution 触发本次后置转码的同步执行记录
+     */
+    @Override
+    public void trigger(SyncTask task, TaskExecution execution) {
+        executePostSyncTranscode(task, execution);
+    }
+
+    /**
      * 同步后置转码（由 SyncService 调用）
      */
     public void executePostSyncTranscode(SyncTask syncTask, TaskExecution syncExecution) {
@@ -143,7 +150,7 @@ public class TranscodeService {
         TraceContext.runWith("transcode", "同步后置转码", () -> {
             log.info("同步后置转码开始：syncTask={}", syncTask.getName());
             TaskExecution execution = new TaskExecution();
-            execution.setSyncTask(syncTask);
+            execution.setSyncTaskId(syncTask.getId());
             execution.setTaskType(TaskExecution.TaskType.TRANSCODE);
             execution.setStartTime(java.time.LocalDateTime.now());
             execution.setStatus(TaskExecution.ExecutionStatus.RUNNING);
@@ -193,7 +200,7 @@ public class TranscodeService {
 
         // 创建执行记录
         TaskExecution execution = new TaskExecution();
-        execution.setTranscodeTask(managedTask);
+        execution.setTranscodeTaskId(managedTask.getId());
         execution.setTaskType(TaskExecution.TaskType.TRANSCODE);
         execution.setStartTime(java.time.LocalDateTime.now());
         execution.setStatus(TaskExecution.ExecutionStatus.RUNNING);
@@ -201,16 +208,16 @@ public class TranscodeService {
 
         try {
             List<TranscodeCandidate> candidates;
-            boolean isDir = isDirectory(sourceEngine, managedTask.getSourceFilePath());
+            boolean isDir = scanner.isDirectory(sourceEngine, managedTask.getSourceFilePath());
 
             if (isDir) {
                 // 目录模式：递归扫描所有视频文件
                 StorageEngineStrategy sourceStrategy = storageEngineService.resolve(sourceEngine);
                 StorageEngineStrategy targetStrategy = storageEngineService.resolve(targetEngine);
-                candidates = scanSourceDirectory(
+                candidates = scanner.scanSourceDirectory(
                     sourceEngine, sourceStrategy, targetEngine, targetStrategy,
                     managedTask.getSourceFilePath(), managedTask.getTargetFilePath(),
-                    SyncTask.ConflictStrategy.SKIP);
+                    ConflictStrategy.SKIP);
             } else {
                 // 文件模式：构建单元素候选列表，统一纳入并行处理流水线
                 String sourcePath = managedTask.getSourceFilePath();
@@ -250,7 +257,7 @@ public class TranscodeService {
             log.error("转码任务失败：{} — {}", managedTask.getSourceFilePath(), e.getMessage(), e);
             // 单步失败状态已由处理流程设置；编排级失败（扫描/收集异常、全部文件失败）设为 FAILED，
             // 避免任务永久停留在 PENDING/DOWNLOADING 等中间状态
-            if (!isFailureStatus(managedTask.getStatus())) {
+            if (!TranscodeStateMachine.isFailureStatus(managedTask.getStatus())) {
                 managedTask.setErrorMessage(e.getMessage());
                 managedTask.setStatus(TranscodeStatus.FAILED);
             }
@@ -260,21 +267,6 @@ public class TranscodeService {
             execution.setEndTime(java.time.LocalDateTime.now());
             taskExecutionRepository.save(execution);
             repository.save(managedTask);
-        }
-    }
-
-    /**
-     * 判断源路径是否为目录
-     */
-    private boolean isDirectory(StorageEngine sourceEngine, String path) {
-        if (sourceEngine == null) return false;
-        try {
-            StorageEngineStrategy strategy = storageEngineService.resolve(sourceEngine);
-            FileEntry info = strategy.getFileInfo(sourceEngine, path);
-            return info != null && info.isDirectory();
-        } catch (Exception e) {
-            log.warn("无法判断路径类型，默认为文件：{} — {}", path, e.getMessage());
-            return false;
         }
     }
 
@@ -289,7 +281,7 @@ public class TranscodeService {
      * @return 成功处理的文件数量
      */
     private int processCandidates(List<TranscodeCandidate> candidates,
-                                  TranscodeTask.TargetFormat targetFormat,
+                                  TargetFormat targetFormat,
                                   StorageEngine targetEngine,
                                   TaskExecution execution) {
         String tempSuffix = appProperties.getTranscode().getTempSuffix();
@@ -308,25 +300,14 @@ public class TranscodeService {
         }
 
         // 收集结果
-        int successCount = 0;
-        List<String> failures = new ArrayList<>();
-        for (int i = 0; i < futures.size(); i++) {
-            try {
-                TranscodeResult result = futures.get(i).get(10, TimeUnit.MINUTES);
-                if (result.success()) {
-                    successCount++;
-                } else {
-                    failures.add(result.sourceFileName() + ": " + result.error());
-                }
-            } catch (Exception e) {
-                failures.add(candidates.get(i).name() + ": " + e.getMessage());
-            }
-        }
+        ResultCollection collected = collectResults(futures, candidates);
+        int successCount = collected.successCount();
+        List<String> failures = collected.failures();
 
         execution.setSuccessFiles(successCount);
         execution.setFailedFiles(failures.size());
         if (!failures.isEmpty()) {
-            execution.setFailureDetails(toJson(failures));
+            execution.setFailureDetails(JsonUtils.toJson(objectMapper, failures));
             if (successCount > 0) {
                 execution.setStatus(TaskExecution.ExecutionStatus.PARTIAL_SUCCESS);
             } else {
@@ -344,16 +325,16 @@ public class TranscodeService {
 
     private void executeTaskInternal(StorageEngine sourceEngine, StorageEngine targetEngine,
                                       String sourcePath, String targetPath, String targetFormatStr,
-                                      SyncTask.ConflictStrategy conflictStrategy,
+                                      ConflictStrategy conflictStrategy,
                                       SyncTask syncTask, TaskExecution execution) {
 
         log.info("后置转码开始：sourcePath={}, targetPath={}, format={}", sourcePath, targetPath, targetFormatStr);
-        TranscodeTask.TargetFormat targetFormat = TranscodeTask.TargetFormat.valueOf(targetFormatStr);
+        TargetFormat targetFormat = TargetFormat.valueOf(targetFormatStr);
         StorageEngineStrategy sourceStrategy = storageEngineService.resolve(sourceEngine);
         StorageEngineStrategy targetStrategy = storageEngineService.resolve(targetEngine);
 
         // 阶段 1：扫描源目录（仅文件，过滤目录）
-        List<TranscodeCandidate> candidates = scanSourceDirectory(
+        List<TranscodeCandidate> candidates = scanner.scanSourceDirectory(
             sourceEngine, sourceStrategy, targetEngine, targetStrategy,
             sourcePath, targetPath, conflictStrategy);
 
@@ -380,25 +361,14 @@ public class TranscodeService {
         }
 
         // 收集结果
-        int successCount = 0;
-        List<String> failures = new ArrayList<>();
-        for (int i = 0; i < futures.size(); i++) {
-            try {
-                TranscodeResult result = futures.get(i).get(10, TimeUnit.MINUTES);
-                if (result.success()) {
-                    successCount++;
-                } else {
-                    failures.add(result.sourceFileName() + ": " + result.error());
-                }
-            } catch (Exception e) {
-                failures.add(candidates.get(i).name() + ": " + e.getMessage());
-            }
-        }
+        ResultCollection collected = collectResults(futures, candidates);
+        int successCount = collected.successCount();
+        List<String> failures = collected.failures();
 
         execution.setSuccessFiles(successCount);
         execution.setFailedFiles(failures.size());
         if (!failures.isEmpty()) {
-            execution.setFailureDetails(toJson(failures));
+            execution.setFailureDetails(JsonUtils.toJson(objectMapper, failures));
             execution.setStatus(successCount > 0
                 ? TaskExecution.ExecutionStatus.PARTIAL_SUCCESS
                 : TaskExecution.ExecutionStatus.FAILED);
@@ -406,67 +376,6 @@ public class TranscodeService {
             execution.setStatus(TaskExecution.ExecutionStatus.SUCCESS);
         }
         log.info("后置转码完成：sourcePath={}, 成功 {} / 失败 {}", sourcePath, successCount, failures.size());
-    }
-
-    // ================================================================
-    // 扫描源目录（递归，只收集文件不收集目录）
-    // ================================================================
-
-    private List<TranscodeCandidate> scanSourceDirectory(
-        StorageEngine sourceEngine, StorageEngineStrategy sourceStrategy,
-        StorageEngine targetEngine, StorageEngineStrategy targetStrategy,
-        String sourcePath, String targetPath, SyncTask.ConflictStrategy conflictStrategy) {
-
-        log.debug("扫描源目录：sourcePath={}", sourcePath);
-        List<TranscodeCandidate> candidates = new ArrayList<>();
-        scanDirectoryRecursive(sourceEngine, sourceStrategy, targetEngine, targetStrategy,
-            sourcePath, targetPath, conflictStrategy, candidates, 1, 10);
-        log.debug("源目录扫描完成：sourcePath={}, 发现 {} 个候选文件", sourcePath, candidates.size());
-        return candidates;
-    }
-
-    private void scanDirectoryRecursive(
-        StorageEngine sourceEngine, StorageEngineStrategy sourceStrategy,
-        StorageEngine targetEngine, StorageEngineStrategy targetStrategy,
-        String sourceDir, String targetDir, SyncTask.ConflictStrategy conflictStrategy,
-        List<TranscodeCandidate> candidates, int depth, int maxDepth) {
-
-        log.debug("递归扫描转码目录：sourceDir={}, depth={}", sourceDir, depth);
-
-        if (depth > maxDepth) {
-            log.warn("扫描深度已达上限 {}，停止递归：{}", maxDepth, sourceDir);
-            return;
-        }
-
-        List<FileEntry> entries = sourceStrategy.listFiles(sourceEngine, sourceDir, 1, Integer.MAX_VALUE);
-        for (FileEntry entry : entries) {
-            String name = entry.name();
-            String fullPath = PathUtils.join(sourceDir, name);
-
-            if (entry.isDirectory()) {
-                scanDirectoryRecursive(sourceEngine, sourceStrategy, targetEngine, targetStrategy,
-                    fullPath, PathUtils.join(targetDir, name), conflictStrategy,
-                    candidates, depth + 1, maxDepth);
-                continue;
-            }
-
-            // 魔数检测视频格式
-            String format = MagicBytesDetector.detectByExtension(name);
-            if ("UNKNOWN".equals(format)) {
-                continue; // 非视频文件，跳过
-            }
-
-            // 检查目标是否已存在
-            boolean targetExists = checkTargetExists(targetEngine, targetStrategy,
-                PathUtils.join(targetDir, PathUtils.swapExtension(name, "mp3")));
-            if (targetExists && conflictStrategy == SyncTask.ConflictStrategy.SKIP) {
-                log.debug("目标文件已存在，跳过：{}", name);
-                continue;
-            }
-
-            candidates.add(new TranscodeCandidate(
-                name, fullPath, PathUtils.join(targetDir, name), format, entry.size(), sourceEngine));
-        }
     }
 
     // ================================================================
@@ -494,21 +403,21 @@ public class TranscodeService {
                     task.setTempSourcePath(null);
                 }
                 // 回退到下载中
-                transition(task, TranscodeStatus.DOWNLOADING);
+                TranscodeStateMachine.transition(task, TranscodeStatus.DOWNLOADING);
                 task.setErrorMessage(null);
                 repository.save(task);
                 log.info("转码任务重试：{} — 重新下载", task.getSourceFilePath());
             }
             case TRANSCODE_FAILED -> {
                 // 保留源临时文件，跳过下载步骤
-                transition(task, TranscodeStatus.TRANSCODING);
+                TranscodeStateMachine.transition(task, TranscodeStatus.TRANSCODING);
                 task.setErrorMessage(null);
                 repository.save(task);
                 log.info("转码任务重试：{} — 跳过下载，重新转码", task.getSourceFilePath());
             }
             case UPLOAD_FAILED -> {
                 // 保留源+输出临时文件，跳过前两步
-                transition(task, TranscodeStatus.UPLOADING);
+                TranscodeStateMachine.transition(task, TranscodeStatus.UPLOADING);
                 task.setErrorMessage(null);
                 repository.save(task);
                 log.info("转码任务重试：{} — 跳过下载和转码，重新上传", task.getSourceFilePath());
@@ -594,49 +503,38 @@ public class TranscodeService {
     // ================================================================
 
     /**
-     * 执行状态转换并校验（仅更新内存状态，不单独持久化）
+     * 收集并行转码结果（文件模式与后置转码模式共用）
      * <p>
-     * 状态变更由调用方统一持久化，避免事务内多次 save 引发乐观锁冲突。
+     * 按提交顺序等待每个 future 完成（超时 10 分钟），统计成功数量并汇总失败明细：
+     * 任务本身失败取结果中的文件名与错误信息，等待异常（超时/中断）取候选文件名与异常消息。
+     * 本方法只做收集，不写回执行记录、不改变任务状态——状态回写与失败处置由调用方按各自语义处理
+     * （目录模式在全失败时抛异常，后置转码模式仅置为 FAILED）。
      * </p>
+     *
+     * @param futures    已提交的并行转码任务，顺序与 {@code candidates} 一致
+     * @param candidates 与 {@code futures} 一一对应的候选文件
+     * @return 成功数量与失败明细
      */
-    private void transition(TranscodeTask task, TranscodeStatus targetStatus) {
-        validateTransition(task.getStatus(), targetStatus);
-        task.setStatus(targetStatus);
-    }
-
-    /**
-     * 检查是否为失败状态
-     */
-    private boolean isFailureStatus(TranscodeStatus status) {
-        return status == TranscodeStatus.DOWNLOAD_FAILED
-            || status == TranscodeStatus.TRANSCODE_FAILED
-            || status == TranscodeStatus.UPLOAD_FAILED;
-    }
-
-    private boolean checkTargetExists(StorageEngine engine, StorageEngineStrategy strategy, String path) {
-        try {
-            FileEntry info = strategy.getFileInfo(engine, path);
-            return info != null;
-        } catch (Exception e) {
-            return false;
+    private ResultCollection collectResults(List<CompletableFuture<TranscodeResult>> futures,
+                                            List<TranscodeCandidate> candidates) {
+        int successCount = 0;
+        List<String> failures = new ArrayList<>();
+        for (int i = 0; i < futures.size(); i++) {
+            try {
+                TranscodeResult result = futures.get(i).get(10, TimeUnit.MINUTES);
+                if (result.success()) {
+                    successCount++;
+                } else {
+                    failures.add(result.sourceFileName() + ": " + result.error());
+                }
+            } catch (Exception e) {
+                failures.add(candidates.get(i).name() + ": " + e.getMessage());
+            }
         }
+        return new ResultCollection(successCount, failures);
     }
 
-    /** 获取转码后输出文件名 */
-    private String getOutputName(String sourceName) {
-        return PathUtils.swapExtension(sourceName, "mp3");
-    }
-
-    /** 带目标格式的输出文件名 */
-    private String getOutputName(String sourceName, TranscodeTask.TargetFormat targetFormat) {
-        return PathUtils.swapExtension(sourceName, targetFormat.name().toLowerCase());
-    }
-
-    private String toJson(Object obj) {
-        try {
-            return objectMapper.writeValueAsString(obj);
-        } catch (Exception e) {
-            return obj.toString();
-        }
+    /** 并行转码结果收集产物（成功数量 + 失败明细） */
+    private record ResultCollection(int successCount, List<String> failures) {
     }
 }

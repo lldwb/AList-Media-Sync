@@ -5,9 +5,10 @@ import org.springframework.ai.mcp.annotation.McpTool;
 import org.springframework.ai.mcp.annotation.McpToolParam;
 import org.springframework.boot.autoconfigure.condition.ConditionalOnProperty;
 import org.springframework.stereotype.Component;
+import top.lldwb.alistmediasync.common.enums.TargetFormat;
 import top.lldwb.alistmediasync.common.mcp.McpToolResult;
-import top.lldwb.alistmediasync.common.service.CleanupService;
-import top.lldwb.alistmediasync.transcode.dto.transcode.TranscodeTaskVO;
+import top.lldwb.alistmediasync.common.service.TempFileCleanupTrigger;
+import top.lldwb.alistmediasync.transcode.dto.TranscodeTaskVO;
 import top.lldwb.alistmediasync.transcode.entity.TranscodeTask;
 import top.lldwb.alistmediasync.transcode.service.TranscodeService;
 
@@ -18,7 +19,7 @@ import java.util.Map;
  * 转码任务模块 MCP 工具（FR-005）
  * <p>
  * 提供转码任务的查询/创建/重试/清理临时文件/批量删除/重试全部工具。
- * 工具层仅做参数适配与结果封装，业务逻辑复用 {@link TranscodeService} 与 {@link CleanupService}（FR-009）。
+ * 工具层仅做参数适配与结果封装，业务逻辑复用 {@link TranscodeService} 与 {@link TempFileCleanupTrigger}（FR-009）。
  * </p>
  * <p>
  * {@code transcode_task_create} 采用异步提交模式（FR-014）：创建任务后经
@@ -31,17 +32,11 @@ import java.util.Map;
 @ConditionalOnProperty(name = "app.mcp.enabled", havingValue = "true")
 public class TranscodeTaskMcpTools {
 
-    /** 失败状态集合（下载/转码/上传三个失败阶段） */
-    private static final List<TranscodeTask.TranscodeStatus> FAILED_STATUSES = List.of(
-        TranscodeTask.TranscodeStatus.DOWNLOAD_FAILED,
-        TranscodeTask.TranscodeStatus.TRANSCODE_FAILED,
-        TranscodeTask.TranscodeStatus.UPLOAD_FAILED);
-
     private final TranscodeService transcodeService;
-    private final CleanupService cleanupService;
+    private final TempFileCleanupTrigger cleanupService;
     private final McpToolResult result;
 
-    public TranscodeTaskMcpTools(TranscodeService transcodeService, CleanupService cleanupService,
+    public TranscodeTaskMcpTools(TranscodeService transcodeService, TempFileCleanupTrigger cleanupService,
                                  McpToolResult result) {
         this.transcodeService = transcodeService;
         this.cleanupService = cleanupService;
@@ -71,7 +66,7 @@ public class TranscodeTaskMcpTools {
         return result.run("transcode_task_create", () -> {
             TranscodeTask task = transcodeService.createTask(
                 sourceEngineId, targetEngineId, sourceFilePath, targetFilePath,
-                TranscodeTask.TargetFormat.valueOf(targetFormat), bitrate,
+                TargetFormat.valueOf(targetFormat), bitrate,
                 Boolean.TRUE.equals(sourceDirectoryTranscode));
             transcodeService.executeAsync(task);
             return TranscodeTaskVO.from(task);
@@ -96,7 +91,8 @@ public class TranscodeTaskMcpTools {
     @McpTool(name = "transcode_task_delete_failed", description = "批量删除所有失败状态的转码任务，返回删除数量")
     public McpSchema.CallToolResult transcodeTaskDeleteFailed() {
         return result.run("transcode_task_delete_failed",
-            () -> Map.of("deletedCount", transcodeService.deleteByStatusIn(FAILED_STATUSES)));
+            () -> Map.of("deletedCount", transcodeService.deleteByStatusIn(
+                TranscodeTask.TranscodeStatus.FAILED_STATUSES)));
     }
 
     @McpTool(name = "transcode_task_delete_completed", description = "批量删除所有已完成状态的转码任务，返回删除数量")
@@ -109,7 +105,8 @@ public class TranscodeTaskMcpTools {
     @McpTool(name = "transcode_task_retry_all", description = "批量重试所有失败状态的转码任务（异步提交），返回提交数量")
     public McpSchema.CallToolResult transcodeTaskRetryAll() {
         return result.run("transcode_task_retry_all", () -> {
-            List<TranscodeTask> failed = transcodeService.findByStatusIn(FAILED_STATUSES);
+            List<TranscodeTask> failed = transcodeService.findByStatusIn(
+                TranscodeTask.TranscodeStatus.FAILED_STATUSES);
             failed.forEach(task -> transcodeService.retry(task.getId()));
             return Map.of("submittedCount", failed.size());
         });

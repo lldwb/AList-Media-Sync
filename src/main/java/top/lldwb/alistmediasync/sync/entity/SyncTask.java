@@ -4,6 +4,8 @@ import jakarta.persistence.*;
 import lombok.Data;
 import lombok.NoArgsConstructor;
 import lombok.AllArgsConstructor;
+import top.lldwb.alistmediasync.common.enums.ConflictStrategy;
+import top.lldwb.alistmediasync.common.enums.TargetFormat;
 import top.lldwb.alistmediasync.storage.entity.StorageEngine;
 import java.time.LocalDateTime;
 
@@ -149,20 +151,5 @@ public class SyncTask {
         INTERVAL,
         /** 仅手动触发 */
         MANUAL
-    }
-
-    /** 冲突处理策略枚举 */
-    public enum ConflictStrategy {
-        /** 覆盖目标文件 */
-        OVERWRITE,
-        /** 跳过已存在文件 */
-        SKIP,
-        /** 自动重命名（添加序号后缀） */
-        RENAME
-    }
-
-    /** 目标转码格式枚举 */
-    public enum TargetFormat {
-        MP3, MP4, FLV
     }
 }

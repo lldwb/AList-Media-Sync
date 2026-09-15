@@ -6,7 +6,7 @@ import org.springframework.ai.mcp.annotation.McpToolParam;
 import org.springframework.boot.autoconfigure.condition.ConditionalOnProperty;
 import org.springframework.stereotype.Component;
 import top.lldwb.alistmediasync.common.mcp.McpToolResult;
-import top.lldwb.alistmediasync.webhook.dto.webhook.WebhookRuleCreateDTO;
+import top.lldwb.alistmediasync.webhook.dto.WebhookRuleCreateDTO;
 import top.lldwb.alistmediasync.webhook.entity.WebhookRule;
 import top.lldwb.alistmediasync.webhook.service.WebhookRuleService;
 import top.lldwb.alistmediasync.webhook.service.WebhookService;

@@ -6,7 +6,7 @@ import io.swagger.v3.oas.annotations.tags.Tag;
 import lombok.RequiredArgsConstructor;
 import org.springframework.web.bind.annotation.*;
 import top.lldwb.alistmediasync.common.dto.ApiResult;
-import top.lldwb.alistmediasync.webhook.dto.webhook.WebhookEventVO;
+import top.lldwb.alistmediasync.webhook.dto.WebhookEventVO;
 import top.lldwb.alistmediasync.webhook.service.WebhookService;
 
 import java.util.List;

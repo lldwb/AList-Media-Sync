@@ -8,10 +8,10 @@ import lombok.RequiredArgsConstructor;
 import org.springframework.web.bind.annotation.*;
 import top.lldwb.alistmediasync.common.dto.ApiResult;
 import top.lldwb.alistmediasync.common.service.WsSessionManager;
-import top.lldwb.alistmediasync.sync.dto.sync.SyncTaskCreateDTO;
-import top.lldwb.alistmediasync.sync.dto.sync.SyncTaskUpdateDTO;
-import top.lldwb.alistmediasync.sync.dto.sync.SyncTaskVO;
-import top.lldwb.alistmediasync.sync.dto.sync.TaskExecutionVO;
+import top.lldwb.alistmediasync.sync.dto.SyncTaskCreateDTO;
+import top.lldwb.alistmediasync.sync.dto.SyncTaskUpdateDTO;
+import top.lldwb.alistmediasync.sync.dto.SyncTaskVO;
+import top.lldwb.alistmediasync.execution.TaskExecutionVO;
 import top.lldwb.alistmediasync.sync.service.SyncService;
 import top.lldwb.alistmediasync.sync.service.SyncTaskManageService;
 

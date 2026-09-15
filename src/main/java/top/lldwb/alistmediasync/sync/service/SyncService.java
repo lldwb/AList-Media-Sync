@@ -1,25 +1,23 @@
 package top.lldwb.alistmediasync.sync.service;
 
-import tools.jackson.core.JacksonException;
 import tools.jackson.databind.json.JsonMapper;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.scheduling.annotation.Async;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.PlatformTransactionManager;
-import org.springframework.transaction.annotation.Transactional;
 import org.springframework.transaction.support.TransactionTemplate;
 import top.lldwb.alistmediasync.storage.entity.StorageEngine;
 import top.lldwb.alistmediasync.storage.service.StorageEngineService;
 import top.lldwb.alistmediasync.common.service.WsSessionManager;
+import top.lldwb.alistmediasync.common.util.JsonUtils;
 import top.lldwb.alistmediasync.common.util.TraceContext;
 import top.lldwb.alistmediasync.common.util.PathUtils;
 import top.lldwb.alistmediasync.sync.entity.SyncTask;
-import top.lldwb.alistmediasync.sync.entity.TaskExecution;
+import top.lldwb.alistmediasync.execution.TaskExecution;
 import top.lldwb.alistmediasync.sync.repository.SyncTaskRepository;
-import top.lldwb.alistmediasync.sync.repository.TaskExecutionRepository;
+import top.lldwb.alistmediasync.execution.TaskExecutionRepository;
 import top.lldwb.alistmediasync.storage.service.engine.StorageEngineStrategy;
-import top.lldwb.alistmediasync.transcode.service.TranscodeService;
 
 import java.io.InputStream;
 import java.time.LocalDateTime;
@@ -57,7 +55,7 @@ public class SyncService {
     private final StorageEngineService storageEngineService;
     private final SyncTaskRepository syncTaskRepository;
     private final TaskExecutionRepository taskExecutionRepository;
-    private final TranscodeService transcodeService;
+    private final PostSyncTranscodeTrigger postSyncTranscodeTrigger;
     private final JsonMapper objectMapper;
     private final WsSessionManager wsSessionManager;
     private final PlatformTransactionManager transactionManager;
@@ -100,7 +98,7 @@ public class SyncService {
                     reloadedRef[0] = reloaded;
 
                     TaskExecution e = new TaskExecution();
-                    e.setSyncTask(reloaded);
+                    e.setSyncTaskId(reloaded.getId());
                     e.setTaskType(TaskExecution.TaskType.SYNC);
                     e.setStartTime(LocalDateTime.now());
                     e.setStatus(TaskExecution.ExecutionStatus.RUNNING);
@@ -247,7 +245,7 @@ public class SyncService {
                     completedCount++;
                     execution.setSuccessFiles(completedCount);
                     if (!failedFiles.isEmpty()) {
-                        execution.setFailureDetails(toJson(new ArrayList<>(failedFiles)));
+                        execution.setFailureDetails(JsonUtils.toJson(objectMapper, new ArrayList<>(failedFiles)));
                     }
                     taskExecutionRepository.save(execution);
 
@@ -295,7 +293,7 @@ public class SyncService {
                 execution.setStatus(TaskExecution.ExecutionStatus.PARTIAL_SUCCESS);
             }
             if (!failedFiles.isEmpty()) {
-                execution.setFailureDetails(toJson(failedFiles));
+                execution.setFailureDetails(JsonUtils.toJson(objectMapper, failedFiles));
             }
             execution = taskExecutionRepository.save(execution);
 
@@ -319,7 +317,7 @@ public class SyncService {
 
             // 同步后置转码
             if (task.getTranscodeEnabled() && execution.getStatus() == TaskExecution.ExecutionStatus.SUCCESS) {
-                transcodeService.executePostSyncTranscode(task, execution);
+                postSyncTranscodeTrigger.trigger(task, execution);
             }
 
         } catch (Exception e) {
@@ -488,14 +486,6 @@ public class SyncService {
     public TaskExecution getProgress(Long executionId) {
         return activeExecutions.getOrDefault(executionId,
             taskExecutionRepository.findById(executionId).orElse(null));
-    }
-
-    private String toJson(Object obj) {
-        try {
-            return objectMapper.writeValueAsString(obj);
-        } catch (JacksonException e) {
-            return obj.toString();
-        }
     }
 
     /** 文件信息记录 */

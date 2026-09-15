@@ -9,7 +9,7 @@ import io.swagger.v3.oas.annotations.media.Schema;
  * 前端负责将增量合并到本地状态，不推送全量列表。
  * </p>
  *
- * @param type      消息类型（MessageType 枚举值的字符串形式）
+ * @param type      消息类型标识（如 SYNC_PROGRESS、TASK_EVENT）
  * @param payload   增量数据载荷（仅含变更字段）
  * @param timestamp ISO 8601 时间戳，由 WsSessionManager 在推送时自动填充
  *
@@ -17,7 +17,7 @@ import io.swagger.v3.oas.annotations.media.Schema;
  */
 @Schema(description = "WebSocket 推送消息")
 public record WsMessage(
-    @Schema(description = "消息类型（MessageType 枚举值的字符串形式）", example = "SYNC_TASK_UPDATED", requiredMode = Schema.RequiredMode.REQUIRED)
+    @Schema(description = "消息类型标识（如 SYNC_PROGRESS、TASK_EVENT）", example = "SYNC_TASK_UPDATED", requiredMode = Schema.RequiredMode.REQUIRED)
     String type,
 
     @Schema(description = "增量数据载荷（仅含变更字段）", example = "{\"id\":1,\"status\":\"RUNNING\"}", requiredMode = Schema.RequiredMode.REQUIRED)

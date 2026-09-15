@@ -2,8 +2,8 @@ package top.lldwb.alistmediasync.storage.service.engine;
 
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.stereotype.Component;
-import top.lldwb.alistmediasync.sync.dto.sync.DirectoryEntryVO;
-import top.lldwb.alistmediasync.sync.dto.sync.FileEntry;
+import top.lldwb.alistmediasync.storage.dto.DirectoryEntryVO;
+import top.lldwb.alistmediasync.storage.dto.FileEntry;
 import top.lldwb.alistmediasync.storage.entity.StorageEngine;
 
 import java.io.IOException;

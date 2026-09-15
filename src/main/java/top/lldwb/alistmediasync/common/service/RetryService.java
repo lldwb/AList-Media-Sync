@@ -8,7 +8,6 @@ import top.lldwb.alistmediasync.common.exception.RetryableException;
 import java.util.concurrent.Executors;
 import java.util.concurrent.ScheduledExecutorService;
 import java.util.concurrent.TimeUnit;
-import java.util.function.Supplier;
 
 /**
  * 自动重试调度服务
