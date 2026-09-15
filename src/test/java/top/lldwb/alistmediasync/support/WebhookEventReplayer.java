@@ -1,8 +1,8 @@
 package top.lldwb.alistmediasync.support;
 
-import com.fasterxml.jackson.core.type.TypeReference;
-import com.fasterxml.jackson.databind.ObjectMapper;
 import org.springframework.web.client.RestClient;
+import tools.jackson.core.type.TypeReference;
+import tools.jackson.databind.json.JsonMapper;
 
 import java.io.IOException;
 import java.io.InputStream;
@@ -28,7 +28,7 @@ import java.util.Map;
 public class WebhookEventReplayer {
 
     /** JSON 对象映射器 */
-    private static final ObjectMapper MAPPER = new ObjectMapper();
+    private static final JsonMapper MAPPER = new JsonMapper();
 
     /** 默认 fixtures 目录 */
     private static final String DEFAULT_FIXTURES_DIR = "src/test/resources/fixtures/webhook/";
@@ -57,6 +57,7 @@ public class WebhookEventReplayer {
      * @param fileName 文件名（不含路径），如 "fileclosed-event.json"
      * @return 解析后的 payload Map
      * @throws IOException           文件读取失败
+     * @throws tools.jackson.core.JacksonException JSON 解析失败（Jackson 3 中为非受检异常）
      * @throws IllegalArgumentException 契约漂移：缺少必需字段
      */
     public Map<String, Object> loadFixture(String fileName) throws IOException {
