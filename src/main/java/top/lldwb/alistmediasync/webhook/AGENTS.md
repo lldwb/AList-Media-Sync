@@ -16,8 +16,9 @@
 
 ## 模块关联
 
-- 调用 **sync/** 模块：规则匹配后触发同步任务
-- 调用 **transcode/** 模块：规则匹配后触发转码任务
-- 依赖 **storage/** 模块：通过策略接口操作文件
-- 依赖 **common/** 模块：DTO/VO、认证排除
+- 调用 **sync/** 模块：规则匹配后经 `SyncTaskManageService.createWebhookTempTask` 构造并持久化「临时同步任务」（`enabled` 保持默认 `false`，不注册调度），再在事务提交后调用 `SyncService.executeSyncTask` 触发执行
+- 调用 **transcode/** 模块：规则匹配后经 `TranscodeService.createTask` + `executeAsync` 触发转码任务
+- 依赖 **storage/** 模块：使用 `StorageEngine` 实体与 `StorageEngineRepository`（规则的源/目标引擎取自规则配置，文件操作由 sync / transcode 经策略接口代执行）
+- 依赖 **execution/** 模块：`TaskExecution` 实体与 `TaskExecutionRepository` 记录 Webhook 动作的执行结果
+- 依赖 **common/** 模块：DTO/VO、认证排除、`MapUtils`（事件原始参数取值）
 - **注意**：Webhook 端点在 `AuthInterceptor` 中排除认证，直接暴露

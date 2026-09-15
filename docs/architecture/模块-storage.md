@@ -32,6 +32,17 @@ type()                       → String  （策略标识，如 "ALIST" / "LOCAL"
 
 `copyFile` 提供默认实现抛 `UnsupportedOperationException`，由支持服务端复制的具体策略覆盖。
 
+### DTO — 策略接口的返回类型
+
+| 类 | 职责 |
+|---|------|
+| `FileEntry` | 文件条目 record（name / path / isDirectory / size / modifiedTime），`listFiles` 与 `getFileInfo` 的返回类型 |
+| `DirectoryEntryVO` | 目录条目 VO（name / path / hasChildren），`listDirectories` 的返回类型 |
+| `StorageEngineCreateDTO` / `StorageEngineUpdateDTO` | 引擎创建/更新请求 DTO |
+| `StorageEngineVO` | 引擎视图 VO |
+
+> `FileEntry` / `DirectoryEntryVO` 归属本模块的 `storage/dto/`（原在 `sync/dto/sync/`，已迁入）：它们是存储策略接口的契约类型，被 sync、transcode 等模块共同使用，放在任一调用方模块都会造成反向依赖。
+
 ### AListStorageStrategy — AList 远程策略
 
 `@Component`，`type()` 返回 `"ALIST"`。通过 Spring `RestClient` 调用 AList REST API：

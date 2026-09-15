@@ -15,6 +15,32 @@
 - **Fixed** 错误修复
 - **Security** 安全相关的修复
 
+## [Unreleased]
+
+### Added
+
+- 新增顶层 `ops` 模块（跨模块运维聚合）：`DashboardService`（仪表盘聚合统计）、`CleanupService`（过期记录与临时文件清理）、`DiagnosticService`（诊断包生成）及配套入口层 `DashboardController` / `DiagnosticController` / `SystemMcpTools`
+- 新增顶层 `execution` 模块（共享任务执行记录）：`TaskExecution` 实体、`TaskExecutionRepository`、`TaskExecutionVO`，被 sync / transcode / webhook / ops 共用
+- 新增依赖倒置接口：`sync/service/PostSyncTranscodeTrigger`（由 `transcode/TranscodeService` 实现）、`common/service/TempFileCleanupTrigger`（由 `ops/CleanupService` 实现）
+- 新增共享产物：`common/util/JsonUtils`、`common/util/MapUtils`、`common/interceptor/BasicAuthVerifier`（HTTP 与 WebSocket 认证共用凭据校验）；自 `TranscodeService` / `TranscodeFileProcessor` 按职责拆出 `transcode/service/TranscodeScanner`、`TranscodeStateMachine`、`TranscodeTaskStateWriter`
+- 新增模块文档：`ops/AGENTS.md`、`execution/AGENTS.md`
+
+### Changed
+
+- 类型迁移：`FileEntry` / `DirectoryEntryVO` 由 `sync/dto/sync/` 迁至 `storage/dto/`（作为存储策略接口的契约类型，供 sync / transcode 共用）；`ConflictStrategy` / `TargetFormat` 由 `SyncTask` / `TranscodeTask` 的内嵌枚举下沉为 `common/enums/` 共享枚举（`TargetFormat` 两处重复定义合并为一处）
+- 包结构扁平化：`storage` / `sync` / `transcode` / `webhook` 四个模块的 `dto/<module>/` 冗余嵌套包扁平化为 `dto/`
+- 实体关联降级（切断模块环）：`TaskExecution` 的 `syncTask` / `transcodeTask` / `webhookEvent` 与 `TranscodeTask` 的 `syncTask` / `webhookRule` 由 `@ManyToOne` 实体引用降级为 `Long xxxId` + `@Column`，数据库列名一字未变
+- 依赖倒置（切断循环依赖）：`sync` 触发转码改经 `PostSyncTranscodeTrigger` 接口，不再 import `transcode`；`transcode` 两个入口（Controller 与 MCP 工具）清理临时文件改经 `TempFileCleanupTrigger` 接口，不再 import `ops`
+- Webhook 建临时同步任务改经 `SyncTaskManageService.createWebhookTempTask`，不再绕过 Service 层直接写入 `sync_task` 表
+- 构建配置：JAVE2 版本抽为 `${jave.version}` 属性统一管理；`maven-antrun-plugin` / `maven-assembly-plugin` 版本交回 BOM 管理；`springdoc-openapi` 与 MCP starter 的注释改为如实描述两代 Jackson 并存
+- 文档同步：`docs/03-架构设计.md` 的包结构总览与模块依赖关系、`docs/architecture/` 模块细化文档、根 `AGENTS.md` 与各模块 `AGENTS.md` 索引按重构后结构更新
+
+### Removed
+
+- 删除死代码：`common/enums/MessageType`、`common/dto/DiagnosticSummaryVO`、`sync/dto/sync/SyncProgressVO`
+- 删除零调用方法：`TempFileManager.normalizeSuffix`、`MagicBytesDetector.detect(byte[])`、`WsSessionManager.broadcastDashboardUpdate` / `getConnectionCount` / `getMaxConnections`、`TranscodeService.getOutputName`（2 处重载）、`DiagnosticService.throwUnchecked` / `DiagnosticIOException`
+- 移除 `pom.xml` 中零使用的 `spring-boot-starter-validation-test` 依赖，以及与主源码 Jackson 3 重复的 `com.fasterxml.jackson.core:jackson-databind` 显式声明
+
 ## [0.2.1] - 2026-08-25
 
 ### Fixed

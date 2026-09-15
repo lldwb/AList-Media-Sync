@@ -12,7 +12,7 @@ sync 模块实现文件同步引擎，核心职责包括：
 - **定时调度**：`@PostConstruct` 恢复持久化的调度任务，运行时动态增删
 - **实时进度**：通过 WebSocket 推送同步进度，无需 HTTP 轮询
 
-sync 模块通过 `StorageEngineStrategy` 接口操作源和目标存储，同引擎复制走 `copyFile` 实现服务端复制（避免下载-上传往返）。遵循章程原则 I（分层架构）和 II（数据完整性）。
+sync 模块通过 `StorageEngineStrategy` 接口操作源和目标存储，同引擎复制走 `copyFile` 实现服务端复制（避免下载-上传往返）。触发转码仅经 `PostSyncTranscodeTrigger` 接口，**不 import `transcode`**；任务执行记录复用顶层 `execution/` 模块。遵循章程原则 I（分层架构）和 II（数据完整性）。
 
 ## 核心类
 
@@ -42,6 +42,15 @@ sync 模块通过 `StorageEngineStrategy` 接口操作源和目标存储，同�
 - 更新任务时同步更新调度
 - 删除任务时先检查无运行中执行记录（运行中禁止删除），再取消调度
 - 查询任务列表和详情
+- `createWebhookTempTask(...)`：供 **webhook** 模块构造并持久化「临时同步任务」（`enabled` 保持默认 `false`，不注册调度），由调用方在事务提交后直接触发执行。任务的构造与持久化统一收归本服务，避免 Webhook 模块绕过 Service 层直接写入 `sync_task` 表
+
+### PostSyncTranscodeTrigger — 同步后置转码触发器（依赖倒置接口）
+
+- 定义在 `sync/service/`，只依赖 `SyncTask` 与 `TaskExecution`，**不依赖 transcode**
+- 由 `transcode/TranscodeService` 实现（实现类依赖接口）
+- `SyncService` 在同步任务成功且启用 `transcodeEnabled` 时注入并调用 `trigger(task, execution)`
+- 调用方与被实现方之间是**同步的直接方法调用**（非 Spring 事件、非异步），事务语义与调用时序保持不变
+- 作用：切断 `sync` ↔ `transcode` 的服务层互相 import
 
 ### ScheduleService — 调度管理
 
@@ -64,21 +73,21 @@ RESTful 端点：
 
 | 类 | 职责 |
 |---|------|
-| `SyncTask` | 同步任务实体，含 `@Version` 乐观锁。字段：SyncMode / ScheduleType / ConflictStrategy / 排除规则 |
-| `TaskExecution` | 任务执行记录实体。TaskType：SYNC / TRANSCODE / WEBHOOK；ExecutionStatus：PENDING / RUNNING / COMPLETED / FAILED / INTERRUPTED |
+| `SyncTask` | 同步任务实体，含 `@Version` 乐观锁。字段：SyncMode / ScheduleType / `ConflictStrategy` / `TargetFormat`（后两者为 `common/enums/` 共享枚举）/ 排除规则 |
 | `SyncTaskCreateDTO` / `UpdateDTO` | 创建/更新请求 DTO |
 | `SyncTaskVO` | 任务视图 VO |
-| `SyncProgressVO` | 同步进度视图（总文件数 / 已完成 / 成功 / 失败 / 当前文件） |
-| `TaskExecutionVO` | 执行记录视图 |
-| `FileEntry` | 文件条目 record（name / path / isDirectory / size / modifiedTime） |
-| `DirectoryEntryVO` | 目录条目 VO（name / path / hasChildren） |
+
+> `FileEntry` / `DirectoryEntryVO` 已迁至 **`storage/dto/`**（作为存储策略接口的返回类型被 sync / transcode 共用）。
+> `TaskExecution` / `TaskExecutionVO` / `TaskExecutionRepository` 已迁至顶层 **`execution/`** 模块（被 sync / transcode / webhook / ops 共用）。
+> `SyncProgressVO` 已随死代码清理删除——进度推送改用 `Map<String, Object>` 载荷（见「进度推送流程」）。
 
 ### Repository
 
 | 类 | 职责 |
 |---|------|
 | `SyncTaskRepository` | Spring Data JPA 接口，含 `findByEnabledTrue`、`findBySyncMode` 等派生查询 |
-| `TaskExecutionRepository` | 含 `markAllRunningAsInterrupted()` 批量更新方法，启动时将上次未完成的任务标记为 INTERRUPTED |
+
+> `TaskExecutionRepository`（含 `markAllRunningAsInterrupted()` 批量更新方法）已迁至 `execution/` 模块。
 
 ## 关键流程
 
@@ -87,8 +96,8 @@ RESTful 端点：
 1. `ScheduleService` 在 `@PostConstruct` 阶段查询所有 `enabled=true` 的同步任务
 2. 按 `scheduleType` 注册触发器（CRON 或 INTERVAL）
 3. 到达触发时间时，调用 `SyncService` 执行同步
-4. 创建 `TaskExecution` 记录，状态为 RUNNING
-5. 同步完成后更新 `TaskExecution` 状态为 COMPLETED 或 FAILED
+4. 创建 `TaskExecution` 记录（`execution/` 模块），状态为 RUNNING
+5. 同步完成后更新 `TaskExecution` 状态为 SUCCESS 或 FAILED
 6. 通过 `WsSessionManager` 广播进度更新
 
 ### 文件扫描流程
@@ -96,7 +105,7 @@ RESTful 端点：
 1. 通过 `StorageEngineStrategy.listFiles()` 递归遍历源目录
 2. 应用 Glob 排除规则（如 `*.tmp`、`*.part`）
 3. 收集文件列表（含路径、大小、修改时间）
-4. 返回 `List<FileEntry>`
+4. 返回 `List<FileEntry>`（`storage/dto/`）
 
 ### 同步执行流程
 
@@ -106,13 +115,14 @@ RESTful 端点：
    - 同引擎：调用 `copyFile()` 服务端复制
    - 跨引擎：下载到本地（大文件走临时文件）→ 上传到目标
    - MOVE 模式：复制完成后删除源文件
-4. **进度推送**：每完成一个文件，通过 `WsSessionManager` 广播 `SyncProgressVO`
+4. **进度推送**：每完成一个文件，通过 `WsSessionManager` 广播 `SYNC_PROGRESS` 消息
 5. **异常处理**：单个文件失败不中断整体同步，记录失败原因，继续下一个
+6. **后置转码**：任务启用 `transcodeEnabled` 且执行成功时，调用注入的 `PostSyncTranscodeTrigger.trigger(task, execution)`（接口由 `transcode/TranscodeService` 实现，`sync` 不 import transcode）
 
 ### 进度推送流程
 
 1. `SyncService` 维护 `activeExecutions` ConcurrentHashMap，实时追踪正在执行的任务
-2. 每完成一个文件，更新进度数据并调用 `WsSessionManager.broadcast()` 推送 `WsMessage(type=SYNC_PROGRESS, payload=SyncProgressVO)`
+2. 每完成一个文件，更新进度数据并调用 `WsSessionManager.broadcast("SYNC_PROGRESS", payload)` 推送 `WsMessage`，载荷为 `Map<String, Object>`：`taskId` / `executionId` / `status` / `successFiles` / `failedFiles` / `totalFiles` / `progressPercent`
 3. 前端通过 WebSocket `/ws/events` 实时接收进度，无需轮询
 4. 任务完成后从 `activeExecutions` 移除
 
@@ -120,7 +130,7 @@ RESTful 端点：
 
 - **新增同步模式**：在 `SyncMode` 枚举中添加值，在 `SyncService` 比对阶段实现对应逻辑
 - **新增调度方式**：在 `ScheduleType` 枚举中添加值，在 `ScheduleService` 中实现对应触发器注册逻辑
-- **新增冲突策略**：在 `ConflictStrategy` 枚举中添加值，在执行阶段实现对应处理逻辑
+- **新增冲突策略**：在 `common/enums/ConflictStrategy` 枚举中添加值，在执行阶段实现对应处理逻辑
 
 ## 关联 spec
 

@@ -4,17 +4,19 @@
 
 ## 职责边界
 
-common 模块是整个系统的共享基础设施层，被所有业务模块（storage / sync / transcode / webhook）依赖。其职责涵盖：
+common 模块是整个系统的共享基础设施层，被所有业务与聚合模块（storage / sync / transcode / webhook / ops）依赖。其职责涵盖：
 
 - **配置绑定**：通过 `AppProperties` 统一绑定 `app.*` 配置命名空间，作为配置层唯一入口
-- **认证与安全**：HTTP Basic 认证拦截器、WebSocket 握手认证、AES-256 字段加密、BCrypt 密码加密
-- **工具类**：磁盘空间检查、文件魔数检测、临时文件管理、路径拼接、敏感数据脱敏、traceId 上下文管理
+- **认证与安全**：HTTP Basic 认证拦截器、WebSocket 握手认证、Basic 凭据校验器、AES-256 字段加密、BCrypt 密码加密
+- **工具类**：磁盘空间检查、文件魔数检测、临时文件管理、路径拼接、JSON 序列化、Map 取值、敏感数据脱敏、traceId 上下文管理
 - **异常处理**：全局异常处理器统一转换为 `ApiResult<T>`
-- **诊断与仪表盘**：轻量诊断系统、仪表板统计、定时清理服务
+- **依赖倒置接口**：`TempFileCleanupTrigger`（由 `ops/CleanupService` 实现）
 - **WebSocket**：会话管理与广播能力
 - **API 文档**：OpenAPI / Swagger 自动生成
 
-common 模块本身不承载任何业务逻辑，仅提供技术基础设施和跨模块共享抽象。遵循章程原则 I（分层架构），common 模块内的 Controller 仅负责 HTTP 请求处理，Service 承载统计/诊断逻辑，Repository 由各业务模块自行维护。
+common 模块本身不承载任何业务逻辑，仅提供技术基础设施和跨模块共享抽象，且**不依赖任何业务模块**。遵循章程原则 I（分层架构），common 模块内不含 Controller（原 `DashboardController` / `DiagnosticController` 已随仪表盘与诊断能力迁至 `ops/`），仅保留工具类、配置类、拦截器与依赖倒置接口。
+
+> 诊断与仪表盘能力（`DashboardService` / `CleanupService` / `DiagnosticService` 及配套入口层）已迁至顶层 `ops/` 模块——它们需聚合多个业务模块的数据，留在 common 会使 common 反向依赖业务模块。
 
 ## 核心类
 
@@ -89,6 +91,10 @@ HTTP Basic 认证拦截器（约 80 行），实现 `HandlerInterceptor`：
 
 WebSocket 握手阶段认证拦截器，在 `beforeHandshake` 中校验 Basic Auth 凭据，认证失败拒绝握手。
 
+#### BasicAuthVerifier
+
+Basic 凭据校验器，承载 HTTP（`AuthInterceptor`）与 WebSocket 握手（`WebSocketAuthInterceptor`）共用的校验流程：Base64 解码 → `username:password` 拆分 → 用户名比对 → `{bcrypt}` 前缀防御检查 → BCrypt 哈希比对。只承载「校验」，拒绝响应的写法与日志文案仍保留在各自拦截器中；由拦截器在构造时实例化（不注册为 Spring Bean），以保持两个拦截器的构造签名不变。
+
 ### entity 子包
 
 #### CryptoConverter
@@ -111,40 +117,37 @@ JPA `AttributeConverter<String, String>`，使用 AES-256-GCM 对数据库字段
 | `TempFileManager` | 临时文件创建/重命名/删除，UUID 并发安全命名 |
 | `TempSuffixValidator` | 临时文件后缀校验，防止未完成转码的文件被误识别 |
 | `ApiUtil` | 通用 API 辅助工具 |
+| `JsonUtils` | 对象转 JSON 字符串的统一入口（Jackson 3 `JsonMapper`），消除各业务模块中重复的私有 `toJson` 实现；序列化失败不抛异常，降级返回 `value.toString()` |
+| `MapUtils` | `Map<String, Object>` 取值工具，用于外部系统（Webhook 等）传入的原始参数 Map 字段提取 |
 | `ServerAddressLogger` | 启动时打印服务访问地址 |
 
 ### service 子包
 
 | 类 | 职责 |
 |---|------|
-| `DashboardService` | 仪表板统计数据查询，聚合各模块统计信息 |
-| `DiagnosticService` | 轻量诊断系统核心，生成诊断包（日志摘要 + 配置 + 系统信息），对应 specs/009 |
 | `RetryService` | 通用重试封装，指数退避策略，配合 `RetryableException` 使用 |
-| `WsSessionManager` | WebSocket 会话注册表，提供广播能力，被 sync/transcode 模块用于实时进度推送 |
-| `CleanupService` | 定时清理过期记录 + 启动时清理残留临时文件 |
-
-### controller 子包
-
-| 类 | 职责 |
-|---|------|
-| `DashboardController` | 仪表板统计查询 API（`/api/dashboard/stats`） |
-| `DiagnosticController` | 诊断系统 API（`POST /api/diagnostics/run`），受认证保护 |
+| `WsSessionManager` | WebSocket 会话注册表，提供 `broadcast(type, payload)` 广播能力与连接数上限控制，被 sync/transcode/webhook 模块用于实时进度推送 |
+| `TempFileCleanupTrigger` | 依赖倒置接口：定义「手动清理残留转码临时文件」契约（返回本次清理的文件数），由 `ops/CleanupService` 实现、`transcode/` 的两个入口注入调用 |
 
 ### dto 子包
 
 | 类 | 职责 |
 |---|------|
 | `ApiResult<T>` | 统一 API 响应体（code / message / data），所有 Controller 端点 MUST 使用此封装 |
-| `DashboardStatsVO` | 仪表板统计 VO |
-| `WsMessage` | WebSocket 消息载体（type + payload） |
-| `DiagnosticResultVO` | 诊断结果 VO |
-| `DiagnosticSummaryVO` | 诊断摘要 VO |
+| `DashboardStatsVO` | 仪表板统计 VO（数据由 `ops/DashboardService` 装配） |
+| `WsMessage` | WebSocket 消息载体（type + payload + timestamp） |
+| `DiagnosticResultVO` | 诊断结果 VO（数据由 `ops/DiagnosticService` 装配） |
 
-### enum 子包
+> `DiagnosticSummaryVO` 已随死代码清理删除（诊断摘要通过 `summary.md` 文件输出，无对应 VO）。
+
+### enums 子包 — 跨模块共享业务枚举
 
 | 类 | 职责 |
 |---|------|
-| `MessageType` | WebSocket 消息类型枚举（SYNC_PROGRESS / TRANSCODE_STATUS 等） |
+| `ConflictStrategy` | 冲突处理策略（OVERWRITE / SKIP / RENAME）。原为 `SyncTask` 内嵌枚举，因被 sync / transcode / webhook 共享而下沉 |
+| `TargetFormat` | 目标转码格式（MP3 / MP4 / FLV）。原为 `SyncTask.TargetFormat` 与 `TranscodeTask.TargetFormat` 两处重复定义，合并下沉为一处 |
+
+> 原 `MessageType` 枚举已随死代码清理删除——WebSocket 消息类型现由 `WsSessionManager.broadcast(type, payload)` 的字符串标识直接表达（如 `SYNC_PROGRESS` / `TRANSCODE_PROGRESS` / `TASK_EVENT` / `WEBHOOK_EVENT`）。
 
 ## 关键流程
 
@@ -152,7 +155,7 @@ JPA `AttributeConverter<String, String>`，使用 AES-256-GCM 对数据库字段
 
 1. `TraceIdFilter` 在请求入口生成/继承 traceId，写入 MDC，设置 `X-Trace-Id` 响应头
 2. 请求到达 `AuthInterceptor`（排除 webhook / health 路径）
-3. 解析 `Authorization` 头，与 `AppProperties.auth` 中的凭据比对（密码已 BCrypt 加密）
+3. 委托 `BasicAuthVerifier` 解析 `Authorization` 头并校验：Base64 解码 → 拆分 → 用户名比对 → `{bcrypt}` 前缀检查 → BCrypt 比对（密码由 `PasswordEncryptionPostProcessor` 启动时加密）
 4. 认证通过 → 继续；认证失败 → 401
 5. Controller 处理完毕，`TraceIdFilter` 清理 MDC
 
@@ -163,23 +166,15 @@ JPA `AttributeConverter<String, String>`，使用 AES-256-GCM 对数据库字段
 3. Spring 容器初始化，`CryptoConverter` 可通过 `System.getProperty` 获取密钥
 4. 配置文件中的明文密码不被修改，仅内存中被替换
 
-### 诊断包生成流程
-
-1. 用户通过脚本（diagnose.sh）/ API（`POST /api/diagnostics/run`）/ Web 按钮触发
-2. `DiagnosticService` 收集：日志摘要、配置信息（脱敏）、系统信息、数据库状态
-3. 生成诊断包到 `diagnostics/{timestamp}/` 目录
-4. 输出 `summary.md` 摘要文件
-5. 30 秒内返回诊断包路径与摘要位置
-
 ## 扩展点
 
 - **新增配置项**：在 `AppProperties` 中添加字段，`application.yaml` 中配置对应 `app.*` 键
 - **新增工具类**：在 `util` 子包下创建，保持无状态、可独立测试
-- **新增 WebSocket 消息类型**：在 `MessageType` 枚举中添加值，对应 Service 层通过 `WsSessionManager` 广播
+- **新增跨模块共享枚举**：在 `enums` 子包下创建，供多个业务模块复用
+- **新增 WebSocket 消息类型**：在 `WsSessionManager.broadcast(type, payload)` 调用处使用新的字符串标识，前端按 `type` 路由到对应状态更新逻辑（无枚举约束）
 
 ## 关联 spec
 
 - `specs/001-alist-media-sync/` — 核心业务（配置、认证、工具基础）
 - `specs/007-password-encryption-and-code-organization/` — 密码加密与代码组织
-- `specs/009-lightweight-diagnostics/` — 轻量诊断系统
 - `.specify/memory/constitution.md` §I（分层架构）、§VII（日志规范）、§VI（YAGNI — 不引入完整 Spring Security）

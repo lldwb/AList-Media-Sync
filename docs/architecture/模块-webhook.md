@@ -96,11 +96,13 @@ RESTful 端点：
 
 根据匹配规则的 `action` 字段：
 
-- **SYNC_ONLY**：调用 `SyncService` 触发同步任务（传入规则中配置的源/目标路径）
-- **TRANSCODE_ONLY**：调用 `TranscodeService` 创建并触发转码任务
-- **BOTH**：先触发同步任务，同步完成后再触发转码任务
+- **SYNC_ONLY**：经 `SyncTaskManageService.createWebhookTempTask(...)` 构造并持久化「临时同步任务」（`enabled` 保持默认 `false`，不注册调度），再在事务提交后调用 `SyncService.executeSyncTask` 触发执行
+- **TRANSCODE_ONLY**：调用 `TranscodeService.createTask` + `executeAsync` 创建并触发转码任务
+- **BOTH**：走 SYNC_ONLY 路径建临时任务，并以 `transcodeEnabled=true` + `TargetFormat.MP3` 提交；同步成功后再经 `PostSyncTranscodeTrigger` 触发后置转码
 
-任务触发后，事件状态更新为 PROCESSED。任务执行失败时事件状态更新为 FAILED。
+> 临时同步任务的构造与持久化统一收归 `SyncTaskManageService`，避免 Webhook 模块绕过 Service 层直接写入 `sync_task` 表。
+
+每次规则动作都会创建一条 `TaskExecution` 记录（`execution/` 模块）记录动作结果，并在结束时写入 SUCCESS 或 FAILED。
 
 ## 扩展点
 

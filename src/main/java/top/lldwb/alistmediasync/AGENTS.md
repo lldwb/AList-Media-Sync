@@ -22,10 +22,12 @@
 ```
 src/main/java/top/lldwb/alistmediasync/
 ├── common/         # 通用模块（配置、认证、加密、工具）
+├── execution/      # 共享任务执行记录（实体 + Repository + VO）
 ├── storage/        # 存储引擎模块（策略模式：AList 远程 + 本地）
 ├── sync/           # 同步任务模块（三模式 + 三阶段）
 ├── transcode/      # 转码模块（三步流程 + 8 状态模型）
-└── webhook/        # Webhook 模块（事件接收 + 规则匹配）
+├── webhook/        # Webhook 模块（事件接收 + 规则匹配）
+└── ops/            # 跨模块运维聚合（仪表盘、清理、诊断）
 ```
 
 ## 模块 AGENTS.md 索引
@@ -33,10 +35,12 @@ src/main/java/top/lldwb/alistmediasync/
 | 模块 | AGENTS.md 路径 | 一句话说明 |
 |------|---------------|-----------|
 | common | `src/main/java/…/common/AGENTS.md` | 共享基础设施（配置、认证、加密、工具） |
+| execution | `src/main/java/…/execution/AGENTS.md` | 共享任务执行记录（实体 + Repository + VO） |
 | storage | `src/main/java/…/storage/AGENTS.md` | 策略模式存储引擎（AList 远程 + 本地） |
 | sync | `src/main/java/…/sync/AGENTS.md` | 文件同步引擎（三模式+三阶段） |
 | transcode | `src/main/java/…/transcode/AGENTS.md` | 媒体转码引擎（三步流程+8状态） |
 | webhook | `src/main/java/…/webhook/AGENTS.md` | Webhook 事件接收+规则匹配 |
+| ops | `src/main/java/…/ops/AGENTS.md` | 跨模块运维聚合（仪表盘、清理、诊断） |
 
 ## 章程合规要点
 

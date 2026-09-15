@@ -71,10 +71,12 @@
 |------|---------------|-----------|
 | 行政法规 | `src/main/java/…/AGENTS.md` | 后端入口（技术栈、模块索引、合规要点） |
 | 地方性法规 | `src/main/java/…/common/AGENTS.md` | 共享基础设施（配置、认证、加密、工具） |
+| 地方性法规 | `src/main/java/…/execution/AGENTS.md` | 共享任务执行记录（实体 + Repository + VO） |
 | 地方性法规 | `src/main/java/…/storage/AGENTS.md` | 策略模式存储引擎（AList 远程 + 本地） |
 | 地方性法规 | `src/main/java/…/sync/AGENTS.md` | 文件同步引擎（三模式+三阶段） |
 | 地方性法规 | `src/main/java/…/transcode/AGENTS.md` | 媒体转码引擎（三步流程+8状态） |
 | 地方性法规 | `src/main/java/…/webhook/AGENTS.md` | Webhook 事件接收+规则匹配 |
+| 地方性法规 | `src/main/java/…/ops/AGENTS.md` | 跨模块运维聚合（仪表盘、清理、诊断） |
 
 ### 前端
 

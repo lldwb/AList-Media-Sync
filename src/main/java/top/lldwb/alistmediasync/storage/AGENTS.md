@@ -13,10 +13,13 @@
 - **本地实现**：`java.nio.file` 操作本地文件系统，8KB 缓冲区流式写入，目录递归删除，同盘复制使用 `Files.copy`
 - **策略分发**：`StorageEngineService` 注入 `List<StorageEngineStrategy>`，按 `engineType` 选择策略
 - **引擎管理**：`StorageEngineController` 提供引擎 CRUD + 连接测试 API
+- **DTO**：`FileEntry`（文件条目 record）与 `DirectoryEntryVO`（目录条目 VO）归属本模块的 `storage/dto/`（原在 `sync/dto/sync/`，已迁入），作为策略接口 `listFiles` / `getFileInfo` / `listDirectories` 的返回类型被 sync、transcode 等模块共同使用
 
 ## 模块关联
 
 - 被 **sync/** 模块使用：同步任务通过策略接口操作源和目标存储，同引擎走 `copyFile` 实现服务端复制
-- 被 **transcode/** 模块使用：转码流程中的下载和上传步骤
-- 被 **webhook/** 模块使用：Webhook 触发后的文件操作
+- 被 **transcode/** 模块使用：转码流程中的下载和上传步骤；转码源目录扫描（`TranscodeScanner`）通过策略接口列出 `FileEntry`
+- 被 **webhook/** 模块使用：`WebhookRuleService` 经 `StorageEngineRepository` 解析规则配置的源/目标引擎（Webhook 本身不做文件操作，由 sync / transcode 代执行）
+- 被 **ops/** 模块使用：`DashboardService` 经 `StorageEngineRepository` 统计引擎状态
 - 依赖 **common/** 模块：`CryptoConverter` 加密 Token，`ApiResult` 封装响应
+- **不依赖** sync / transcode / webhook / ops / execution（仅被依赖）

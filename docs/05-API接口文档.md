@@ -124,15 +124,17 @@ const ws = new WebSocket("ws://localhost:8080/ws/events", [], {
 
 WebSocket 消息为 JSON 格式，包含 `type` 字段标识消息类型，前端根据 `type` 路由到不同的状态更新逻辑。
 
-### 3.5 MessageType 枚举
+### 3.5 消息类型（`type` 字段取值）
 
-| 枚举值 | 说明 |
+消息类型由 `WsSessionManager.broadcast(type, payload)` 的字符串标识决定，无枚举约束。
+
+| 取值 | 说明 |
 |---|---|
-| `SYNC_PROGRESS` | 同步任务进度变更 |
-| `TRANSCODE_PROGRESS` | 转码任务进度变更 |
-| `TASK_EVENT` | 任务事件（创建/删除/完成） |
+| `SYNC_PROGRESS` | 同步任务进度变更（`SyncService` 推送，载荷为 `Map<String, Object>`） |
+| `TRANSCODE_PROGRESS` | 转码任务进度变更（`TranscodeTaskStateWriter` 推送） |
+| `TASK_EVENT` | 任务事件（创建/删除/启用/禁用等，由 sync / transcode 的 Controller 推送） |
 | `WEBHOOK_EVENT` | Webhook 事件接收/处理状态变更 |
-| `DASHBOARD_UPDATE` | 仪表板统计数据变更（2 秒防抖合并） |
+| `DASHBOARD_UPDATE` | 仪表板统计数据变更。前端保留该分支的处理逻辑，当前后端无生产者 |
 
 ---
 

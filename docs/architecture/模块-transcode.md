@@ -12,17 +12,38 @@ transcode 模块实现媒体文件转码引擎，核心职责包括：
 - **任务管理**：转码任务的 CRUD、手动触发、失败重试
 - **状态推送**：通过 WebSocket 实时推送转码状态变更
 
-transcode 模块通过 `StorageEngineStrategy` 接口操作存储后端（下载源文件、上传转码产物），依赖 common 模块的 `TempFileManager`、`DiskSpaceChecker`、`MagicBytesDetector` 等工具。遵循章程原则 I（分层架构）和 II（数据完整性）。
+transcode 模块通过 `StorageEngineStrategy` 接口操作存储后端（下载源文件、上传转码产物），依赖 common 模块的 `TempFileManager`、`DiskSpaceChecker`、`MagicBytesDetector` 等工具，任务执行记录复用顶层 `execution/` 模块。遵循章程原则 I（分层架构）和 II（数据完整性）。
 
 ## 核心类
 
-### TranscodeService — 转码编排层
+### TranscodeService — 转码编排层（门面）
 
 - **任务创建**：`createTask()` 创建转码任务实体，支持 `sourceDirectoryTranscode` 选项（输出至源文件所在目录）
 - **三步流程编排**：下载 → 转码 → 上传，每步前后更新状态
 - **并行处理**：批量转码时通过 `TranscodeFileProcessor` 并行处理多个文件
 - **重试机制**：`retry()` 方法从失败步骤继续，保留已完成步骤的临时文件
-- **状态推送**：每次状态变更通过 `WsSessionManager` 广播
+- **状态推送**：每次状态变更通过 `TranscodeTaskStateWriter` 广播
+- **依赖倒置实现方**：实现 `sync/service/PostSyncTranscodeTrigger`，供 `SyncService` 在同步成功后触发后置转码
+- **职责拆分**：状态机规则见 `TranscodeStateMachine`，源目录扫描见 `TranscodeScanner`；本类保留同名并作为编排门面，对外方法签名不变
+
+### TranscodeScanner — 源目录扫描器（自 `TranscodeService` 按职责切出）
+
+把「源路径」解析为待转码候选文件列表，是三步流程之前的前置阶段：
+
+1. 判断源路径是目录还是单个文件
+2. 目录模式下递归扫描（只收集文件、不收集目录，深度上限 10）
+3. 按扩展名做魔数检测过滤，非视频文件跳过
+4. 按 `common/enums/ConflictStrategy` 跳过目标已存在的文件
+
+本类只做扫描：不执行转码、不修改任何任务状态、不持久化。
+
+### TranscodeStateMachine — 状态机（自 `TranscodeService` 按职责切出）
+
+承载 8 状态模型的合法性规则与失败 / 可重试判定，供编排层与单文件处理器复用。方法均为静态、无状态，不持有依赖、不持久化、不涉及事务语义；状态变更由调用方统一持久化。
+
+### TranscodeTaskStateWriter — 状态写入器（自 `TranscodeFileProcessor` 按职责切出）
+
+负责「任务状态持久化 + 进度推送」：实体重载（避免 detached entity merge 时版本号过期导致 `ObjectOptimisticLockingFailureException`）、实体保存、FFmpeg 进度落库、WebSocket 进度广播。状态流转（`setStatus` / `setProgress`）仍由调用方编排，本类只负责写库与推送。
 
 ### TranscodeFileProcessor — 单文件处理器
 
@@ -45,20 +66,25 @@ RESTful 端点：
 - `GET /api/transcode/tasks/{id}` — 任务详情
 - `POST /api/transcode/tasks/{id}/trigger` — 手动触发
 - `POST /api/transcode/tasks/{id}/retry` — 重试失败任务
+- `DELETE /api/transcode-tasks/cleanup-temp` — 手动清理残留临时文件（经 `common` 的 `TempFileCleanupTrigger` 接口调用 `ops/CleanupService`）
 
 ### TranscodeTask 实体
 
 JPA 实体，含 `@Version` 乐观锁。关键字段：
-- `TranscodeStatus`：8 状态枚举
-- `TargetFormat`：目标格式枚举（MP3 / MP4 / FLV）
-- `sourceDirectoryTranscode`：是否输出至源目录
-- `currentStep`：当前执行步骤（用于重试时定位）
+- `status`：`TranscodeStatus` 8 状态枚举
+- `targetFormat`：目标格式枚举（MP3 / MP4 / FLV），定义在 `common/enums/`
+- `progress`：转码进度（千分比 0-1000）
+- `tempFilePath` / `tempSourcePath`：本地临时产物与已下载源文件路径（上传/转码失败时保留，用于重试复用）
+- `retryCount`：自动重试已执行次数
+- `syncTaskId` / `webhookRuleId`：关联字段已由实体引用降级为 `Long` + `@Column`（列名 `sync_task_id` / `webhook_rule_id` 保持不变），切断与 sync / webhook 实体的模块环；其中 `webhookRuleId` 当前零读写
+
+> `sourceDirectoryTranscode` 不是实体字段，而是 `TranscodeTaskCreateDTO` 的创建选项，由 `TranscodeTaskController` 解析后换算为实际的源/目标引擎与目标路径。
 
 ### DTO
 
 | 类 | 职责 |
 |---|------|
-| `TranscodeTaskCreateDTO` | 创建请求 DTO（含 sourceDirectoryTranscode 字段） |
+| `TranscodeTaskCreateDTO` | 创建请求 DTO（含 `sourceDirectoryTranscode` 字段） |
 | `TranscodeTaskVO` | 任务视图 VO |
 | `TranscodeCandidate` | 转码候选文件 record |
 | `TranscodeResult` | 转码结果 record |
@@ -88,8 +114,8 @@ PENDING(0) → DOWNLOADING(1) → TRANSCODING(3) → UPLOADING(5) → COMPLETED(
 
 1. 管理员通过 API 创建转码任务（指定源引擎、目标引擎、目标格式等）
 2. `TranscodeService.createTask()` 持久化任务实体，状态为 PENDING
-3. 手动触发或由 sync/webhook 模块触发执行
-4. 创建 `TaskExecution` 记录
+3. 手动触发或由 sync / webhook 模块触发执行（sync 侧经 `PostSyncTranscodeTrigger` 接口，webhook 侧经 `TranscodeService.createTask` + `executeAsync`）
+4. 创建 `TaskExecution` 记录（`execution/` 模块）
 
 ### 下载流程
 
@@ -146,7 +172,7 @@ PENDING(0) → DOWNLOADING(1) → TRANSCODING(3) → UPLOADING(5) → COMPLETED(
 
 ### 新增目标格式
 
-1. 在 `TargetFormat` 枚举中添加值
+1. 在 `common/enums/TargetFormat` 枚举中添加值
 2. 在转码逻辑中添加对应的 FFmpeg 编码参数配置
 3. 如需新增转码引擎（替代 JAVE2），实现新的处理器
 
